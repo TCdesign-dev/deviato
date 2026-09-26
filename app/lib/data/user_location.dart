@@ -97,15 +97,14 @@ class UserLocation {
   /// Il messaggio da mostrare, che dice anche cosa si puo' fare.
   static String explain(LocationDenial d) => switch (d) {
         LocationDenial.rifiutata =>
-          'Permesso non concesso. Tocca di nuovo il pulsante '
+          'Per mostrare la tua posizione serve il permesso. Tocca di nuovo '
               'per concederlo.',
         LocationDenial.rifiutataPerSempre =>
-          'Il permesso è negato. Si riattiva da Impostazioni › '
+          'Posizione disattivata per DeviaTo. Attivala in Impostazioni › '
               'DeviaTo › Posizione.',
         LocationDenial.servizioSpento =>
-          'La localizzazione del telefono è spenta.',
+          'I servizi di localizzazione sono disattivati.',
         LocationDenial.nessunSegnale =>
-          'Posizione non disponibile: succede al chiuso. '
-              'Riprova fra qualche secondo.',
+          'Posizione non disponibile. Riprova fra qualche secondo.',
       };
 }

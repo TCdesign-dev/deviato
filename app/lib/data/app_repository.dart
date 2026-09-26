@@ -1,18 +1,16 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:flutter/foundation.dart';
-import 'package:path_provider/path_provider.dart';
 
 import '../core/deviation_service.dart';
-import '../core/gtfs/gtfs_downloader.dart';
-import '../core/gtfs/gtfs_parser.dart';
-import '../core/llm/openai_compatible_client.dart';
-import '../core/models/notice.dart';
+import '../core/io/formato_pubblicato.dart';
+import '../core/models/saved_stop.dart';
 import '../core/models/transit.dart';
+import '../core/pipeline/line_resolver.dart';
+import '../core/pipeline/stop_answer.dart';
 import '../core/pipeline/vehicle_watch.dart';
+import 'fonte_dati.dart';
 import 'settings.dart';
-import 'status_cache.dart';
 
 /// A che punto e' l'avvio.
 enum LoadState { idle, loading, ready, error }
@@ -20,44 +18,88 @@ enum LoadState { idle, loading, ready, error }
 /// Tiene insieme dati e servizi, e avvisa l'interfaccia quando cambia
 /// qualcosa.
 ///
-/// Deliberatamente sottile: la logica sta tutta in `core/`, che non sa
-/// nulla di Flutter. Qui c'e' solo l'orchestrazione e lo stato visibile.
+/// L'app non calcola piu' niente: legge cio' che il job su GitHub ha
+/// calcolato per tutti (vedi `tool/pubblica.dart`). Prima ogni telefono
+/// scaricava 24 MB di orari, leggeva gli avvisi col modello usando una
+/// chiave sua, cercava le vie e calcolava i percorsi: mille persone
+/// avrebbero fatto mille volte lo stesso lavoro, ognuna con cinquanta
+/// letture al giorno. Ora «Aggiorna» scarica qualche KB.
+///
+/// Resta qui cio' che e' di chi usa l'app: le sue linee, le sue fermate,
+/// e l'osservazione dei mezzi, che legge il feed di GTT direttamente.
 class AppRepository extends ChangeNotifier {
-  AppRepository(this.settings);
+  AppRepository(this.settings, {FonteDati? fonte})
+      : _fonte = fonte ?? DatiPubblicati();
 
   final Settings settings;
+  final FonteDati _fonte;
 
   LoadState state = LoadState.idle;
-  String phase = '';
-  double progress = 0;
   String? error;
 
+  void clearError() {
+    error = null;
+    notifyListeners();
+  }
+
+  /// Percorsi e fermate delle linee scelte.
   GtfsIndex? index;
-  DeviationService? _service;
 
   final Map<String, LineStatus> _statuses = {};
-  List<RawNotice> _notices = const [];
-  DateTime? lastRefresh;
 
   LineStatus? statusOf(String routeId) => _statuses[routeId];
   List<LineStatus> get statuses => _statuses.values.toList(growable: false);
 
-  /// Le linee che si stanno controllando adesso.
-  ///
-  /// Il controllo di una linea sola non deve coprire la schermata: le
-  /// altre restano leggibili, e chi guarda vede girare solo la riga che
-  /// ha chiesto.
-  final Set<String> _busy = {};
-  bool isChecking(String routeId) => _busy.contains(routeId);
+  /// Quando il job ha fatto il giro da cui vengono i dati mostrati.
+  DateTime? generato;
 
-  /// A che punto e' il controllo di quella linea.
-  ///
-  /// Una rotella che gira e basta, per mezzo minuto, e' indistinguibile
-  /// da un'app bloccata. Dire "avviso 2 di 4: cerco «corso Lecce» sulla
-  /// mappa" costa niente e cambia tutto.
-  final Map<String, String> _phaseOf = {};
-  String? phaseOfLine(String routeId) => _phaseOf[routeId];
-  bool get isCheckingAny => _busy.isNotEmpty;
+  /// Versione degli orari GTT dei dati mostrati («20260922»).
+  String? _feed;
+  String? get feed => _feed;
+
+  /// L'ultimo aggiornamento non e' arrivato: si mostrano i dati salvati.
+  bool offline = false;
+
+  DateTime? get lastRefresh => generato;
+
+  /// Quando e' stato calcolato lo stato di [routeId]: l'ora del giro.
+  DateTime? checkedAt(String routeId) =>
+      _statuses.containsKey(routeId) ? generato : null;
+
+  bool _aggiornando = false;
+
+  /// Si sta scaricando l'ultimo stato pubblicato.
+  bool get isRefreshingAll => _aggiornando;
+
+  final Set<String> _busy = {};
+
+  /// Si stanno scaricando i dati di [routeId].
+  bool isChecking(String routeId) =>
+      _busy.contains(routeId) || (_aggiornando && !_statuses.containsKey(routeId));
+
+  /// Tutte le linee di GTT, per cercarle e aggiungerle dalla home.
+  List<TransitLine> allLines = const [];
+
+  /// L'elenco delle linee non e' arrivato e non ce n'e' una copia.
+  String? get catalogError =>
+      allLines.isEmpty && offline && !_aggiornando ? error : null;
+
+  bool get preparingCatalog => allLines.isEmpty && _aggiornando;
+
+  /// Riprova a scaricare l'elenco delle linee, dalla ricerca.
+  Future<void> retryCatalog() => refreshAll();
+
+  /// Le linee appena aggiunte, mentre se ne scaricano percorsi e stato.
+  final Map<String, TransitLine> _preparing = {};
+  bool isPreparing(String routeId) => _preparing.containsKey(routeId);
+
+  /// Le linee da mostrare: quelle pronte e quelle in preparazione,
+  /// nell'ordine di GTT.
+  List<TransitLine> get lines => [
+        ...?index?.lines.values,
+        for (final l in _preparing.values)
+          if (!(index?.lines.containsKey(l.routeId) ?? false)) l,
+      ]..sort(TransitLine.compare);
 
   // ---------------------------------------------------------------
   // Osservazione dei mezzi
@@ -212,202 +254,298 @@ class AppRepository extends ChangeNotifier {
   TransitLine? get watchingLine =>
       watchingRouteId == null ? null : index?.lines[watchingRouteId];
 
-  /// Quando una linea e' stata controllata l'ultima volta.
-  ///
-  /// Con il controllo per singola linea le righe non sono piu' tutte
-  /// dello stesso momento, e dire "controllate alle 14:03" sarebbe falso
-  /// per quelle che non lo sono.
-  final Map<String, DateTime> _checkedAt = {};
-  DateTime? checkedAt(String routeId) => _checkedAt[routeId];
-
-  /// Scarica il GTFS se serve e costruisce l'indice per le linee scelte.
-  Future<void> initialise({bool forceDownload = false}) async {
-    if (settings.watchlist.isEmpty) {
-      state = LoadState.ready;
-      notifyListeners();
-      return;
-    }
-
-    state = LoadState.loading;
+  /// Mostra subito l'ultimo stato salvato, poi scarica quello nuovo.
+  Future<void> initialise() async {
     error = null;
+    await _caricaSalvati();
+    // Senza niente di salvato e con delle linee da mostrare, si aspetta la
+    // rete con la schermata di caricamento; altrimenti la lista c'e' gia'.
+    state = settings.watchlist.isNotEmpty && _statuses.isEmpty
+        ? LoadState.loading
+        : LoadState.ready;
     notifyListeners();
-
-    try {
-      final dir = Directory(
-          '${(await getApplicationSupportDirectory()).path}/gtfs');
-      final downloader = GtfsDownloader(directory: dir);
-
-      await downloader.ensureAvailable(
-        force: forceDownload,
-        onProgress: (p, f) {
-          phase = p;
-          progress = f * 0.6;
-          notifyListeners();
-        },
-      );
-
-      phase = 'Preparazione delle linee';
-      notifyListeners();
-
-      index = await GtfsParser(
-        directory: dir,
-        onProgress: (p, f) {
-          phase = p;
-          progress = 0.6 + f * 0.4;
-          notifyListeners();
-        },
-      ).build(settings.watchlist);
-
-      _service = _buildService();
-
-      // Gli esiti dell'ultima volta: senza, riaprire l'app significava
-      // rifare tutti i controlli, e con cinquanta richieste al giorno
-      // bastavano due riaperture per bruciare la quota.
-      final salvati = await StatusCache.load(index!);
-      _statuses.addAll(salvati);
-      for (final e in salvati.entries) {
-        _checkedAt[e.key] = e.value.checkedAt;
-      }
-
-      state = LoadState.ready;
-      phase = '';
-      progress = 1;
-    } on Object catch (e) {
-      state = LoadState.error;
-      error = _readable(e);
-    }
-    notifyListeners();
+    await refreshAll();
   }
 
-  DeviationService? _buildService() {
-    final index = this.index;
-    final key = settings.apiKey;
-    if (index == null || key == null) return null;
-    return DeviationService(
-      index: index,
-      llm: OpenAiCompatibleClient.openRouter(
-          apiKey: key, model: settings.model),
-    );
+  /// L'ultimo stato scaricato, dal telefono.
+  Future<void> _caricaSalvati() async {
+    final ind = await _fonte.salvato('indice.json');
+    if (ind == null) return;
+    await _applica(ind, (p) => _fonte.salvato(p));
   }
 
-  /// Ricontrolla tutte le linee della watchlist.
+  /// Scarica l'ultimo stato pubblicato delle linee scelte.
   ///
-  /// Gli avvisi si scaricano UNA volta e si riusano per tutte le linee:
-  /// sono due richieste in tutto, non due per linea.
+  /// Sono l'indice e due file per linea: qualche KB, un secondo. Per
+  /// questo non c'e' piu' un aggiornamento per singola linea: aggiornarle
+  /// tutte costa quanto aggiornarne una.
   Future<void> refreshAll() async {
-    _service ??= _buildService();
-    final service = _service;
-    final index = this.index;
-    if (service == null || index == null) return;
-
-    state = LoadState.loading;
-    phase = 'Avvisi di GTT';
+    if (_aggiornando) return;
+    _aggiornando = true;
     notifyListeners();
-
     try {
-      _notices = await service.fetchAllNotices();
-
-      final lines = index.lines.values.toList();
-      for (var i = 0; i < lines.length; i++) {
-        final line = lines[i];
-        progress = lines.length == 1 ? 0 : i / lines.length;
-        phase = 'linea ${line.shortName}';
-        notifyListeners();
-        _busy.add(line.routeId);
-        await _checkOne(service, line, _notices);
-        _busy.remove(line.routeId);
-        _phaseOf.remove(line.routeId);
+      final ind = await _fonte.scarica('indice.json');
+      if (ind == null) {
+        throw const FonteNonRaggiungibile('indice non pubblicato');
       }
-      lastRefresh = DateTime.now();
+      await _applica(ind, (p) => _fonte.scarica(p), rete: true);
+      offline = false;
+      error = null;
       state = LoadState.ready;
-      phase = '';
-    } on Object catch (e) {
-      state = LoadState.error;
-      error = _readable(e);
-    }
-    notifyListeners();
-  }
-
-  /// Ricontrolla UNA linea sola.
-  ///
-  /// Le richieste all'LLM sono contate — 50 gratuite al giorno, e un
-  /// avviso ne consuma una — quindi ricontrollare tutta la watchlist per
-  /// sapere di una linea sola e' uno spreco vero, non un dettaglio.
-  ///
-  /// Gli avvisi si riscaricano: sono due richieste HTTP senza chiave e
-  /// senza costo, e controllare adesso su dati di mezz'ora fa vorrebbe
-  /// dire rispondere alla domanda sbagliata.
-  Future<void> refreshLine(TransitLine line) async {
-    _service ??= _buildService();
-    final service = _service;
-    if (service == null || _busy.contains(line.routeId)) return;
-
-    _busy.add(line.routeId);
-    _phaseOf[line.routeId] = 'Avvisi di GTT';
-    error = null;
-    notifyListeners();
-
-    try {
-      _notices = await service.fetchAllNotices();
-      await _checkOne(service, line, _notices);
-      lastRefresh = DateTime.now();
-      if (state != LoadState.ready) state = LoadState.ready;
-    } on Object catch (e) {
-      // Non si passa a LoadState.error: una linea che fallisce non deve
-      // cancellare dallo schermo il risultato delle altre.
-      error = _readable(e);
+    } on FonteNonRaggiungibile catch (e) {
+      debugPrint('aggiornamento non riuscito: $e');
+      offline = true;
+      final quando = generato;
+      error = quando == null
+          ? 'Nessuna connessione. Riprova quando sei online.'
+          : 'Nessuna connessione: dati delle ${_ora(quando)}.';
+      state = _statuses.isEmpty && settings.watchlist.isNotEmpty
+          ? LoadState.error
+          : LoadState.ready;
     } finally {
-      _busy.remove(line.routeId);
-      _phaseOf.remove(line.routeId);
+      _aggiornando = false;
       notifyListeners();
     }
   }
 
-  Future<void> _checkOne(
-      DeviationService service, TransitLine line, List<RawNotice> notices) async {
+  /// Aggiornare una linea e' aggiornarle tutte: costa uguale.
+  Future<void> refreshLine(TransitLine line) => refreshAll();
+
+  /// Costruisce indice e stati dall'indice [ind] e dai file che [leggi]
+  /// restituisce. Con [rete] i percorsi si riscaricano solo se gli orari
+  /// sono cambiati: sono la parte pesante, e cambiano di rado.
+  Future<void> _applica(
+    Map<String, dynamic> ind,
+    Future<Map<String, dynamic>?> Function(String) leggi, {
+    bool rete = false,
+  }) async {
+    final i = FormatoPubblicato.leggiIndice(ind);
+    allLines = i.linee;
+    final cambiatiOrari = i.feed != _feed;
+
+    final scelte = <TransitLine>[
+      for (final nome in settings.watchlist) ?LineResolver.matchIn(i.linee, nome),
+    ];
+    final vecchio = index;
+    final lines = <String, TransitLine>{};
+    final shapes = <String, List<RouteShape>>{};
+    final stops = <String, TransitStop>{};
+
+    await Future.wait([
+      for (final l in scelte)
+        () async {
+          final file = FormatoPubblicato.nomeFile(l.routeId);
+          var percorsi = vecchio?.shapesOf(l.routeId) ?? const <RouteShape>[];
+          if (percorsi.isEmpty || cambiatiOrari || !rete) {
+            final j = await leggi('percorsi/$file') ??
+                (rete ? await _fonte.salvato('percorsi/$file') : null);
+            if (j != null) percorsi = FormatoPubblicato.leggiPercorsi(j).shapes;
+          }
+          if (percorsi.isEmpty) return;
+          lines[l.routeId] = l;
+          shapes[l.routeId] = percorsi;
+          for (final s in percorsi) {
+            for (final f in s.stops) {
+              stops[f.id] = f;
+            }
+          }
+        }(),
+    ]);
+
+    final nuovo = GtfsIndex(
+      feedVersion: i.feed,
+      builtAt: DateTime.now(),
+      lines: lines,
+      shapes: shapes,
+      stops: stops,
+    );
+
+    final stati = <String, LineStatus>{};
+    await Future.wait([
+      for (final l in lines.values)
+        () async {
+          final j =
+              await leggi('stato/${FormatoPubblicato.nomeFile(l.routeId)}');
+          if (j == null) return;
+          final s =
+              FormatoPubblicato.leggiStato(j, nuovo, controllata: i.generato);
+          if (s != null) stati[l.routeId] = s;
+        }(),
+    ]);
+
+    index = nuovo;
+    _feed = i.feed;
+    generato = i.generato;
+    _statuses
+      ..clear()
+      ..addAll(stati);
+  }
+
+  /// Aggiunge [line]: se ne scaricano percorsi e stato, e basta.
+  Future<void> addLine(TransitLine line) async {
+    if (index?.lines.containsKey(line.routeId) ?? false) return;
+    if (_preparing.containsKey(line.routeId)) return;
+    await settings.addLine(line.shortName);
+    _preparing[line.routeId] = line;
+    error = null;
+    notifyListeners();
+
     try {
-      _statuses[line.routeId] = await service.statusOf(
-        line,
-        allNotices: notices,
-        onProgress: (p) {
-          _phaseOf[line.routeId] = p;
-          notifyListeners();
-        },
+      final file = FormatoPubblicato.nomeFile(line.routeId);
+      final p = await _fonte.scarica('percorsi/$file');
+      if (p == null) {
+        throw const FonteNonRaggiungibile('percorsi non pubblicati');
+      }
+      final percorsi = FormatoPubblicato.leggiPercorsi(p).shapes;
+      final idx = index ??= GtfsIndex(
+        feedVersion: _feed,
+        builtAt: DateTime.now(),
+        lines: {},
+        shapes: {},
+        stops: {},
       );
-      _checkedAt[line.routeId] = DateTime.now();
-      unawaited(StatusCache.save(_statuses.values,
-          feedVersion: index?.feedVersion));
-    } on Object catch (e) {
-      // Una linea che fallisce non deve bloccare le altre.
+      idx.lines[line.routeId] = line;
+      idx.shapes[line.routeId] = percorsi;
+      for (final s in percorsi) {
+        for (final f in s.stops) {
+          idx.stops[f.id] = f;
+        }
+      }
+      final st = await _fonte.scarica('stato/$file');
+      if (st != null) {
+        final s = FormatoPubblicato.leggiStato(st, idx,
+            controllata: generato ?? DateTime.now());
+        if (s != null) _statuses[line.routeId] = s;
+      }
+      state = LoadState.ready;
+    } on FonteNonRaggiungibile catch (e) {
       debugPrint('linea ${line.shortName}: $e');
+      await settings.removeLine(line.shortName);
+      index?.lines.remove(line.routeId);
+      error = 'Impossibile aggiungere la linea ${line.shortName}. '
+          'Controlla la connessione e riprova.';
+    } finally {
+      _preparing.remove(line.routeId);
+      notifyListeners();
     }
   }
 
-  Future<void> addLine(String line) async {
-    await settings.addLine(line);
-    await initialise();
+  /// Toglie [line] e restituisce cio' che serve a rimetterla.
+  ///
+  /// Se ne va solo la sua: prima togliere una linea svuotava gli esiti di
+  /// tutte.
+  Future<RemovedLine> removeLine(TransitLine line) async {
+    final nome = _watchlistNameOf(line) ?? line.shortName;
+    if (watchingRouteId == line.routeId) stopWatch();
+    final fermate =
+        settings.savedStops.where((s) => s.routeId == line.routeId).toList();
+    final tolta = RemovedLine(
+      line: line,
+      watchlistName: nome,
+      status: _statuses[line.routeId],
+      savedStops: fermate,
+    );
+
+    // Prima la memoria, SENZA attese in mezzo: la riga sparisce scorrendo
+    // (Dismissible), e se al primo aggiornamento dello schermo la linea
+    // fosse ancora nell'elenco Flutter si ferma con un errore.
+    //
+    // Le geometrie restano nell'indice: servono a rimetterla subito se ci
+    // si ripensa, e al prossimo avvio non verranno piu' lette.
+    index?.lines.remove(line.routeId);
+    _statuses.remove(line.routeId);
+    _removedStops.addAll(fermate);
+    notifyListeners();
+
+    await settings.removeLine(nome);
+    for (final f in fermate) {
+      await settings.removeSavedStop(f);
+    }
+    _removedStops.removeWhere((r) => fermate.any(r.same));
+    return tolta;
   }
 
-  Future<void> removeLine(String line) async {
-    await settings.removeLine(line);
-    _statuses.clear();
-    _checkedAt.clear();
-    await StatusCache.clear();
-    await initialise();
-  }
-
-  Future<void> setApiKey(String key) async {
-    await settings.setApiKey(key);
-    _service = _buildService();
+  /// Rimette una linea appena tolta, con il suo esito e le sue fermate.
+  Future<void> restoreLine(RemovedLine r) async {
+    await settings.addLine(r.watchlistName);
+    for (final f in r.savedStops) {
+      await settings.addSavedStop(f);
+    }
+    index?.lines[r.line.routeId] = r.line;
+    if (r.status != null) _statuses[r.line.routeId] = r.status!;
     notifyListeners();
   }
 
-  static String _readable(Object e) {
-    final s = e.toString();
-    if (s.contains('SocketException') || s.contains('non raggiungibile')) {
-      return 'Rete non raggiungibile. Riprova quando hai '
-          'connessione.';
+  /// Il nome con cui la linea sta nella watchlist: e' quello scritto da chi
+  /// l'ha aggiunta («10n», «58 barrata»), non per forza quello del GTFS.
+  String? _watchlistNameOf(TransitLine line) {
+    for (final nome in settings.watchlist) {
+      if (LineResolver.matchIn([line], nome) != null) return nome;
     }
-    return s;
+    return null;
   }
+
+  // ---------------------------------------------------------------
+  // Fermate salvate
+  // ---------------------------------------------------------------
+
+  /// Tolte insieme a una linea, mentre la rimozione si scrive su disco:
+  /// nel frattempo non vanno piu' mostrate.
+  final List<SavedStop> _removedStops = [];
+
+  List<SavedStop> get savedStops => [
+        for (final s in settings.savedStops)
+          if (!_removedStops.any(s.same)) s,
+      ];
+
+  bool isSaved(SavedStop s) => savedStops.any(s.same);
+
+  Future<void> saveStop(SavedStop s) async {
+    await settings.addSavedStop(s);
+    notifyListeners();
+  }
+
+  Future<void> unsaveStop(SavedStop s) async {
+    await settings.removeSavedStop(s);
+    notifyListeners();
+  }
+
+  /// Rimette una fermata tolta per sbaglio, nel posto dov'era.
+  Future<void> restoreSavedStop(SavedStop s, int at) async {
+    final current = settings.savedStops;
+    if (current.any(s.same)) return;
+    current.insert(at.clamp(0, current.length), s);
+    await settings.setSavedStops(current);
+    notifyListeners();
+  }
+
+  /// Cosa dire di [s] adesso. null finche' gli orari non sono pronti.
+  StopAnswer? answerFor(SavedStop s) {
+    final idx = index;
+    if (idx == null) return null;
+    return StopAnswer.of(s, _statuses[s.routeId], idx);
+  }
+
+  Future<void> dismissStopsHint() async {
+    await settings.setStopsHintSeen();
+    notifyListeners();
+  }
+
+  static String _ora(DateTime t) =>
+      '${t.hour.toString().padLeft(2, "0")}:${t.minute.toString().padLeft(2, "0")}';
+}
+
+/// Una linea appena tolta, con quello che serve a rimetterla com'era.
+class RemovedLine {
+  const RemovedLine({
+    required this.line,
+    required this.watchlistName,
+    required this.status,
+    required this.savedStops,
+  });
+
+  final TransitLine line;
+  final String watchlistName;
+  final LineStatus? status;
+  final List<SavedStop> savedStops;
 }

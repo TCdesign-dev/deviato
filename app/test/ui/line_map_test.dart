@@ -115,7 +115,7 @@ void main() {
     expect(layer.polylines.length, equals(1),
         reason: 'una sola linea: il percorso normale');
     // E lo dichiara, invece di lasciare l'utente a indovinare.
-    expect(find.text('deviazione non ricostruita'), findsOneWidget);
+    expect(find.text('percorso deviato non disponibile'), findsOneWidget);
     expect(find.text('percorso normale'), findsOneWidget);
   });
 
@@ -280,8 +280,9 @@ void main() {
         reason: 'due direzioni dello stesso colore non si distinguono');
 
     // La legenda nomina i capolinea, non dice genericamente "percorso".
-    expect(find.textContaining('PROVA'), findsOneWidget);
-    expect(find.textContaining('RITORNO'), findsOneWidget);
+    // Scritti come si leggono: il GTFS li ha in maiuscolo.
+    expect(find.textContaining('Prova'), findsOneWidget);
+    expect(find.textContaining('Ritorno'), findsOneWidget);
   });
 
   testWidgets('con una direzione sola la legenda resta semplice',
@@ -296,5 +297,20 @@ void main() {
     // Una fermata per direzione + due capolinea del solo percorso di
     // riferimento.
     expect(find.text('2 fermate'), findsOneWidget);
+  });
+  testWidgets('una linea senza avvisi non parla di deviazioni', (tester) async {
+    // La 4 il 26/09: nessun avviso, e la legenda diceva lo stesso
+    // «deviazione non ricostruita».
+    await pump(
+      tester,
+      LineStatus(
+        line: const TransitLine(routeId: 'TESTU', shortName: 'T'),
+        shape: shape,
+        checkedAt: DateTime(2026),
+        reports: const [],
+      ),
+    );
+    expect(find.text('percorso deviato non disponibile'), findsNothing);
+    expect(find.text('percorso normale'), findsOneWidget);
   });
 }

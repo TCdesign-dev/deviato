@@ -2,23 +2,39 @@ import 'package:flutter/material.dart';
 
 import '../core/deviation_service.dart';
 import '../core/models/notice.dart';
+import '../core/models/saved_stop.dart';
 import '../core/models/transit.dart';
-import '../data/app_repository.dart';
+import '../core/pipeline/closure_summary.dart';
 import '../core/pipeline/stop_impact.dart';
+import '../core/text/display_names.dart';
+import '../data/app_repository.dart';
+import 'line_badge.dart';
 import 'line_map.dart';
 import 'live_watch_card.dart';
+import 'theme.dart';
 
 /// Il dettaglio di una linea: cosa succede, dove, e cosa fare.
 ///
-/// L'ordine conta. Prima le fermate che saltano, che e' la risposta alla
-/// domanda vera; poi la mappa, che serve a confermare; e in fondo sempre
-/// il testo originale di GTT, cosi' se il sistema sbaglia il dato grezzo
-/// resta a disposizione (§6.2).
+/// L'ordine conta. Prima la risposta — quali fermate non sono servite e
+/// dove salire invece — detta per tratti e non per avviso; poi la mappa,
+/// che serve a confermare; poi gli avvisi, e in fondo sempre il testo
+/// originale di GTT, cosi' se il sistema sbaglia il dato grezzo resta a
+/// disposizione (§6.2). L'osservazione dei mezzi e' un approfondimento:
+/// sta dopo, salvo quando e' accesa.
 class LineScreen extends StatefulWidget {
-  const LineScreen({required this.repo, required this.line, super.key});
+  const LineScreen({
+    required this.repo,
+    required this.line,
+    this.initialStopId,
+    super.key,
+  });
 
   final AppRepository repo;
   final TransitLine line;
+
+  /// La fermata da mostrare subito sulla mappa: quella salvata da cui si
+  /// e' arrivati.
+  final String? initialStopId;
 
   @override
   State<LineScreen> createState() => _LineScreenState();
@@ -29,6 +45,13 @@ class _LineScreenState extends State<LineScreen> {
   // continuare anche quando questa schermata viene chiusa. Qui resta solo
   // la scelta della durata, che e' una preferenza di chi guarda.
   WatchWindow _window = WatchWindow.media;
+
+  /// Oltre questo numero gli avvisi si raccolgono in una voce chiusa.
+  ///
+  /// La 10N il 26/09 ne aveva sedici, uno per fermata: sedici schede
+  /// quasi uguali, e la risposta vera spariva in fondo. Il riassunto in
+  /// cima la dice gia'; gli avvisi restano a un tocco.
+  static const _avvisiApertiMax = 3;
 
   @override
   void initState() {
@@ -58,6 +81,29 @@ class _LineScreenState extends State<LineScreen> {
   void _startWatch() =>
       widget.repo.startWatch(widget.line, _window.duration);
 
+  SavedStop _salvata(TransitStop stop, RouteShape shape) => SavedStop(
+        routeId: widget.line.routeId,
+        directionId: shape.directionId,
+        stopId: stop.id,
+        stopCode: stop.code,
+      );
+
+  /// Salva la fermata, o la toglie se c'era gia'.
+  Future<void> _salva(TransitStop stop, RouteShape shape) async {
+    final s = _salvata(stop, shape);
+    final messenger = ScaffoldMessenger.of(context);
+    if (widget.repo.isSaved(s)) {
+      await widget.repo.unsaveStop(s);
+      messenger.showSnackBar(
+          const SnackBar(content: Text('Fermata rimossa')));
+    } else {
+      await widget.repo.saveStop(s);
+      messenger.showSnackBar(SnackBar(
+          content: Text('${DisplayNames.stop(stop)} salvata nelle tue '
+              'fermate')));
+    }
+  }
+
   /// "controllata alle 19:08" se e' di oggi, "ieri alle 19:08" se no.
   ///
   /// Da quando gli esiti sopravvivono alla chiusura dell'app, la sola ora
@@ -75,12 +121,11 @@ class _LineScreenState extends State<LineScreen> {
     final scarto =
         DateTime(oggi.year, oggi.month, oggi.day).difference(giorno).inDays;
 
-    final quando = switch (scarto) {
-      0 => 'alle $h:$m',
-      1 => 'ieri alle $h:$m',
-      _ => 'il ${t.day}/${t.month} alle $h:$m',
+    return switch (scarto) {
+      0 => 'aggiornata alle $h:$m',
+      1 => 'aggiornata ieri alle $h:$m',
+      _ => 'aggiornata il ${t.day}/${t.month} alle $h:$m',
     };
-    return '  ·  controllata $quando';
   }
 
   @override
@@ -98,7 +143,7 @@ class _LineScreenState extends State<LineScreen> {
     // La schermata si apre solo su una linea gia' controllata, ma toglierla
     // dalla watchlist mentre e' aperta la lascerebbe senza dati.
     if (status == null) return const Scaffold(body: SizedBox.shrink());
-    final checking = widget.repo.isChecking(widget.line.routeId);
+    final checking = widget.repo.isRefreshingAll;
     final osservando = widget.repo.isWatching(widget.line.routeId);
     final esito = widget.repo.watchResultOf(widget.line.routeId);
     // Se si sta guardando un'ALTRA linea, va detto: partire da qui la
@@ -106,10 +151,42 @@ class _LineScreenState extends State<LineScreen> {
     final altraInCorso = widget.repo.watchingRouteId != null && !osservando
         ? widget.repo.watchingLineName
         : null;
+    final testo = Theme.of(context).textTheme;
+    final secondario = Theme.of(context).colorScheme.onSurfaceVariant;
+
+    final osservazione = LiveWatchCard(
+      running: osservando,
+      samples: widget.repo.watchSamples,
+      liveTracks: osservando ? widget.repo.liveTracks : const [],
+      result: esito,
+      error: widget.repo.watchError,
+      window: _window,
+      shape: status.shape,
+      altraLinea: altraInCorso,
+      onStart: _startWatch,
+      onStop: widget.repo.stopWatch,
+      onWindowChanged: (w) => setState(() => _window = w),
+    );
+    // Accesa, o con un esito da leggere, sta sotto la mappa: i mezzi si
+    // vedono li'. Spenta e' un approfondimento, e va in fondo.
+    final osservazioneInAlto = osservando || esito != null;
+
+    final attivi = _perAvviso(status.activeReports);
+    final futuri = _perAvviso(status.scheduledReports);
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('Linea ${status.line.shortName}'),
+        titleSpacing: 0,
+        title: Row(
+          children: [
+            LineBadge(line: status.line, height: 30),
+            const SizedBox(width: 10),
+            Flexible(
+              child: Text('Linea ${status.line.shortName}',
+                  overflow: TextOverflow.ellipsis),
+            ),
+          ],
+        ),
         actions: [
           if (checking)
             const Padding(
@@ -125,127 +202,469 @@ class _LineScreenState extends State<LineScreen> {
           else
             IconButton(
               icon: const Icon(Icons.refresh),
-              tooltip: 'Ricontrolla la ${status.line.shortName}',
-              onPressed: () => widget.repo.refreshLine(widget.line),
+              tooltip: 'Aggiorna',
+              onPressed: widget.repo.refreshAll,
             ),
         ],
-        bottom: checking
-            ? PreferredSize(
-                preferredSize: const Size.fromHeight(40),
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      LinearProgressIndicator(
-                        minHeight: 3,
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        widget.repo.phaseOfLine(widget.line.routeId) ??
-                            'controllo…',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: Theme.of(context).colorScheme.primary),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                  ),
-                ),
-              )
-            : PreferredSize(
-          preferredSize: const Size.fromHeight(20),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(24),
           child: Padding(
-            padding: const EdgeInsets.only(bottom: 8, left: 16, right: 16),
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
             child: Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                // Con il controllo per singola linea le righe non sono
-                // piu' tutte dello stesso momento: l'ora va detta qui,
-                // dove si guardano i risultati.
-                '${status.shape.headsign}$_checkedLabel',
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-            ),
+                    alignment: Alignment.centerLeft,
+                    // I capolinea come li scrive il nome lungo della linea
+                    // («via Massari - piazza XVIII Dicembre»), non il
+                    // headsign in maiuscolo di una direzione sola.
+                    // Prima l'ora, che e' corta: se la riga si tronca, si
+                    // perde la fine del percorso e non l'ora. Il
+                    // qualificatore («circolare Tram Storici, …») resta
+                    // fuori: e' un dettaglio, e rubava la riga.
+                    child: Text(
+                      [
+                        if (_checkedLabel.isNotEmpty)
+                          _maiuscola(_checkedLabel),
+                        if (status.line.longName != null)
+                          DisplayNames.routeParts(status.line.longName!).route,
+                      ].join('  ·  '),
+                      style: testo.bodySmall?.copyWith(color: secondario),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
           ),
         ),
       ),
       body: ListView(
+        padding: const EdgeInsets.only(bottom: 24),
         children: [
-          // La mappa sta in cima e c'e' SEMPRE: vedere dove passa la linea
-          // serve anche quando la deviazione non si e' potuta ricostruire.
+          _Riassunto(status: status),
+          // La mappa c'e' SEMPRE: vedere dove passa la linea serve anche
+          // quando la deviazione non si e' potuta ricostruire.
           LineMap(
             status: status,
             vehicles: osservando ? widget.repo.liveTracks : const [],
             observed: esito?.consensus,
+            initialStopId: widget.initialStopId,
+            isSaved: (stop, shape) =>
+                widget.repo.isSaved(_salvata(stop, shape)),
+            onToggleSave: (stop, shape) => _salva(stop, shape),
           ),
-          LiveWatchCard(
-            running: osservando,
-            samples: widget.repo.watchSamples,
-            liveTracks: osservando ? widget.repo.liveTracks : const [],
-            result: esito,
-            error: widget.repo.watchError,
-            window: _window,
-            shape: status.shape,
-            altraLinea: altraInCorso,
-            onStart: _startWatch,
-            onStop: widget.repo.stopWatch,
-            onWindowChanged: (w) => setState(() => _window = w),
-          ),
-          if (status.reports.isEmpty)
-            const Padding(
-              padding: EdgeInsets.all(32),
-              child: _AllGood(),
-            )
-          else ...[
-            if (status.activeReports.isEmpty)
-              const Padding(
-                padding: EdgeInsets.all(32),
-                child: _AllGood(nienteOra: true),
-              ),
-            for (final gruppo in _perAvviso(status.activeReports))
-              _ReportCard(reports: gruppo, status: status),
-            // In fondo, dopo cio' che succede adesso: sapere del 24 agosto
-            // e' utile, ma non e' la risposta alla domanda di oggi.
-            if (status.scheduledReports.isNotEmpty)
-              const Padding(
-                padding: EdgeInsets.fromLTRB(16, 28, 16, 4),
-                child: Text('Più avanti',
-                    style: TextStyle(fontWeight: FontWeight.bold)),
-              ),
-            for (final gruppo in _perAvviso(status.scheduledReports))
-              _ReportCard(
-                  reports: gruppo, status: status, daAvvenire: true),
+          if (osservazioneInAlto) osservazione,
+
+          if (attivi.isNotEmpty) ...[
+            if (attivi.length > _avvisiApertiMax)
+              _AvvisiRaccolti(
+                count: attivi.length,
+                children: [
+                  for (final g in attivi)
+                    _ReportCard(reports: g, status: status),
+                ],
+              )
+            else ...[
+              _Intestazione(
+                  attivi.length == 1 ? 'Avviso di GTT' : 'Avvisi di GTT'),
+              for (final g in attivi) _ReportCard(reports: g, status: status),
+            ],
           ],
+
+          // Dopo cio' che succede adesso: sapere del 24 agosto e' utile,
+          // ma non e' la risposta alla domanda di oggi.
+          if (futuri.isNotEmpty) ...[
+            const _Intestazione('In programma'),
+            for (final g in futuri)
+              _ReportCard(reports: g, status: status, daAvvenire: true),
+          ],
+
+          if (!osservazioneInAlto) osservazione,
         ],
       ),
     );
   }
 }
 
-class _AllGood extends StatelessWidget {
-  const _AllGood({this.nienteOra = false});
+class _Intestazione extends StatelessWidget {
+  const _Intestazione(this.testo);
 
-  /// C'e' qualcosa in programma, ma non adesso: dirlo "nessun avviso"
-  /// sarebbe falso.
-  final bool nienteOra;
+  final String testo;
 
   @override
-  Widget build(BuildContext context) => Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.check_circle_outline,
-                size: 56, color: Colors.green.shade700),
-            const SizedBox(height: 16),
-            Text(nienteOra
-                ? 'Adesso il percorso è regolare'
-                : 'Nessun avviso attivo su questa linea'),
-          ],
-        ),
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.fromLTRB(16, 24, 16, 0),
+        child: Text(testo, style: Theme.of(context).textTheme.titleSmall),
       );
+}
+
+/// Tanti avvisi, raccolti in una voce che si apre.
+class _AvvisiRaccolti extends StatelessWidget {
+  const _AvvisiRaccolti({required this.count, required this.children});
+
+  final int count;
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: ExpansionTile(
+        leading: const Icon(Icons.article_outlined),
+        title: Text('$count avvisi di GTT'),
+        subtitle: const Text('Testi originali'),
+        shape: const Border(),
+        collapsedShape: const Border(),
+        childrenPadding: const EdgeInsets.only(bottom: 12),
+        children: children,
+      ),
+    );
+  }
+}
+
+/// La risposta, in cima: cosa non e' servito e dove salire invece.
+///
+/// Si legge sul percorso, non avviso per avviso: sulla 10N il 26/09 GTT
+/// aveva pubblicato sedici avvisi, uno per fermata, e per chi aspetta il
+/// bus erano una cosa sola — nove fermate chiuse di fila in una
+/// direzione, sei nell'altra.
+class _Riassunto extends StatelessWidget {
+  const _Riassunto({required this.status});
+
+  final LineStatus status;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final colori = StatusColors.of(context);
+    final testo = Theme.of(context).textTheme;
+    final attivi = status.activeReports;
+
+    if (status.reports.isEmpty) {
+      return _Riga(
+        colore: colori.ok,
+        icona: Icons.check_circle_outline,
+        titolo: 'Percorso regolare',
+        dettaglio: 'Nessun avviso di GTT su questa linea.',
+      );
+    }
+    if (attivi.isEmpty) {
+      return _Riga(
+        colore: colori.ok,
+        icona: Icons.check_circle_outline,
+        titolo: 'Percorso regolare',
+        dettaglio: 'C\'è una variazione in programma: trovi i dettagli più '
+            'in basso.',
+      );
+    }
+
+    final direzioni = ClosureSummary.of(attivi);
+    if (direzioni.isEmpty) {
+      final ricostruito = attivi.any((r) => r.impact != null);
+      // Senza un avviso letto non si sa nemmeno se sia una deviazione:
+      // quello della 7 il 26/09 diceva «sospesa». Si dice la stessa cosa
+      // della home, e si rimanda al testo.
+      return _Riga(
+        colore: colori.warning,
+        icona: ricostruito ? Icons.alt_route : Icons.article_outlined,
+        titolo: ricostruito ? 'Deviata, fermate servite' : 'Avviso in corso',
+        dettaglio: ricostruito
+            ? 'Il percorso cambia, ma tutte le fermate restano servite.'
+            : 'Non è stato possibile ricavarne le fermate: leggi il testo '
+                'di GTT più in basso.',
+      );
+    }
+
+    final totale = {
+      for (final d in direzioni)
+        for (final r in d.runs) ...r.stops.map((s) => s.id),
+    }.length;
+    final fine = ClosureSummary.commonEnd(attivi);
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+      decoration: BoxDecoration(
+        color: scheme.errorContainer.withValues(alpha: 0.45),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 6),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.do_not_disturb_on_outlined,
+                  size: 20, color: scheme.error),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  totale == 1
+                      ? '1 fermata non servita'
+                      : '$totale fermate non servite',
+                  style: testo.titleMedium?.copyWith(
+                      color: scheme.error, fontWeight: FontWeight.w600),
+                ),
+              ),
+            ],
+          ),
+          if (fine != null)
+            Padding(
+              padding: const EdgeInsets.only(left: 28, top: 2),
+              child: Text('fino al ${_data(fine)}',
+                  style: testo.bodyMedium?.copyWith(color: scheme.error)),
+            ),
+          for (final d in direzioni) _Direzione(d: d, line: status.line),
+        ],
+      ),
+    );
+  }
+}
+
+class _Riga extends StatelessWidget {
+  const _Riga({
+    required this.colore,
+    required this.icona,
+    required this.titolo,
+    this.dettaglio,
+  });
+
+  final Color colore;
+  final IconData icona;
+  final String titolo;
+  final String? dettaglio;
+
+  @override
+  Widget build(BuildContext context) {
+    final testo = Theme.of(context).textTheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icona, size: 22, color: colore),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(titolo,
+                    style: testo.titleMedium?.copyWith(
+                        color: colore, fontWeight: FontWeight.w600)),
+                if (dettaglio != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 2),
+                    child: Text(dettaglio!, style: testo.bodyMedium),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Una direzione: quali fermate, in fila, e dove salire.
+///
+/// Con un tratto solo si disegna la striscia e si dice dove salire. Con
+/// piu' tratti sparsi — la 68 il 26/09 ne aveva quattro verso Frejus, fra
+/// Cimitero Monumentale e Palagiustizia — la striscia diventava una fila
+/// di ventisette pallini, e «Sali a» elencava sette fermate senza dire a
+/// quale tratto appartenessero. Li' si va per righe: un tratto, le sue due
+/// fermate aperte.
+class _Direzione extends StatelessWidget {
+  const _Direzione({required this.d, required this.line});
+
+  final DirectionClosures d;
+  final TransitLine line;
+
+  @override
+  Widget build(BuildContext context) {
+    final testo = Theme.of(context).textTheme;
+    final unTratto = d.runs.length == 1;
+    final verso =
+        DisplayNames.direction(d.shape.headsign, longName: line.longName);
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 14, bottom: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Verso $verso',
+            style: testo.titleSmall,
+          ),
+          const SizedBox(height: 2),
+          if (unTratto) ...[
+            Text(_descrivi(d.runs.single, conteggio: true),
+                style: testo.bodyMedium),
+            // Oltre una quindicina di pallini non si distinguono piu' su
+            // un telefono: il testo sopra basta.
+            if (d.window.length <= 15) ...[
+              const SizedBox(height: 10),
+              _Striscia(d: d),
+            ],
+            _SaliA(run: d.runs.single),
+          ] else
+            for (final r in d.runs)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.only(top: 2),
+                      child: Icon(Icons.do_not_disturb_on_outlined,
+                          size: 16, color: Theme.of(context).colorScheme.error),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(_descrivi(r, conteggio: false),
+                              style: testo.bodyMedium
+                                  ?.copyWith(fontWeight: FontWeight.w600)),
+                          _SaliA(run: r, compatto: true),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+        ],
+      ),
+    );
+  }
+
+  /// «3 di fila, da Verona a Cimitero Monumentale», o solo il nome.
+  static String _descrivi(ClosedRun r, {required bool conteggio}) {
+    final nome = DisplayNames.stop;
+    if (r.stops.length == 1) return nome(r.stops.single);
+    final tratto = 'da ${nome(r.stops.first)} a ${nome(r.stops.last)}';
+    return conteggio
+        ? '${r.stops.length} di fila, $tratto'
+        : '${_maiuscola(tratto)} (${r.stops.length})';
+  }
+
+  static String _maiuscola(String s) =>
+      s.isEmpty ? s : s[0].toUpperCase() + s.substring(1);
+}
+
+/// «Sali a Vibò o a Statuto Nord»: le fermate aperte ai capi del tratto.
+/// Stessa linea, stessa direzione, aperte per costruzione.
+class _SaliA extends StatelessWidget {
+  const _SaliA({required this.run, this.compatto = false});
+
+  final ClosedRun run;
+  final bool compatto;
+
+  @override
+  Widget build(BuildContext context) {
+    final aperte = [?run.before, ?run.after];
+    if (aperte.isEmpty) return const SizedBox.shrink();
+    final stile = compatto
+        ? Theme.of(context).textTheme.bodySmall
+        : Theme.of(context).textTheme.bodyMedium;
+    final testo = Text.rich(
+      TextSpan(
+        children: [
+          const TextSpan(text: 'Sali a '),
+          TextSpan(
+            text: DisplayNames.stop(aperte.first),
+            style: const TextStyle(fontWeight: FontWeight.w600),
+          ),
+          if (aperte.length > 1) ...[
+            const TextSpan(text: ' o a '),
+            TextSpan(
+              text: DisplayNames.stop(aperte.last),
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+          ],
+        ],
+      ),
+      style: stile,
+    );
+    if (compatto) {
+      return Padding(padding: const EdgeInsets.only(top: 2), child: testo);
+    }
+    return Padding(
+      padding: const EdgeInsets.only(top: 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.directions_walk, size: 18),
+          const SizedBox(width: 6),
+          Expanded(child: testo),
+        ],
+      ),
+    );
+  }
+}
+
+/// Le fermate in fila: aperte vuote, chiuse piene. Il testo sopra dice
+/// gia' tutto; questa serve a vedere a colpo d'occhio dov'e' il buco.
+class _Striscia extends StatelessWidget {
+  const _Striscia({required this.d});
+
+  final DirectionClosures d;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final linea = scheme.onSurfaceVariant.withValues(alpha: 0.5);
+    final w = d.window;
+    return ExcludeSemantics(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SizedBox(
+            height: 16,
+            child: Row(
+              children: [
+                for (var i = 0; i < w.length; i++) ...[
+                  if (i > 0)
+                    Expanded(child: Container(height: 2, color: linea)),
+                  w[i].closed
+                      ? Container(
+                          width: 14,
+                          height: 14,
+                          decoration: BoxDecoration(
+                              color: scheme.error, shape: BoxShape.circle),
+                          child: Icon(Icons.close,
+                              size: 10, color: scheme.onError),
+                        )
+                      : Container(
+                          width: 12,
+                          height: 12,
+                          decoration: BoxDecoration(
+                            color: scheme.surface,
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                                color: scheme.onSurfaceVariant, width: 2),
+                          ),
+                        ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(height: 4),
+          Row(
+            children: [
+              Expanded(
+                child: Text(DisplayNames.stop(w.first.stop),
+                    style: Theme.of(context).textTheme.bodySmall,
+                    overflow: TextOverflow.ellipsis),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(DisplayNames.stop(w.last.stop),
+                    textAlign: TextAlign.end,
+                    style: Theme.of(context).textTheme.bodySmall,
+                    overflow: TextOverflow.ellipsis),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 /// Gli esiti raggruppati per avviso, nell'ordine in cui arrivano.
@@ -261,6 +680,15 @@ List<List<DeviationReport>> _perAvviso(List<DeviationReport> reports) {
   }
   return per.values.toList(growable: false);
 }
+
+String _maiuscola(String s) =>
+    s.isEmpty ? s : s[0].toUpperCase() + s.substring(1);
+
+String _verso(RouteShape shape, TransitLine line) =>
+    DisplayNames.direction(shape.headsign, longName: line.longName);
+
+String _data(DateTime d) =>
+    '${d.day.toString().padLeft(2, "0")}/${d.month.toString().padLeft(2, "0")}';
 
 class _ReportCard extends StatelessWidget {
   const _ReportCard({
@@ -280,12 +708,19 @@ class _ReportCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Con piu' direzioni si mostra la piu' incerta: dire "ricostruita e
-    // verificata" quando una delle due non lo e' sarebbe una promessa
-    // piu' grande del dato.
-    final peggiore = reports.reduce(
+    // Le direzioni in cui l'avviso non tocca niente non hanno niente da
+    // dire, se in un'altra tocca qualcosa. Sulla 10N ogni avviso nomina
+    // una fermata di UNA direzione: l'analisi dell'altra diceva «GTT nomina
+    // la 422, che non risulta su questo percorso», e la scheda sembrava
+    // contraddirsi — verificata in verde, e sotto un dubbio.
+    final conEffetto = reports.where((r) => r.skippedStops.isNotEmpty).toList();
+    final rilevanti = conEffetto.isNotEmpty ? conEffetto : reports;
+    // Con piu' direzioni si mostra la piu' incerta: dire "verificata"
+    // quando una delle due non lo e' sarebbe una promessa piu' grande del
+    // dato.
+    final peggiore = rilevanti.reduce(
         (a, b) => a.confidence.index >= b.confidence.index ? a : b);
-    final piuDirezioni = reports.length > 1;
+    final piuDirezioni = conEffetto.length > 1;
 
     return Card(
       margin: const EdgeInsets.fromLTRB(12, 12, 12, 0),
@@ -294,31 +729,33 @@ class _ReportCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (daAvvenire)
-            _ScheduledStrip(notice: _primo.notice, now: status.checkedAt)
-          else
-            _ConfidenceStrip(report: peggiore),
+            _ScheduledStrip(notice: _primo.notice, now: status.checkedAt),
 
-          // 1. La risposta alla domanda vera, per ogni direzione.
-          for (final r in reports) ...[
-            if (piuDirezioni && r.skippedStops.isNotEmpty)
+          // 1. La risposta, per ogni direzione.
+          for (final r in conEffetto) ...[
+            if (piuDirezioni)
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                child: Text('→ ${r.shape.headsign}',
-                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                        color: Theme.of(context).colorScheme.primary)),
+                child: Text(
+                    'Verso ${_verso(r.shape, status.line)}',
+                    style: Theme.of(context).textTheme.labelLarge),
               ),
-            if (r.skippedStops.isNotEmpty) _SkippedStops(stops: r.skippedStops),
+            _SkippedStops(stops: r.skippedStops),
           ],
-          if (reports.every((r) => r.skippedStops.isEmpty) &&
-              reports.any((r) => r.impact != null))
+          if (conEffetto.isEmpty && reports.any((r) => r.impact != null))
             const Padding(
               padding: EdgeInsets.fromLTRB(16, 12, 16, 0),
-              child: Text('Il mezzo devia ma serve comunque tutte le '
-                  'fermate del tratto.'),
+              child: Text('Il percorso cambia, ma tutte le fermate '
+                  'restano servite.'),
             ),
 
           // 2. Il testo di GTT, UNA volta sola.
           _OriginalText(report: _primo),
+
+          // 3. Quanto fidarsi, in fondo: e' un dettaglio della risposta,
+          // non la risposta. Prima stava in cima, in una fascia colorata,
+          // e la prima cosa che si leggeva era «Ricostruita e verificata».
+          _Affidabilita(report: peggiore),
         ],
       ),
     );
@@ -336,14 +773,13 @@ class _ScheduledStrip extends StatelessWidget {
   Widget build(BuildContext context) {
     final giorni = notice.daysUntilStart(now) ?? 0;
     final quando = switch (giorni) {
-      1 => 'da domani',
-      2 => 'da dopodomani',
+      1 => 'domani',
+      2 => 'dopodomani',
       _ => 'fra $giorni giorni',
     };
     final d = notice.validFrom!;
-    final data = '${d.day.toString().padLeft(2, '0')}/'
-        '${d.month.toString().padLeft(2, '0')}/${d.year}';
-    final blu = Colors.blue.shade700;
+    final data = '${_data(d)}/${d.year}';
+    final blu = StatusColors.of(context).info;
 
     return Container(
       width: double.infinity,
@@ -354,7 +790,7 @@ class _ScheduledStrip extends StatelessWidget {
           Icon(Icons.event_outlined, size: 18, color: blu),
           const SizedBox(width: 8),
           Expanded(
-            child: Text('Non ancora in vigore — comincia $quando ($data)',
+            child: Text('In vigore dal $data · $quando',
                 style: TextStyle(color: blu, fontWeight: FontWeight.w600)),
           ),
         ],
@@ -363,26 +799,29 @@ class _ScheduledStrip extends StatelessWidget {
   }
 }
 
-class _ConfidenceStrip extends StatelessWidget {
-  const _ConfidenceStrip({required this.report});
+class _Affidabilita extends StatelessWidget {
+  const _Affidabilita({required this.report});
 
   final DeviationReport report;
 
   @override
   Widget build(BuildContext context) {
-    final (Color bg, IconData icon, String label) = switch (report.confidence) {
+    final colori = StatusColors.of(context);
+    final secondario = Theme.of(context).colorScheme.onSurfaceVariant;
+    final (Color colore, IconData icon, String label) =
+        switch (report.confidence) {
       Confidence.confermata => (
-          Colors.green.shade700,
+          colori.ok,
           Icons.verified_outlined,
-          'Ricostruita e verificata'
+          'Verificato'
         ),
       Confidence.probabile => (
-          Colors.orange.shade800,
+          colori.warning,
           Icons.help_outline,
-          'Probabile — da confermare'
+          'Da confermare'
         ),
       Confidence.soloTesto => (
-          Theme.of(context).colorScheme.outline,
+          secondario,
           Icons.article_outlined,
           'Solo il testo di GTT'
         ),
@@ -390,12 +829,15 @@ class _ConfidenceStrip extends StatelessWidget {
 
     return Container(
       width: double.infinity,
-      color: bg.withValues(alpha: 0.12),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      decoration: BoxDecoration(
+        border: Border(
+            top: BorderSide(color: Theme.of(context).dividerColor, width: 0.5)),
+      ),
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 18, color: bg),
+          Icon(icon, size: 16, color: colore),
           const SizedBox(width: 8),
           Expanded(
             child: Column(
@@ -403,12 +845,17 @@ class _ConfidenceStrip extends StatelessWidget {
               children: [
                 Text(label,
                     style: TextStyle(
-                        color: bg, fontWeight: FontWeight.w600, fontSize: 13)),
+                        color: colore,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13)),
                 if (report.whyIncomplete != null)
                   Padding(
                     padding: const EdgeInsets.only(top: 2),
                     child: Text(report.whyIncomplete!,
-                        style: Theme.of(context).textTheme.bodySmall),
+                        style: Theme.of(context)
+                            .textTheme
+                            .bodySmall
+                            ?.copyWith(color: secondario)),
                   ),
               ],
             ),
@@ -427,6 +874,17 @@ class _SkippedStops extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final piccolo = Theme.of(context)
+        .textTheme
+        .bodySmall
+        ?.copyWith(color: scheme.onSurfaceVariant);
+    // «in linea d'aria» si dice una volta, sotto, e non a ogni riga: sulla
+    // 10N era ripetuto tre volte per scheda, sedici schede.
+    final tutteInLineaDAria = stops
+        .expand((s) => s.alternatives)
+        .every((a) => a.walkingMeters == null);
+    final ciSonoAlternative = stops.any((s) => s.alternatives.isNotEmpty);
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
       child: Column(
@@ -434,8 +892,8 @@ class _SkippedStops extends StatelessWidget {
         children: [
           Text(
             stops.length == 1
-                ? 'Una fermata non è servita'
-                : '${stops.length} fermate non sono servite',
+                ? '1 fermata non servita'
+                : '${stops.length} fermate non servite',
             style: Theme.of(context)
                 .textTheme
                 .titleMedium
@@ -446,18 +904,26 @@ class _SkippedStops extends StatelessWidget {
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(Icons.do_not_disturb_on_outlined,
-                    size: 18, color: scheme.error),
+                Padding(
+                  padding: const EdgeInsets.only(top: 1),
+                  child: Icon(Icons.do_not_disturb_on_outlined,
+                      size: 18, color: scheme.error),
+                ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(s.stop.name,
-                          style: const TextStyle(fontWeight: FontWeight.w600)),
+                      Text.rich(TextSpan(children: [
+                        TextSpan(
+                            text: DisplayNames.stop(s.stop),
+                            style: const TextStyle(fontWeight: FontWeight.w600)),
+                        // Il numero sul palo: serve a riconoscerla.
+                        if (s.stop.code != null)
+                          TextSpan(text: '  ${s.stop.code}', style: piccolo),
+                      ])),
                       if (s.status == StopStatus.declaredSuspended)
-                        Text('sospesa da GTT',
-                            style: Theme.of(context).textTheme.bodySmall),
+                        Text('sospesa da GTT', style: piccolo),
                       for (final alt in s.alternatives)
                         Padding(
                           padding: const EdgeInsets.only(top: 4),
@@ -467,20 +933,24 @@ class _SkippedStops extends StatelessWidget {
                               const SizedBox(width: 6),
                               Expanded(
                                 child: Text(
-                                  '${alt.stop.name} · '
+                                  // Il numero sul palo: due pali della
+                                  // stessa piazza hanno lo stesso nome, e
+                                  // «Largo Giachino Sud» aperta accanto a
+                                  // «Largo Giachino Sud» chiusa confonde.
+                                  '${DisplayNames.stop(alt.stop)}'
+                                  '${alt.stop.code == null ? "" : " ${alt.stop.code}"} · '
                                   '${alt.bestKnownMeters.round()} m'
-                                  '${alt.walkingMeters == null ? " in linea d'aria" : " a piedi"}'
-                                  '${alt.sameLine ? " · stessa linea" : ""}',
-                                  style:
-                                      Theme.of(context).textTheme.bodySmall,
+                                  '${tutteInLineaDAria ? "" : alt.walkingMeters != null ? " a piedi" : " in linea d'aria"}'
+                                  '${alt.sameLine ? "" : " · altre linee"}',
+                                  style: Theme.of(context).textTheme.bodySmall,
                                 ),
                               ),
                             ],
                           ),
                         ),
                       if (s.alternatives.isEmpty)
-                        Text('nessuna alternativa entro 400 m',
-                            style: Theme.of(context).textTheme.bodySmall),
+                        Text('nessuna fermata aperta entro 400 m',
+                            style: piccolo),
                     ],
                   ),
                 ),
@@ -488,6 +958,11 @@ class _SkippedStops extends StatelessWidget {
             ),
             const SizedBox(height: 12),
           ],
+          if (ciSonoAlternative && tutteInLineaDAria)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: Text('Distanze in linea d\'aria.', style: piccolo),
+            ),
         ],
       ),
     );
@@ -526,14 +1001,22 @@ class _OriginalTextState extends State<_OriginalText> {
   Widget build(BuildContext context) {
     final report = widget.report;
     final n = report.notice;
-    final lungo = n.text.length > _OriginalText._sogliaCaratteri;
+    final piccolo = Theme.of(context)
+        .textTheme
+        .bodySmall
+        ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant);
+    // I testi del feed hanno doppi spazi a caso («non transita  alla
+    // fermata  422»): si tolgono, le parole restano quelle di GTT.
+    final corpo = n.text.replaceAll(RegExp(r'[ \t]{2,}'), ' ').trim();
+    final lungo = corpo.length > _OriginalText._sogliaCaratteri;
     final chiuso = lungo && !_espanso;
+    final motivo = DisplayNames.reason(n.reason);
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Testo di GTT',
+          Text('Testo originale',
               style: Theme.of(context)
                   .textTheme
                   .labelMedium
@@ -544,30 +1027,37 @@ class _OriginalTextState extends State<_OriginalText> {
                 style: const TextStyle(fontWeight: FontWeight.w600)),
           // Chiuso si vedono quattro righe sfumate in fondo: si capisce
           // che continua senza doverlo scrivere.
+          //
+          // La sfumatura e' una maschera (dstIn: conta solo l'opacita'),
+          // non un colore. Prima il gradiente era nero e si fondeva col
+          // testo: in chiaro non si notava, in modalita' scura il testo
+          // diventava nero su fondo scuro, cioe' illeggibile.
           if (chiuso)
             ShaderMask(
+              blendMode: BlendMode.dstIn,
               shaderCallback: (r) => LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: [
-                  Colors.black,
-                  Colors.black,
-                  Colors.black.withValues(alpha: 0.06),
+                  Colors.white,
+                  Colors.white,
+                  Colors.white.withValues(alpha: 0.06),
                 ],
                 stops: const [0, 0.62, 1],
               ).createShader(r),
-              child: Text(n.text, maxLines: 4, overflow: TextOverflow.clip),
+              child: Text(corpo, maxLines: 4, overflow: TextOverflow.clip),
             )
           else
-            Text(n.text),
+            Text(corpo),
           if (lungo)
             Align(
               alignment: Alignment.centerLeft,
+              // L'area di tocco resta alta 44 punti anche se la scritta e'
+              // piccola: prima era stretta attorno al testo, venti punti.
               child: TextButton(
                 style: TextButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 4),
-                  minimumSize: Size.zero,
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  padding: const EdgeInsets.symmetric(horizontal: 0),
+                  minimumSize: const Size(64, 44),
                 ),
                 onPressed: () => setState(() => _espanso = !_espanso),
                 child: Text(chiuso ? 'Leggi tutto' : 'Mostra meno'),
@@ -580,30 +1070,24 @@ class _OriginalTextState extends State<_OriginalText> {
             Padding(
               padding: const EdgeInsets.only(top: 6),
               child: Text(
-                'Pubblicato sia negli avvisi sia nella tabella delle '
-                'variazioni: qui il testo più completo dei due, con le date '
-                'della tabella.',
-                style: Theme.of(context).textTheme.bodySmall,
+                'Pubblicato da GTT in due versioni: qui la più completa.',
+                style: piccolo,
               ),
             ),
-          if (n.reason != null)
+          // Il codice del feed («OTHER_CAUSE») si traduce, e «altra causa»
+          // non si mostra: una riga per dire che non si sa.
+          if (motivo != null)
             Padding(
               padding: const EdgeInsets.only(top: 6),
-              child: Text('Motivo: ${n.reason}',
-                  style: Theme.of(context).textTheme.bodySmall),
+              child: Text('Motivo: $motivo', style: piccolo),
             ),
           if (n.validUntil != null)
-            Text('Fino al ${_date(n.validUntil!)}',
-                style: Theme.of(context).textTheme.bodySmall)
+            Text('Fino al ${_data(n.validUntil!)}/${n.validUntil!.year}',
+                style: piccolo)
           else
-            Text('Senza data di fine prevista',
-                style: Theme.of(context).textTheme.bodySmall),
+            Text('Fine non indicata', style: piccolo),
         ],
       ),
     );
   }
-
-  static String _date(DateTime d) =>
-      '${d.day.toString().padLeft(2, "0")}/'
-      '${d.month.toString().padLeft(2, "0")}/${d.year}';
 }

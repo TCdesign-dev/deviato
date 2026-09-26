@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../core/models/transit.dart';
+import '../core/text/display_names.dart';
 import '../core/pipeline/route_excursion.dart';
 import '../core/pipeline/vehicle_watch.dart';
+import 'theme.dart';
 
 /// Per quanto guardare.
 ///
@@ -18,7 +20,7 @@ enum WatchWindow {
 
   /// Finche' non si dice basta. Per guardare i mezzi muoversi sulla mappa,
   /// che e' una cosa diversa dal rispondere a una domanda.
-  continua(Duration(hours: 2), 'in continuo');
+  continua(Duration(hours: 2), 'Senza limite');
 
   const WatchWindow(this.duration, this.label);
 
@@ -78,24 +80,23 @@ class LiveWatchCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                const Icon(Icons.my_location, size: 18),
+                const Icon(Icons.visibility_outlined, size: 18),
                 const SizedBox(width: 8),
-                Text('Dove sono i mezzi adesso',
+                Text('Mezzi in tempo reale',
                     style: Theme.of(context).textTheme.titleSmall),
               ],
             ),
             const SizedBox(height: 4),
             Text(
-              'Le posizioni reali dei mezzi, sulla mappa. Servono a capire '
-              'se la deviazione è in corso o già finita: GTT la fine non la '
-              'annuncia quasi mai.',
+              'Segui i mezzi sulla mappa per capire se la deviazione è '
+              'ancora in corso.',
               style: Theme.of(context).textTheme.bodySmall,
             ),
             const SizedBox(height: 12),
 
             // La durata si sceglie prima, e resta visibile: sapere per
             // quanto si sta guardando fa capire quanto aspettare.
-            Text('Per quanto guardare',
+            Text('Durata',
                 style: Theme.of(context).textTheme.bodySmall),
             const SizedBox(height: 6),
             Wrap(
@@ -107,7 +108,6 @@ class LiveWatchCard extends StatelessWidget {
                     label: Text(w.label),
                     selected: window == w,
                     onSelected: running ? null : (_) => onWindowChanged(w),
-                    visualDensity: VisualDensity.compact,
                   ),
               ],
             ),
@@ -123,7 +123,7 @@ class LiveWatchCard extends StatelessWidget {
                 child: OutlinedButton.icon(
                   onPressed: onStop,
                   icon: const Icon(Icons.stop_outlined, size: 18),
-                  label: Text(window.isContinuous ? 'Basta così' : 'Ferma'),
+                  label: const Text('Interrompi'),
                 ),
               ),
             ]
@@ -136,9 +136,7 @@ class LiveWatchCard extends StatelessWidget {
               FilledButton.tonalIcon(
                 onPressed: onStart,
                 icon: const Icon(Icons.visibility_outlined),
-                label: Text(window.isContinuous
-                    ? 'Segui i mezzi'
-                    : 'Guarda adesso'),
+                label: const Text('Segui i mezzi'),
               ),
               // Una linea alla volta: due osservazioni in parallelo
               // raddoppierebbero le richieste al feed di GTT, e nessuno
@@ -148,10 +146,10 @@ class LiveWatchCard extends StatelessWidget {
                 Padding(
                   padding: const EdgeInsets.only(top: 8),
                   child: Text(
-                    'Osservazione in corso sulla $altraLinea: cominciando '
-                    'qui, quella si ferma.',
+                    'Stai seguendo la $altraLinea: se inizi qui, quella si '
+                    'interrompe.',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(context).colorScheme.outline),
+                        color: Theme.of(context).colorScheme.onSurfaceVariant),
                   ),
                 ),
             ],
@@ -161,7 +159,7 @@ class LiveWatchCard extends StatelessWidget {
                 alignment: Alignment.centerRight,
                 child: TextButton(
                   onPressed: onStart,
-                  child: const Text('Guarda di nuovo'),
+                  child: const Text('Segui di nuovo'),
                 ),
               ),
           ],
@@ -187,7 +185,7 @@ class _Progress extends StatelessWidget {
         const SizedBox(height: 8),
         Text(
           tracks.isEmpty
-              ? 'osservazione in corso · $samples ${samples == 1 ? "controllo" : "controlli"}'
+              ? 'Ricerca dei mezzi…'
               : '${tracks.length} ${tracks.length == 1 ? "mezzo" : "mezzi"} '
                   'sulla mappa'
                   '${off > 0 ? ", di cui $off fuori percorso" : ""}',
@@ -218,13 +216,22 @@ class _Outcome extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final (Color colour, IconData icon) = switch (result.outcome) {
       WatchOutcome.tuttiSulPercorso => (
-          Colors.green.shade700,
+          StatusColors.of(context).ok,
           Icons.check_circle_outline
         ),
       WatchOutcome.fuoriPercorso => (scheme.error, Icons.alt_route),
-      WatchOutcome.nessunMezzo => (scheme.outline, Icons.bedtime_outlined),
-      WatchOutcome.feedSpento => (scheme.outline, Icons.cloud_off_outlined),
-      WatchOutcome.inconcludente => (scheme.outline, Icons.hourglass_empty),
+      WatchOutcome.nessunMezzo => (
+          scheme.onSurfaceVariant,
+          Icons.bedtime_outlined
+        ),
+      WatchOutcome.feedSpento => (
+          scheme.onSurfaceVariant,
+          Icons.cloud_off_outlined
+        ),
+      WatchOutcome.inconcludente => (
+          scheme.onSurfaceVariant,
+          Icons.hourglass_empty
+        ),
     };
 
     return Column(
@@ -253,8 +260,8 @@ class _Outcome extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.only(top: 6),
             child: Text(
-              'Se GTT dichiara ancora una deviazione, potrebbe essere già '
-              'terminata senza che l\'abbiano comunicato.',
+              'Se l\'avviso è ancora pubblicato, la deviazione potrebbe '
+              'essere già finita.',
               style: Theme.of(context).textTheme.bodySmall,
             ),
           ),
@@ -265,18 +272,16 @@ class _Outcome extends StatelessWidget {
             padding: const EdgeInsets.only(top: 6),
             child: Text(
               result.vehiclesSeen == 1
-                  ? 'Un mezzo solo: dato poco solido.'
-                  : 'Pochi mezzi osservati abbastanza a lungo: '
-                      'dato poco solido.',
+                  ? 'Un solo mezzo osservato: risultato indicativo.'
+                  : 'Pochi mezzi osservati: risultato indicativo.',
               style: Theme.of(context).textTheme.bodySmall,
             ),
           ),
         Padding(
           padding: const EdgeInsets.only(top: 8),
           child: Text(
-            'Osservati ${_durata(result.observed)}, '
-            '${result.samples} ${result.samples == 1 ? "controllo" : "controlli"}'
-            '${result.tracks.isEmpty ? "" : ", scarto massimo ${result.maxDistance.round()} m"}',
+            'Seguiti per ${_durata(result.observed)}'
+            '${result.tracks.isEmpty ? "" : " · fino a ${result.maxDistance.round()} m dal percorso"}',
             style: Theme.of(context).textTheme.bodySmall,
           ),
         ),
@@ -299,15 +304,18 @@ class _Osservato extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final viola = StatusColors.of(context).observed;
     final esce = shape.stopNearestAlong(consenso.detachAlongMeters);
     final rientra = consenso.rejoinAlongMeters == null
         ? null
         : shape.stopNearestAlong(consenso.rejoinAlongMeters!);
 
     final frase = StringBuffer('Lasciano il percorso normale');
-    if (esce != null) frase.write(' all\'altezza di ${esce.name}');
+    if (esce != null) {
+      frase.write(' all\'altezza di ${DisplayNames.stop(esce)}');
+    }
     if (rientra != null) {
-      frase.write(' e rientrano a ${rientra.name}');
+      frase.write(' e rientrano a ${DisplayNames.stop(rientra)}');
     } else {
       frase.write('. Rientro non ancora osservato');
     }
@@ -317,7 +325,7 @@ class _Osservato extends StatelessWidget {
       margin: const EdgeInsets.only(top: 10),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.purple.withValues(alpha: 0.09),
+        color: viola.withValues(alpha: 0.09),
         borderRadius: BorderRadius.circular(10),
       ),
       child: Column(
@@ -325,12 +333,12 @@ class _Osservato extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(Icons.route_outlined, size: 17, color: Colors.purple.shade700),
+              Icon(Icons.route_outlined, size: 17, color: viola),
               const SizedBox(width: 7),
               Text('Visto sui mezzi',
                   style: TextStyle(
                       fontWeight: FontWeight.w600,
-                      color: Colors.purple.shade700)),
+                      color: viola)),
             ],
           ),
           const SizedBox(height: 6),
@@ -338,12 +346,12 @@ class _Osservato extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             consenso.isSolid
-                ? '${consenso.vehicles} mezzi hanno fatto la stessa cosa.'
+                ? 'Confermato da ${consenso.vehicles} mezzi.'
                 // Un mezzo solo puo' essere un guasto o un rientro in
                 // deposito: va detto, non nascosto.
-                : 'Un mezzo solo: potrebbe essere un caso isolato.',
+                : 'Visto su un solo mezzo: potrebbe essere un caso isolato.',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: consenso.isSolid ? null : scheme.outline),
+                color: consenso.isSolid ? null : scheme.onSurfaceVariant),
           ),
         ],
       ),

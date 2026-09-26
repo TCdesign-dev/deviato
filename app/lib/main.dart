@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'data/app_repository.dart';
 import 'data/settings.dart';
 import 'ui/home_screen.dart';
+import 'ui/theme.dart';
 import 'ui/watch_banner.dart';
 
 Future<void> main() async {
@@ -27,19 +28,8 @@ class GttApp extends StatelessWidget {
     return MaterialApp(
       title: 'DeviaTo',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF0B5FA5),
-        ),
-        useMaterial3: true,
-      ),
-      darkTheme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF0B5FA5),
-          brightness: Brightness.dark,
-        ),
-        useMaterial3: true,
-      ),
+      theme: buildTheme(Brightness.light),
+      darkTheme: buildTheme(Brightness.dark),
       // La striscia dell'osservazione sta QUI e non nelle schermate:
       // deve comparire sopra tutte, comprese quelle che ancora non
       // esistono, e nessuna di loro deve saperne niente.

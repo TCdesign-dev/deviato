@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../core/models/transit.dart';
 import '../data/app_repository.dart';
 import 'line_screen.dart';
 
@@ -79,7 +80,7 @@ class _WatchBannerState extends State<WatchBanner> {
         return Column(
           children: [
             _Striscia(
-              linea: line.shortName,
+              line: line,
               mezzi: repo.liveTracks.length,
               tempo: _tempo(repo),
               onTap: _apri,
@@ -105,7 +106,7 @@ class _WatchBannerState extends State<WatchBanner> {
   static String _tempo(AppRepository repo) {
     if (repo.watchIsContinuous) {
       final d = repo.watchElapsed ?? Duration.zero;
-      return d.inMinutes < 1 ? 'in continuo' : 'da ${d.inMinutes} min';
+      return d.inMinutes < 1 ? 'senza limite' : 'da ${d.inMinutes} min';
     }
     final resta = repo.watchRemaining ?? Duration.zero;
     if (resta.inSeconds <= 0) return 'in chiusura';
@@ -119,14 +120,14 @@ class _WatchBannerState extends State<WatchBanner> {
 
 class _Striscia extends StatelessWidget {
   const _Striscia({
-    required this.linea,
+    required this.line,
     required this.mezzi,
     required this.tempo,
     required this.onTap,
     required this.onStop,
   });
 
-  final String linea;
+  final TransitLine line;
   final int mezzi;
   final String tempo;
   final VoidCallback onTap;
@@ -134,9 +135,14 @@ class _Striscia extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final blu = Colors.blue.shade700;
+    // I colori del tema e non un azzurro scritto a mano: in modalita'
+    // scura la striscia era una macchia chiara su fondo nero, e il blu su
+    // azzurro si fermava a 4,03:1. primaryContainer e il suo «on» sono
+    // accoppiati apposta per leggersi, in chiaro e in scuro.
+    final scheme = Theme.of(context).colorScheme;
+    final blu = scheme.onPrimaryContainer;
     return Material(
-      color: Colors.blue.shade50,
+      color: scheme.primaryContainer,
       child: SafeArea(
         bottom: false,
         child: InkWell(
@@ -145,13 +151,14 @@ class _Striscia extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(14, 6, 4, 6),
             child: Row(
               children: [
-                Icon(Icons.directions_bus, size: 18, color: blu),
+                Icon(line.isTram ? Icons.tram : Icons.directions_bus,
+                    size: 18, color: blu),
                 const SizedBox(width: 9),
                 Expanded(
                   child: Text(
                     // Numero della linea, quanti mezzi, quanto manca: le
                     // tre cose che uno vuole sapere senza aprire niente.
-                    '$linea · ${mezzi == 0 ? "in attesa di mezzi" : "$mezzi ${mezzi == 1 ? "mezzo" : "mezzi"}"} · $tempo',
+                    '${line.shortName} · ${mezzi == 0 ? "in attesa di mezzi" : "$mezzi ${mezzi == 1 ? "mezzo" : "mezzi"}"} · $tempo',
                     style: TextStyle(color: blu, fontWeight: FontWeight.w600),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -163,7 +170,7 @@ class _Striscia extends StatelessWidget {
                 // `tooltip:` l'app si apriva sulla schermata rossa.
                 Semantics(
                   button: true,
-                  label: 'Interrompi l\'osservazione',
+                  label: 'Interrompi',
                   child: IconButton(
                     // La stessa icona del pulsante nella schermata della
                     // linea: e' lo stesso gesto, e due simboli diversi

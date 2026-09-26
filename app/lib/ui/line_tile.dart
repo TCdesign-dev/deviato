@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../core/deviation_service.dart';
+import '../core/models/transit.dart';
+import '../core/pipeline/closure_summary.dart';
+import 'line_badge.dart';
+import 'theme.dart';
 
 /// Una riga di "Le mie linee": stato in una frase, e i comandi.
 ///
@@ -9,24 +13,26 @@ import '../core/deviation_service.dart';
 /// si verifica con un test, non guardandolo: dura pochi secondi.
 class LineTile extends StatelessWidget {
   const LineTile({
-    required this.shortName,
+    required this.line,
     required this.status,
     required this.checking,
-    required this.phase,
     required this.watching,
     required this.watchedVehicles,
     required this.checkedAt,
-    required this.onCheck,
+    this.preparing = false,
     this.onTap,
     super.key,
   });
 
-  final String shortName;
+  final TransitLine line;
   final LineStatus? status;
+
+  /// Si stanno scaricando i suoi dati, e non ce n'e' ancora uno stato da
+  /// mostrare. Dura un secondo: il calcolo lo fa il job su GitHub.
   final bool checking;
 
-  /// A che punto e' il controllo, mentre e' in corso.
-  final String? phase;
+  /// Appena aggiunta: se ne stanno scaricando percorsi e stato.
+  final bool preparing;
 
   /// Si stanno guardando i mezzi di questa linea, adesso.
   ///
@@ -41,7 +47,6 @@ class LineTile extends StatelessWidget {
   /// Se non e' di oggi va detto: gli esiti sopravvivono alla chiusura
   /// dell'app, e "2 fermate non servite" senza data sembra adesso.
   final DateTime? checkedAt;
-  final VoidCallback onCheck;
   final VoidCallback? onTap;
 
   /// "ieri" o "il 30/7" quando l'esito non e' di oggi. null se lo e'.
@@ -64,7 +69,10 @@ class LineTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final skipped = status?.allSkippedStops.length ?? 0;
+    final colori = StatusColors.of(context);
+    final secondario = scheme.onSurfaceVariant;
+    final skipped =
+        status?.allSkippedStops.map((s) => s.stop.id).toSet().length ?? 0;
     // Gli avvisi che devono ancora cominciare non entrano nel riassunto
     // di adesso: si dicono a parte, sotto.
     // Per AVVISO, non per rapporto: un avviso che riguarda tutte e due le
@@ -84,156 +92,154 @@ class LineTile extends StatelessWidget {
     String avvisi(int n) => '$n ${n == 1 ? "avviso" : "avvisi"}';
 
     // Il titolo e' LA RISPOSTA, corta e sempre su una riga: e' quello che
-    // uno cerca guardando l'elenco. Il conteggio degli avvisi non e' una
-    // risposta — sapere che ce ne sono tre non dice se il bus passa — e
-    // messo in cima mandava il titolo a capo. Sta sotto, coi dettagli.
+    // uno cerca guardando l'elenco. Il colore non basta da solo — c'e'
+    // chi non lo distingue — e ogni stato ha anche la sua icona.
     final (Color colour, IconData icon, String label) = switch (status) {
       // Mai vuota: una riga senza titolo sembra un errore di caricamento.
-      null => (scheme.outline, Icons.help_outline, 'Da controllare'),
-      final s when attivi == 0 && futuri > 0 => (
-        Colors.blue.shade700,
+      null => (secondario, Icons.help_outline, 'Tocca per aggiornare'),
+      _ when attivi == 0 && futuri > 0 => (
+        colori.info,
         Icons.event_outlined,
-        'Nulla in corso',
+        'Variazione in programma',
       ),
       final s when !s.hasDeviations => (
-        Colors.green.shade700,
+        colori.ok,
         Icons.check_circle_outline,
         'Percorso regolare',
       ),
-      final s when skipped > 0 => (
+      _ when skipped > 0 => (
         scheme.error,
-        Icons.error_outline,
+        Icons.do_not_disturb_on_outlined,
         skipped == 1 ? '1 fermata non servita' : '$skipped fermate non servite',
       ),
-      final s => (
-        Colors.orange.shade800,
-        Icons.warning_amber_outlined,
-        'Fermate tutte servite',
+      // Nessun avviso letto fino in fondo: non si sa quali fermate
+      // tocchi. Visto sulla 7 il 26/09 — «Linea 7 sospesa domenica 27»,
+      // non letto per la quota esaurita — e la riga diceva «fermate
+      // servite», cioe' il contrario di quello che c'era scritto.
+      final s when !s.activeReports.any((r) => r.impact != null) => (
+        colori.warning,
+        Icons.article_outlined,
+        'Avviso in corso',
+      ),
+      _ => (
+        colori.warning,
+        Icons.alt_route,
+        'Deviata, fermate servite',
       ),
     };
 
-    // I dettagli: quanti avvisi, quanti in programma, di quando e'
-    // l'esito. Piccoli e grigi, perche' si leggono solo se il titolo ti
+    // I dettagli: fino a quando, quanti avvisi, quanti in programma, di
+    // quando e' l'esito. Piccoli, perche' si leggono solo se il titolo ti
     // ha gia' interessato.
+    final fino = _fino(status);
     final dettagli = <String>[
+      ?fino,
       if (attivi > 0) avvisi(attivi),
       if (futuri > 0) '${avvisi(futuri)} in programma',
-      if (_vecchio != null) 'controllata ${_vecchio!}',
+      if (_vecchio != null) 'aggiornata ${_vecchio!}',
     ].join(' · ');
 
-    return ListTile(
-      onTap: onTap,
-      leading: Container(
-        width: 52,
-        height: 40,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: scheme.primaryContainer,
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Text(
-          shortName,
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            color: scheme.onPrimaryContainer,
+    final Widget titolo;
+    final Widget? sottotitolo;
+    if (watching) {
+      titolo = Row(
+        children: [
+          // L'occhio del pulsante «Guarda adesso»: e' la stessa cosa.
+          Icon(Icons.visibility_outlined, size: 17, color: colori.info),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              watchedVehicles == 0
+                  ? 'Ricerca dei mezzi…'
+                  : '$watchedVehicles ${watchedVehicles == 1 ? "mezzo" : "mezzi"} '
+                        'in tempo reale',
+              style: TextStyle(color: colori.info, fontWeight: FontWeight.w500),
+            ),
           ),
+        ],
+      );
+      sottotitolo = null;
+    } else if (checking || preparing) {
+      titolo = Text(
+        'Aggiornamento…',
+        style: TextStyle(color: secondario, fontWeight: FontWeight.w500),
+      );
+      sottotitolo = Padding(
+        padding: const EdgeInsets.only(top: 6),
+        child: LinearProgressIndicator(
+          minHeight: 3,
+          borderRadius: BorderRadius.circular(2),
+        ),
+      );
+    } else {
+      titolo = Row(
+        children: [
+          Icon(icon, size: 17, color: colour),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              label,
+              style: TextStyle(color: colour, fontWeight: FontWeight.w500),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      );
+      sottotitolo = dettagli.isEmpty
+          ? null
+          : Text(
+              dettagli,
+              style: TextStyle(color: secondario, fontSize: 12.5),
+              // Qui si puo' andare a capo: e' piccolo, e una seconda riga
+              // si legge senza fatica. Troncare con i puntini nascondeva
+              // quando era stato fatto il controllo. Il TITOLO invece
+              // resta su una riga, sempre.
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            );
+    }
+
+    return ListTile(
+      // Una riga nuova per ogni modalita', invece di trasformare quella
+      // che c'e'. Finita l'osservazione il sottotitolo passava da assente a
+      // presente, e ListTile ne chiedeva la linea di base prima di averlo
+      // impaginato: «2 avvisi» finiva in alto a sinistra, sopra
+      // l'etichetta (visto sul simulatore il 26/09, e c'e' un test).
+      key: ValueKey(
+        watching
+            ? 'osservazione'
+            : checking || preparing
+            ? 'aggiornamento'
+            : 'esito',
+      ),
+      onTap: onTap,
+      leading: SizedBox(
+        width: 60,
+        child: Align(
+          alignment: Alignment.centerLeft,
+          child: LineBadge(line: line),
         ),
       ),
       // Il titolo e' lo STATO, non i capolinea. I due capolinea non ci
       // stanno su una riga — si troncavano a meta' — e chi ha aggiunto
       // la linea sa gia' dove va: quello che non sa e' se oggi devia.
-      title: watching
-          ? Row(
-              children: [
-                Icon(
-                  Icons.directions_bus,
-                  size: 16,
-                  color: Colors.blue.shade700,
-                ),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Text(
-                    watchedVehicles == 0
-                        ? 'osservazione in corso…'
-                        : '$watchedVehicles ${watchedVehicles == 1 ? "mezzo" : "mezzi"} '
-                              'in osservazione',
-                    style: TextStyle(color: Colors.blue.shade700),
-                  ),
-                ),
-              ],
-            )
-          : checking
-          ? Text(
-              phase ?? 'controllo in corso…',
-              style: TextStyle(color: scheme.primary),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            )
-          : Row(
-              children: [
-                Icon(icon, size: 17, color: colour),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Text(
-                    label,
-                    style: TextStyle(
-                      color: colour,
-                      fontWeight: FontWeight.w500,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-            ),
-      subtitle: checking
-          // Mentre controlla, la barra: una riga muta con la rotella
-          // accanto sembra un blocco.
-          ? Padding(
-              padding: const EdgeInsets.only(top: 6),
-              child: LinearProgressIndicator(
-                minHeight: 3,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            )
-          : dettagli.isEmpty
-          ? null
-          : Text(
-              dettagli,
-              style: TextStyle(color: scheme.outline, fontSize: 12.5),
-              // Qui si puo' andare a capo: e' piccolo e grigio, e una
-              // seconda riga si legge senza fatica. Troncare con i
-              // puntini nascondeva quando era stato fatto il controllo.
-              // Il TITOLO invece resta su una riga, sempre.
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Controllare una linea sola: e' la cosa che si fa piu' spesso,
-          // ed e' quella che consuma meno richieste.
-          if (checking)
-            const SizedBox(
-              width: 40,
-              height: 40,
-              child: Center(
-                child: SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2.5),
-                ),
-              ),
-            )
-          else
-            IconButton(
-              icon: const Icon(Icons.refresh),
-              tooltip: 'Controlla solo la $shortName',
-              onPressed: onCheck,
-            ),
-          if (onTap != null) const Icon(Icons.chevron_right),
-        ],
-      ),
+      title: titolo,
+      subtitle: sottotitolo,
+      // Niente pulsanti a destra: tutta la riga si tocca, e aggiornare
+      // una linea sola non ha piu' senso — scaricarle tutte costa un
+      // secondo, e il calcolo lo fa il job su GitHub.
     );
+  }
+
+  /// «fino al 29/09», se tutti gli avvisi in corso finiscono lo stesso
+  /// giorno. Con date diverse non si sceglie: lo dice il dettaglio.
+  static String? _fino(LineStatus? s) {
+    final attivi = s?.activeReports ?? const [];
+    if (attivi.isEmpty) return null;
+    final fine = ClosureSummary.commonEnd(attivi);
+    if (fine == null) return null;
+    return 'fino al ${fine.day.toString().padLeft(2, "0")}/'
+        '${fine.month.toString().padLeft(2, "0")}';
   }
 }

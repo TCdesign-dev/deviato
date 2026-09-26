@@ -10,7 +10,9 @@ import '../core/geo/projection.dart';
 import '../core/pipeline/route_excursion.dart';
 import '../core/pipeline/stop_impact.dart';
 import '../core/pipeline/vehicle_watch.dart';
+import '../core/text/display_names.dart';
 import '../data/user_location.dart';
+import 'theme.dart';
 
 /// La mappa della linea: percorso normale, deviazioni, e le fermate.
 ///
@@ -28,6 +30,9 @@ class LineMap extends StatefulWidget {
     this.height = 280,
     this.vehicles = const [],
     this.observed,
+    this.initialStopId,
+    this.isSaved,
+    this.onToggleSave,
   });
 
   final LineStatus status;
@@ -42,6 +47,14 @@ class LineMap extends StatefulWidget {
   /// normale. Diverso da `deviatedGeometry`, che e' ricostruito dal testo
   /// dell'avviso: qui non c'e' nessuna inferenza, sono posizioni GPS.
   final ExcursionConsensus? observed;
+
+  /// La fermata da aprire subito: si arriva da una fermata salvata.
+  final String? initialStopId;
+
+  /// Se la fermata toccata e' fra quelle salvate, e come salvarla. Senza,
+  /// la mappa mostra solo il nome.
+  final bool Function(TransitStop stop, RouteShape shape)? isSaved;
+  final void Function(TransitStop stop, RouteShape shape)? onToggleSave;
 
   @override
   State<LineMap> createState() => _LineMapState();
@@ -60,6 +73,46 @@ class _LineMapState extends State<LineMap> {
   StreamSubscription<GeoPoint>? _locationSub;
   GeoPoint? _me;
   bool _locating = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final id = widget.initialStopId;
+    if (id == null) return;
+    final saltate = {
+      for (final s in widget.status.allSkippedStops) s.stop.id: s,
+    };
+    for (final shape in widget.status.mainShapes) {
+      for (final s in shape.stops) {
+        if (s.id == id) {
+          _selected = (stop: s, impact: saltate[id]);
+          return;
+        }
+      }
+    }
+  }
+
+  /// La direzione a cui appartiene un palo: le banchine opposte hanno id
+  /// diversi, quindi e' una sola.
+  RouteShape? _shapeOf(TransitStop stop) {
+    for (final shape in widget.status.mainShapes) {
+      if (shape.stops.any((s) => s.id == stop.id)) return shape;
+    }
+    return null;
+  }
+
+  bool? _savedState(TransitStop stop) {
+    final shape = _shapeOf(stop);
+    if (shape == null || widget.isSaved == null) return null;
+    return widget.isSaved!(stop, shape);
+  }
+
+  VoidCallback? _saveAction(TransitStop stop) {
+    final shape = _shapeOf(stop);
+    final salva = widget.onToggleSave;
+    if (shape == null || salva == null) return null;
+    return () => salva(stop, shape);
+  }
 
   @override
   void dispose() {
@@ -284,7 +337,9 @@ class _LineMapState extends State<LineMap> {
                   if (_me != null) MarkerLayer(markers: [_meMarker(_me!)]),
                   const RichAttributionWidget(
                     alignment: AttributionAlignment.bottomLeft,
-                    attributions: [TextSourceAttribution('OpenStreetMap')],
+                    attributions: [
+                      TextSourceAttribution('contributori di OpenStreetMap'),
+                    ],
                   ),
                 ],
               ),
@@ -305,8 +360,8 @@ class _LineMapState extends State<LineMap> {
                           ? Icons.my_location
                           : Icons.location_searching,
                       tooltip: _locationSub != null
-                          ? 'Smetti di seguire'
-                          : 'Dove sono',
+                          ? 'Non seguire la mia posizione'
+                          : 'La mia posizione',
                       active: _locationSub != null,
                       busy: _locating,
                       onPressed: _showMe,
@@ -321,6 +376,12 @@ class _LineMapState extends State<LineMap> {
           _SelectedStopBanner(
             stop: _selected!.stop,
             impact: _selected!.impact,
+            direction: _shapeOf(_selected!.stop) == null
+                ? null
+                : DisplayNames.direction(_shapeOf(_selected!.stop)!.headsign,
+                    longName: status.line.longName),
+            saved: _savedState(_selected!.stop),
+            onToggleSave: _saveAction(_selected!.stop),
             onClose: () => setState(() => _selected = null),
           )
         else
@@ -331,12 +392,21 @@ class _LineMapState extends State<LineMap> {
             // annunciare un cambio di percorso. Dire "non ricostruita"
             // sarebbe una bugia — non c'era niente da ricostruire.
             onlySuspendedStops: deviations.isEmpty && skipped.isNotEmpty,
+            // Senza avvisi in corso non c'e' niente da ricostruire: dire
+            // «deviazione non ricostruita» su una linea regolare, come la 4
+            // il 26/09, fa pensare a una deviazione che non esiste.
+            hasActiveNotices: status.activeReports.isNotEmpty,
+            canSave: widget.onToggleSave != null,
             hasObserved: osservato.length > 1,
             skippedCount: skipped.length,
             servedCount: served.length,
             vehicleCount: widget.vehicles.length,
             vehiclesSeenAt: _lastSeen,
-            directions: [for (final d in directions) d.shape.headsign],
+            directions: [
+              for (final d in directions)
+                DisplayNames.direction(d.shape.headsign,
+                    longName: widget.status.line.longName),
+            ],
           ),
       ],
     );
@@ -389,10 +459,12 @@ class _LineMapState extends State<LineMap> {
     );
   }
 
-  /// Lato dell'area toccabile di una fermata. Le linee guida Apple
-  /// chiedono almeno 44 pt; qui si sta piu' bassi perche' le fermate sono
-  /// vicine fra loro e bersagli enormi si ruberebbero i tocchi a vicenda.
-  static const _tapTarget = 34.0;
+  /// Lato dell'area toccabile di una fermata: i 44 punti delle linee
+  /// guida Apple. Era 34, per paura che fermate vicine si rubassero i
+  /// tocchi; ma alle distanze normali fra fermate (300 m, una sessantina
+  /// di punti allo zoom con cui si apre la mappa) le aree non si
+  /// sovrappongono, e 34 si mancava col pollice.
+  static const _tapTarget = 44.0;
 
   /// Quando risale l'ultima posizione ricevuta.
   ///
@@ -484,10 +556,21 @@ class _SelectedStopBanner extends StatelessWidget {
     required this.stop,
     required this.impact,
     required this.onClose,
+    this.direction,
+    this.saved,
+    this.onToggleSave,
   });
 
   final TransitStop stop;
   final StopImpact? impact;
+
+  /// Verso dove va il mezzo da questo palo: salvando la fermata si salva
+  /// anche la direzione, e va detto quale.
+  final String? direction;
+
+  /// null quando la mappa non sa salvare.
+  final bool? saved;
+  final VoidCallback? onToggleSave;
   final VoidCallback onClose;
 
   @override
@@ -513,27 +596,43 @@ class _SelectedStopBanner extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  stop.name,
+                  DisplayNames.stop(stop),
                   style: const TextStyle(fontWeight: FontWeight.w600),
                 ),
                 Text(
-                  skipped
-                      ? (impact!.status == StopStatus.declaredSuspended
-                            ? 'sospesa da GTT'
-                            : 'non servita durante la deviazione')
-                      : 'servita${stop.code != null ? " · fermata ${stop.code}" : ""}',
+                  [
+                    skipped
+                        ? (impact!.status == StopStatus.declaredSuspended
+                              ? 'sospesa da GTT'
+                              : 'non servita')
+                        : 'servita',
+                    if (stop.code != null) 'fermata ${stop.code}',
+                    if (direction != null) 'verso $direction',
+                  ].join(' · '),
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
                 if (skipped)
                   for (final alt in impact!.alternatives.take(2))
                     Text(
-                      '→ ${alt.stop.name} · ${alt.bestKnownMeters.round()} m'
-                      '${alt.sameLine ? " (stessa linea)" : ""}',
+                      '→ ${DisplayNames.stop(alt.stop)}'
+                      '${alt.stop.code == null ? "" : " ${alt.stop.code}"} · '
+                      '${alt.bestKnownMeters.round()} m'
+                      '${alt.sameLine ? "" : " · altre linee"}',
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
               ],
             ),
           ),
+          // Salvarla la porta nella home, con la sua risposta: e' il
+          // modo di dire all'app «questa e' la mia fermata».
+          if (saved != null && onToggleSave != null)
+            TextButton.icon(
+              onPressed: onToggleSave,
+              icon: Icon(saved!
+                  ? Icons.bookmark
+                  : Icons.bookmark_add_outlined),
+              label: Text(saved! ? 'Salvata' : 'Salva'),
+            ),
           IconButton(
             icon: const Icon(Icons.close, size: 18),
             tooltip: 'Chiudi',
@@ -550,7 +649,9 @@ class _Legend extends StatelessWidget {
   const _Legend({
     required this.hasDeviation,
     required this.onlySuspendedStops,
+    required this.hasActiveNotices,
     required this.hasObserved,
+    this.canSave = false,
     required this.skippedCount,
     required this.servedCount,
     required this.vehicleCount,
@@ -560,7 +661,9 @@ class _Legend extends StatelessWidget {
 
   final bool hasDeviation;
   final bool onlySuspendedStops;
+  final bool hasActiveNotices;
   final bool hasObserved;
+  final bool canSave;
   final int skippedCount;
   final int servedCount;
   final int vehicleCount;
@@ -590,10 +693,10 @@ class _Legend extends StatelessWidget {
             _line(Colors.red.shade700, 'percorso deviato', style)
           else if (onlySuspendedStops)
             Text('nessun cambio di percorso', style: style)
-          else if (!hasObserved)
-            Text('deviazione non ricostruita', style: style),
+          else if (hasActiveNotices && !hasObserved)
+            Text('percorso deviato non disponibile', style: style),
           if (hasObserved)
-            _line(Colors.purple.shade600, 'percorso visto sui mezzi', style),
+            _line(Colors.purple.shade600, 'percorso dei mezzi', style),
           _dot(
             Colors.white,
             Colors.blueGrey.shade600,
@@ -614,7 +717,7 @@ class _Legend extends StatelessWidget {
                 Icon(
                   Icons.directions_bus,
                   size: 13,
-                  color: Colors.blue.shade700,
+                  color: StatusColors.of(context).info,
                 ),
                 const SizedBox(width: 4),
                 Text(
@@ -624,7 +727,11 @@ class _Legend extends StatelessWidget {
                 ),
               ],
             ),
-          Text('tocca una fermata per il nome', style: style),
+          Text(
+              canSave
+                  ? 'tocca una fermata per salvarla'
+                  : 'tocca una fermata per i dettagli',
+              style: style),
         ],
       ),
     );
@@ -637,10 +744,13 @@ class _Legend extends StatelessWidget {
   }
 
   /// Il capolinea sta in una legenda: va accorciato o la riga esplode.
-  static String _shortHeadsign(String h) {
-    final first = h.split(',').first.trim();
-    return first.length <= 22 ? first : '${first.substring(0, 21)}…';
-  }
+  ///
+  /// Arriva gia' ripulito da [DisplayNames.direction]: prima si prendeva
+  /// la prima parte del headsign, e sulla 10N — «NAVETTA, VIA MASSARI» e
+  /// «NAVETTA, PIAZZA XVIII DICEMBRE» — la legenda diceva «→ NAVETTA» due
+  /// volte.
+  static String _shortHeadsign(String h) =>
+      h.length <= 24 ? h : '${h.substring(0, 23)}…';
 
   Widget _line(Color c, String label, TextStyle? style) => Row(
     mainAxisSize: MainAxisSize.min,
@@ -720,7 +830,9 @@ class _MapButton extends StatelessWidget {
                 : Icon(
                     icon,
                     size: 22,
-                    color: active ? Colors.blue.shade700 : scheme.onSurface,
+                    color: active
+                        ? StatusColors.of(context).info
+                        : scheme.onSurface,
                   ),
           ),
         ),
