@@ -8,6 +8,8 @@ class TransitLine {
     required this.shortName,
     this.longName,
     this.color,
+    this.routeType,
+    this.sortOrder,
   });
 
   /// Identificatore del GTFS: "55U", "19U", "58BU".
@@ -17,8 +19,30 @@ class TransitLine {
   final String shortName;
   final String? longName;
 
-  /// Colore ufficiale, per disegnarla sulla mappa.
+  /// Colore ufficiale, esadecimale senza cancelletto: "CC9900" per i
+  /// tram, "FF9900" per i bus urbani.
   final String? color;
+
+  /// `route_type` del GTFS: 0 tram, 1 metropolitana, 3 bus.
+  final int? routeType;
+
+  /// `route_sort_order` del GTFS: l'ordine in cui GTT elenca le linee.
+  ///
+  /// Ordinare per nome metteva la 4 dopo la 15 e la 10N prima di tutte.
+  /// GTT l'ordine lo pubblica gia': 4, 10N, 15, 65, 68.
+  final int? sortOrder;
+
+  bool get isTram => routeType == 0;
+  bool get isMetro => routeType == 1;
+
+  /// Per ordinare come GTT, e per nome solo dove GTT non dice niente.
+  static int compare(TransitLine a, TransitLine b) {
+    final oa = a.sortOrder, ob = b.sortOrder;
+    if (oa != null && ob != null && oa != ob) return oa.compareTo(ob);
+    if (oa != null && ob == null) return -1;
+    if (oa == null && ob != null) return 1;
+    return a.shortName.compareTo(b.shortName);
+  }
 
   @override
   String toString() => '$shortName ($routeId)';

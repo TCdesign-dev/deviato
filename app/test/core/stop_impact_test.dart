@@ -279,4 +279,38 @@ void main() {
       expect(r.affectedFromMeters, lessThan(r.affectedToMeters));
     });
   });
+  group('Alternative fra avvisi diversi', () {
+    // Visto sulla 10N il 26/09: GTT pubblica un avviso PER FERMATA, e ogni
+    // avviso proponeva come alternative le fermate chiuse dagli altri.
+    test('le fermate chiuse da un altro avviso non sono alternative', () {
+      final solo300 = analyzer.declaredOnly(
+          officialRoute: officialRoute, declaredCodes: {'300'});
+      final solo400 = analyzer.declaredOnly(
+          officialRoute: officialRoute, declaredCodes: {'400'});
+      // Da sola, la 300 propone la 400: e' la piu' vicina della linea.
+      expect(solo300.impacts.single.alternatives.map((a) => a.stop.code),
+          contains('400'));
+
+      final chiuse = {
+        ...solo300.skipped.map((i) => i.stop.id),
+        ...solo400.skipped.map((i) => i.stop.id),
+      };
+      final corretta = analyzer.excludingClosed(solo300,
+          officialRoute: officialRoute, closedStopIds: chiuse);
+      final codici =
+          corretta.impacts.single.alternatives.map((a) => a.stop.code);
+      expect(codici, isNot(contains('400')));
+      expect(codici, isNot(contains('300')));
+      // Ma qualcosa si propone ancora: la fermata dopo, ancora aperta.
+      expect(codici, isNotEmpty);
+    });
+
+    test('senza alternative chiuse il risultato resta lo stesso', () {
+      final r = analyzer.declaredOnly(
+          officialRoute: officialRoute, declaredCodes: {'300'});
+      final uguale = analyzer.excludingClosed(r,
+          officialRoute: officialRoute, closedStopIds: {'S999'});
+      expect(identical(uguale, r), isTrue);
+    });
+  });
 }

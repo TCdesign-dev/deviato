@@ -47,6 +47,15 @@ class GtfsParser {
     return out;
   }
 
+  /// Tutte le linee del feed, per cercarle e aggiungerle.
+  ///
+  /// Legge solo `routes.txt`, poche centinaia di righe: si fa in un
+  /// attimo, a differenza di [build], che deve scorrere gli orari.
+  Future<List<TransitLine>> allLines() async {
+    final all = await _readAllRoutes();
+    return all..sort(TransitLine.compare);
+  }
+
   /// [shortNames] sono i nomi come li usa la gente: "55", "4", "STAR 1".
   ///
   /// Con [withStops] a false si salta la lettura di `stop_times.txt`, che
@@ -163,6 +172,17 @@ class GtfsParser {
   /// "10N" non trovava la N10, "N8" non trovava la N08, "58 barrata" non
   /// trovava la 58/. Le regole erano gia' scritte, ma da un'altra parte.
   Future<Map<String, TransitLine>> _readRoutes(List<String> wanted) async {
+    final all = await _readAllRoutes();
+
+    final out = <String, TransitLine>{};
+    for (final name in wanted) {
+      final line = LineResolver.matchIn(all, name);
+      if (line != null) out[line.routeId] = line;
+    }
+    return out;
+  }
+
+  Future<List<TransitLine>> _readAllRoutes() async {
     var cols = <String, int>{};
     final all = <TransitLine>[];
     await for (final row in _rows('routes.txt', (h) => cols = Csv.header(h))) {
@@ -174,15 +194,12 @@ class GtfsParser {
         shortName: short,
         longName: Csv.field(row, cols, 'route_long_name'),
         color: Csv.field(row, cols, 'route_color'),
+        routeType: int.tryParse(Csv.field(row, cols, 'route_type') ?? ''),
+        sortOrder:
+            int.tryParse(Csv.field(row, cols, 'route_sort_order') ?? ''),
       ));
     }
-
-    final out = <String, TransitLine>{};
-    for (final name in wanted) {
-      final line = LineResolver.matchIn(all, name);
-      if (line != null) out[line.routeId] = line;
-    }
-    return out;
+    return all;
   }
 
   Future<_Trips> _readTrips(Set<String> routeIds) async {

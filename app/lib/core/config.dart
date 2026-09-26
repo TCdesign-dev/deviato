@@ -29,9 +29,31 @@ class GttConfig {
   /// E' un servizio di cortesia: nessuna garanzia, serve sempre il ripiego.
   static const valhallaUrl = 'https://valhalla1.openstreetmap.de/route';
 
-  /// Identificati verso GTT: se vogliono contattarti devono poterlo fare.
+  /// Identificati verso GTT e i servizi pubblici: se vogliono contattarti
+  /// devono poterlo fare. Il contatto e' il repository, non un indirizzo
+  /// personale: il codice e' pubblico, e le richieste ora partono anche
+  /// dal job su GitHub.
   static const userAgent =
-      'gtt-deviazioni/1.0 (app personale; contatto: tommasocostanza7@gmail.com)';
+      'DeviaTo/1.0 (+https://github.com/TCdesign-dev/gtt-deviazioni)';
+
+  /// Chi chiama il server Valhalla di FOSSGIS. Lo chiedono espressamente
+  /// alle app pubblicate, insieme a un avviso nelle loro Discussions.
+  static const valhallaClientId = 'deviato';
+
+  // ------------------------------------------------------ dati pubblicati
+
+  /// Dove il job su GitHub pubblica i risultati, e dove l'app li legge.
+  ///
+  /// Si sostituisce in fase di compilazione per provare con un server
+  /// locale: `--dart-define=DATI_URL=http://localhost:8765/v1/`.
+  static const datiUrl = String.fromEnvironment(
+    'DATI_URL',
+    defaultValue: 'https://tcdesign-dev.github.io/gtt-deviazioni/v1/',
+  );
+
+  /// Il modello che legge gli avvisi. Scelto per misura sui 34 avvisi
+  /// annotati: 34 su 34 estratti, nessun toponimo inventato.
+  static const llmModelloPredefinito = 'nvidia/nemotron-3-super-120b-a12b:free';
 
   // ------------------------------------------------------------ geografia
 

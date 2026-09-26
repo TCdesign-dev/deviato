@@ -47,11 +47,15 @@ class GtfsDownloader {
       neededFiles.every((f) => File('${directory.path}/$f').existsSync());
 
   /// Serve riscaricare?
-  bool get isStale {
+  bool get isStale => isOlderThan(GttConfig.gtfsRefreshInterval);
+
+  /// Assente, o scaricato piu' di [maxAge] fa. Il job centrale lo vuole
+  /// del giorno: GTT lo rigenera ogni mattina alle 4.
+  bool isOlderThan(Duration maxAge) {
     if (!isPresent) return true;
     final last = lastDownload;
     if (last == null) return true;
-    return DateTime.now().difference(last) > GttConfig.gtfsRefreshInterval;
+    return DateTime.now().difference(last) > maxAge;
   }
 
   /// Scarica ed estrae, se serve. [onProgress] riceve una frase leggibile
@@ -59,9 +63,12 @@ class GtfsDownloader {
   /// blocco.
   Future<void> ensureAvailable({
     bool force = false,
+    Duration? maxAge,
     void Function(String phase, double fraction)? onProgress,
   }) async {
-    if (!force && !isStale) return;
+    if (!force && !isOlderThan(maxAge ?? GttConfig.gtfsRefreshInterval)) {
+      return;
+    }
 
     directory.createSync(recursive: true);
     final zip = File('${directory.path}/gtt_gtfs.zip');

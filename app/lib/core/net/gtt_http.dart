@@ -63,6 +63,8 @@ class GttHttp {
             headers: {
               'User-Agent': GttConfig.userAgent,
               'Content-Type': 'application/json',
+              // Valhalla di FOSSGIS lo chiede alle app pubblicate.
+              'X-Client-Id': GttConfig.valhallaClientId,
             },
             body: jsonEncode(body),
           )

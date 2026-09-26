@@ -231,6 +231,50 @@ class StopImpactAnalyzer {
     );
   }
 
+  /// Le stesse fermate, con alternative che escludono [closedStopIds].
+  ///
+  /// Ogni avviso calcola le sue alternative da solo, e non sa degli
+  /// altri. Visto sulla 10N il 26/09: GTT aveva pubblicato **un avviso
+  /// per fermata**, sedici in tutto, e per Verolengo le prime due
+  /// alternative proposte erano Largo Giachino Sud e Brin — chiuse anche
+  /// loro, dagli avvisi accanto. Mandare qualcuno a una fermata chiusa è
+  /// peggio che non proporre niente.
+  ///
+  /// Si ricalcolano solo le fermate con almeno un'alternativa chiusa: le
+  /// altre restano com'erano, distanze a piedi comprese.
+  StopImpactResult excludingClosed(
+    StopImpactResult result, {
+    required RouteShape officialRoute,
+    required Set<String> closedStopIds,
+    List<GeoPoint>? deviatedRoute,
+  }) {
+    final deviated = deviatedRoute?.map((p) => p.meters).toList();
+    var changed = false;
+    final impacts = <StopImpact>[];
+    for (final i in result.impacts) {
+      final daRifare = i.isSkipped &&
+          i.alternatives.any((a) => closedStopIds.contains(a.stop.id));
+      if (!daRifare) {
+        impacts.add(i);
+        continue;
+      }
+      changed = true;
+      impacts.add(StopImpact(
+        stop: i.stop,
+        status: i.status,
+        metersFromDeviatedRoute: i.metersFromDeviatedRoute,
+        alternatives: _alternativesFor(i.stop, officialRoute, deviated,
+            closedStopIds: closedStopIds),
+      ));
+    }
+    if (!changed) return result;
+    return StopImpactResult(
+      impacts: impacts,
+      affectedFromMeters: result.affectedFromMeters,
+      affectedToMeters: result.affectedToMeters,
+    );
+  }
+
   /// Dove puo' andare chi usava una fermata saltata.
   ///
   /// Ordine di preferenza: prima le fermate ancora servite dalla STESSA
@@ -238,12 +282,14 @@ class StopImpactAnalyzer {
   ///
   /// [deviatedRoute] null quando non c'e' deviazione (sole fermate
   /// sospese): in quel caso una fermata della stessa linea va bene, a meno
-  /// che non sia sospesa anche lei — ed e' [alsoSkipped] a dirlo.
+  /// che non sia sospesa anche lei — ed e' [alsoSkipped] a dirlo, per
+  /// codice, e [closedStopIds] per quelle chiuse da altri avvisi.
   List<StopAlternative> _alternativesFor(
     TransitStop skipped,
     RouteShape officialRoute,
     List<Point>? deviatedRoute, {
     Set<String> alsoSkipped = const {},
+    Set<String> closedStopIds = const {},
   }) {
     final nearby = index.stopsNear(skipped.position,
         radiusMeters: GttConfig.alternativeStopMeters);
@@ -257,6 +303,7 @@ class StopImpactAnalyzer {
       // Mandare l'utente a una fermata sospesa anche lei e' peggio che non
       // proporre nulla.
       if (n.stop.code != null && alsoSkipped.contains(n.stop.code)) continue;
+      if (closedStopIds.contains(n.stop.id)) continue;
 
       final onSameLine = sameLineIds.contains(n.stop.id);
       // Una fermata della stessa linea vale come alternativa solo se il

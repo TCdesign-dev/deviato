@@ -1,5 +1,6 @@
 import 'geo/projection.dart';
 import 'llm/llm_client.dart';
+import 'llm/llm_con_budget.dart';
 import 'models/notice.dart';
 import 'models/transit.dart';
 import 'pipeline/extractor.dart';
@@ -37,6 +38,7 @@ class DeviationReport {
     this.impact,
     this.whyIncomplete,
     this.rejoin,
+    this.retryable = false,
   });
 
   final RawNotice notice;
@@ -62,8 +64,63 @@ class DeviationReport {
   /// Dove rientra il mezzo, e se lo ha detto GTT o l'abbiamo dedotto.
   final RejoinPoint? rejoin;
 
+  /// L'esito e' incompleto per un motivo che passa: quota esaurita, rete
+  /// assente, un servizio giu'. Al prossimo controllo l'avviso si rilegge.
+  ///
+  /// Gli altri esiti, anche incompleti («l'avviso non indica abbastanza
+  /// vie»), non cambierebbero rileggendo lo stesso testo: si tengono, e
+  /// non si spende un'altra delle cinquanta richieste giornaliere.
+  final bool retryable;
+
   bool get hasMap => deviatedGeometry != null && deviatedGeometry!.length > 1;
   List<StopImpact> get skippedStops => impact?.skipped ?? const [];
+
+  DeviationReport withImpact(StopImpactResult? impact) => DeviationReport(
+        notice: notice,
+        confidence: confidence,
+        shape: shape,
+        parsed: parsed,
+        deviatedGeometry: deviatedGeometry,
+        impact: impact,
+        whyIncomplete: whyIncomplete,
+        rejoin: rejoin,
+        retryable: retryable,
+      );
+
+  /// Le alternative di ogni avviso, tolte le fermate chiuse dagli ALTRI.
+  ///
+  /// Gli avvisi si analizzano uno per uno, e ognuno sa solo delle fermate
+  /// che chiude lui. Qui si guarda la linea intera. Gli avvisi in corso si
+  /// confrontano con quelli in corso; quelli in programma con tutti,
+  /// perche' non si sa se quelli di adesso saranno finiti.
+  ///
+  /// Sta qui e non dentro [DeviationService.statusOf] perche' serve anche
+  /// agli esiti salvati: quelli di prima di questa correzione avevano le
+  /// alternative sbagliate scritte dentro.
+  static List<DeviationReport> reconcileAlternatives(
+    List<DeviationReport> reports, {
+    required StopImpactAnalyzer analyzer,
+    required DateTime now,
+  }) {
+    Set<String> chiuse(Iterable<DeviationReport> rs) =>
+        {for (final r in rs) ...r.skippedStops.map((s) => s.stop.id)};
+    final adesso = chiuse(reports.where((r) => !r.notice.startsAfter(now)));
+    final tutte = chiuse(reports);
+    if (tutte.isEmpty) return reports;
+
+    return [
+      for (final r in reports)
+        if (r.impact == null || !r.impact!.hasImpact)
+          r
+        else
+          r.withImpact(analyzer.excludingClosed(
+            r.impact!,
+            officialRoute: r.shape,
+            deviatedRoute: r.deviatedGeometry,
+            closedStopIds: r.notice.startsAfter(now) ? tutte : adesso,
+          )),
+    ];
+  }
 }
 
 /// Stato completo di una linea.
@@ -148,6 +205,17 @@ class DeviationService {
   final LineResolver _resolver;
   final StopImpactAnalyzer _impact;
 
+  /// Le letture gia' fatte in questa istanza, per avviso e testo.
+  ///
+  /// Nel job centrale lo stesso avviso riguarda spesso piu' linee — una
+  /// manifestazione in centro ne devia dieci — e ognuna lo analizza contro
+  /// il proprio percorso. Il testo pero' e' lo stesso: si legge una volta.
+  /// Gli errori non si tengono, cosi' la linea dopo puo' ritentare.
+  final Map<String, ExtractionResult> _letture = {};
+
+  /// Quante letture sono state davvero chieste al modello.
+  int letture = 0;
+
   /// Gli avvisi di tutte le fonti, presi una volta e riusati per tutte le
   /// linee della watchlist: sono due richieste, non due per linea.
   ///
@@ -205,9 +273,13 @@ class DeviationService {
   ///
   /// [direction] 0 o 1. Se [allNotices] e' gia' disponibile lo si passa,
   /// per non riscaricare gli avvisi a ogni linea.
+  ///
+  /// [previous] e' l'esito precedente della stessa linea: gli avvisi che
+  /// non sono cambiati da allora non si rileggono (vedi [_giaLetto]).
   Future<LineStatus> statusOf(
     TransitLine line, {
     List<RawNotice>? allNotices,
+    LineStatus? previous,
     void Function(String phase)? onProgress,
   }) async {
     final andata = index.mainShape(line.routeId, 0);
@@ -217,11 +289,11 @@ class DeviationService {
       throw StateError('nessuna geometria per ${line.shortName}');
     }
 
-    if (allNotices == null) onProgress?.call('Avvisi di GTT');
+    if (allNotices == null) onProgress?.call('Download degli avvisi');
     final notices = noticesFor(line, allNotices ?? await fetchAllNotices());
     final reports = <DeviationReport>[];
 
-    if (notices.isEmpty) onProgress?.call('Nessun avviso su questa linea');
+    if (notices.isEmpty) onProgress?.call('Nessun avviso');
 
     for (var i = 0; i < notices.length; i++) {
       final notice = notices[i];
@@ -236,20 +308,79 @@ class DeviationService {
       // Un avviso puo' riguardare una direzione sola, o entrambe. Va
       // analizzato contro il percorso GIUSTO, altrimenti le fermate
       // saltate sono quelle dell'altro senso di marcia.
-      for (final s in shapesConcernedBy(notice, andata, ritorno)) {
-        reports.add(await _analyze(notice, s,
+      final direzioni = shapesConcernedBy(notice, andata, ritorno);
+
+      final gia = _giaLetto(notice, direzioni, previous);
+      if (gia != null) {
+        onProgress?.call('$quale · già letto');
+        reports.addAll(gia);
+        continue;
+      }
+
+      // Il testo si legge UNA volta, qualunque sia il numero di direzioni.
+      // Prima si leggeva per ogni direzione: un avviso che valeva per
+      // andata e ritorno costava due richieste, e la 10N coi suoi sedici
+      // avvisi ne consumava trentadue delle cinquanta giornaliere.
+      onProgress?.call('$quale · lettura');
+      final chiave = '${notice.id}\u0000${notice.fullText}';
+      var extraction = _letture[chiave];
+      if (extraction == null) {
+        letture++;
+        extraction = await _extractor.extract(notice);
+        if (extraction.status != ExtractionStatus.error) {
+          _letture[chiave] = extraction;
+        }
+      }
+      for (final s in direzioni) {
+        reports.add(await _analyze(notice, s, extraction,
             onProgress: (p) => onProgress?.call('$quale · $p')));
       }
     }
 
+    final now = DateTime.now();
     return LineStatus(
       line: line,
       shape: shape,
       shapeReturn: identical(shape, andata) ? ritorno : null,
       allShapes: index.shapesOf(line.routeId),
-      reports: reports,
-      checkedAt: DateTime.now(),
+      reports: DeviationReport.reconcileAlternatives(reports,
+          analyzer: _impact, now: now),
+      checkedAt: now,
     );
+  }
+
+  /// Gli esiti di [notice] dal controllo precedente, se si possono tenere.
+  ///
+  /// Si tengono quando l'avviso e' lo stesso — stesso testo, stesse date,
+  /// stesse direzioni — e nessuna delle sue analisi era fallita per un
+  /// motivo che passa ([DeviationReport.retryable]). Rileggere un testo
+  /// identico darebbe lo stesso risultato e costerebbe una richiesta.
+  ///
+  /// Visto il 26/09: un «Aggiorna tutte» a quota esaurita rimpiazzava le
+  /// deviazioni calcolate nel pomeriggio (15, 55, 68) con «non letto».
+  /// Con questo le rilegge solo se sono cambiate, e quelle non cambiate
+  /// restano.
+  static List<DeviationReport>? _giaLetto(
+    RawNotice notice,
+    List<RouteShape> direzioni,
+    LineStatus? previous,
+  ) {
+    if (previous == null) return null;
+    final prima =
+        previous.reports.where((r) => r.notice.id == notice.id).toList();
+    if (prima.isEmpty || prima.any((r) => r.retryable)) return null;
+    final n = prima.first.notice;
+    final uguale = n.text == notice.text &&
+        n.headline == notice.headline &&
+        n.validFrom == notice.validFrom &&
+        n.validUntil == notice.validUntil;
+    if (!uguale) return null;
+    final idPrima = {for (final r in prima) r.shape.shapeId};
+    final idOra = {for (final s in direzioni) s.shapeId};
+    if (idPrima.length != idOra.length || !idPrima.containsAll(idOra)) {
+      return null;
+    }
+    return prima;
   }
 
   /// Quali direzioni riguarda un avviso.
@@ -307,15 +438,20 @@ class DeviationService {
 
   static String explainExtractionFailure(ExtractionResult r) {
     final detail = r.detail ?? '';
+    if (detail.contains(LlmConBudget.inCoda)) {
+      return 'Avviso appena pubblicato: sarà letto a breve.';
+    }
     if (detail.contains('free-models-per-day')) {
       // L'orario si dice in ORA LOCALE. Il fornitore ragiona in UTC, ma
       // chi legge il messaggio all'una di notte no: "si azzerano a
       // mezzanotte UTC" sembra sbagliato quando la mezzanotte e' passata
       // da un'ora.
-      final when = _localTime(r.retryAfter);
-      return 'Richieste gratuite esaurite: sono 50 al giorno. '
-          '${when == null ? "Si azzerano a mezzanotte UTC, cioè alle 2 di "
-              "notte in Italia." : "Riprova dopo le $when."}';
+      // Senza un orario dal fornitore, la mezzanotte UTC detta in ora
+      // locale: le 2 d'estate, l'una d'inverno. Prima era scritto «alle 2
+      // di notte» fisso, sbagliato per metà dell'anno.
+      final when = _localTime(r.retryAfter ?? _nextUtcMidnight());
+      return 'Richieste gratuite esaurite per oggi (50 al giorno). '
+          'Riprova dopo le $when.';
     }
     if (detail.contains('429')) {
       return 'Servizio momentaneamente sovraccarico. Riprova fra poco.';
@@ -328,12 +464,17 @@ class DeviationService {
       return 'Servizio non raggiungibile. Controlla la connessione.';
     }
     if (r.status == ExtractionStatus.parseFailed) {
-      return 'Testo letto, ma il percorso non e\' ricavabile.';
+      return 'L\'avviso non descrive un percorso ricostruibile.';
     }
-    return 'Testo dell\'avviso non interpretabile.';
+    return 'Non è stato possibile leggere l\'avviso.';
   }
 
   /// L'orario in cui riprovare, nel fuso di chi legge.
+  static DateTime _nextUtcMidnight() {
+    final now = DateTime.now().toUtc();
+    return DateTime.utc(now.year, now.month, now.day + 1);
+  }
+
   static String? _localTime(DateTime? utcOrLocal) {
     if (utcOrLocal == null) return null;
     final t = utcOrLocal.toLocal();
@@ -343,12 +484,15 @@ class DeviationService {
 
   Future<DeviationReport> _analyze(
     RawNotice notice,
-    RouteShape shape, {
+    RouteShape shape,
+    ExtractionResult extraction, {
     void Function(String phase)? onProgress,
   }) async {
-    // 1. Testo -> struttura.
-    onProgress?.call('interpretazione del testo');
-    final extraction = await _extractor.extract(notice);
+    // 1. Testo -> struttura: gia' fatto, una volta per avviso.
+    //
+    // Un errore del modello (quota, rete, chiave) passa; un testo che non
+    // descrive un percorso no.
+    final estrazioneDaRitentare = extraction.status == ExtractionStatus.error;
     if (!extraction.isUsable) {
       // L'LLM non ha risposto — quota finita, rete, servizio giu'. Ma se
       // GTT ha scritto un numero di fermata, quel numero sta nel testo e
@@ -367,9 +511,10 @@ class DeviationService {
           // dica anche altro, per esempio un cambio di percorso che non
           // abbiamo ricostruito.
           confidence: Confidence.probabile,
-          whyIncomplete: 'La fermata sospesa la dichiara GTT, quella è '
-              'certa. Il resto dell\'avviso non e\' stato letto: '
+          whyIncomplete: 'La fermata sospesa è indicata da GTT. Il resto '
+              'dell\'avviso non è stato letto: '
               '${_lowerFirst(explainExtractionFailure(extraction))}',
+          retryable: estrazioneDaRitentare,
         );
       }
       return DeviationReport(
@@ -377,6 +522,7 @@ class DeviationService {
         shape: shape,
         confidence: Confidence.soloTesto,
         whyIncomplete: explainExtractionFailure(extraction),
+        retryable: estrazioneDaRitentare,
       );
     }
     final parsed = extraction.deviations.first;
@@ -389,7 +535,7 @@ class DeviationService {
         shape: shape,
         parsed: parsed,
         confidence: Confidence.confermata,
-        whyIncomplete: 'stesso percorso, cambia solo il tipo di mezzo',
+        whyIncomplete: 'Stesso percorso, cambia solo il tipo di mezzo.',
       );
     }
 
@@ -416,9 +562,11 @@ class DeviationService {
         confidence: Confidence.confermata,
         whyIncomplete: impact.hasImpact
             ? null
-            : 'GTT nomina ${declaredCodes.length == 1 ? "una fermata" : "delle fermate"} '
-                '(${declaredCodes.join(", ")}) non risultano su questa linea: '
-                'potrebbe riguardarne un\'altra',
+            : declaredCodes.length == 1
+                ? 'La fermata ${declaredCodes.first} indicata da GTT non è '
+                    'su questo percorso.'
+                : 'Le fermate ${declaredCodes.join(", ")} indicate da GTT '
+                    'non sono su questo percorso.',
       );
     }
 
@@ -430,25 +578,28 @@ class DeviationService {
         shape: shape,
         parsed: parsed,
         confidence: Confidence.soloTesto,
-        whyIncomplete: 'l\'avviso non nomina abbastanza vie per '
-            'ricostruire il percorso',
+        whyIncomplete: 'L\'avviso non indica abbastanza vie per disegnare '
+            'il percorso.',
       );
     }
 
     final points = <GeoPoint>[];
     final unresolved = <String>[];
+    // Photon non raggiungibile non e' «via non trovata»: si ritenta.
+    var geocodingInErrore = false;
     for (var i = 0; i < toponyms.length; i++) {
       final t = toponyms[i];
       // Il geocoding e' il passaggio piu' lento: una chiamata per via,
       // con le pause di cortesia verso Photon. Vale la pena dire a che
       // punto e', e quale via si sta cercando.
-      onProgress?.call('ricerca di «$t» (${i + 1}/${toponyms.length})');
+      onProgress?.call('ricerca di «$t»');
       final r = await _geocoder.locate(t,
           near: shape, municipality: parsed.municipality);
       if (r.isUsable) {
         points.add(r.point!);
       } else {
         unresolved.add(t);
+        if (r.status == GeocodeStatus.error) geocodingInErrore = true;
       }
     }
     if (points.length < 2) {
@@ -457,7 +608,8 @@ class DeviationService {
         shape: shape,
         parsed: parsed,
         confidence: Confidence.soloTesto,
-        whyIncomplete: 'non trovate sulla mappa: ${unresolved.join(", ")}',
+        whyIncomplete: 'Vie non trovate sulla mappa: ${unresolved.join(", ")}.',
+        retryable: geocodingInErrore,
       );
     }
 
@@ -506,7 +658,8 @@ class DeviationService {
         parsed: parsed,
         rejoin: rejoin,
         confidence: Confidence.soloTesto,
-        whyIncomplete: 'percorso deviato non tracciabile',
+        whyIncomplete: 'Non è stato possibile calcolare il percorso deviato.',
+        retryable: geocodingInErrore || route.status == RouteBuildStatus.error,
       );
     }
 
@@ -532,12 +685,20 @@ class DeviationService {
           : Confidence.probabile,
       whyIncomplete: route.isUsable && unresolved.isEmpty
           ? null
+          // Frasi per chi legge, non l'elenco delle prove fallite: «lungo
+          // 4,1 km per sostituire 1,2 km (3,4x, max 3x)» e' utile a chi
+          // tara le soglie (lo stampano gli strumenti in tool/), non a chi
+          // aspetta il bus.
           : [
               if (unresolved.isNotEmpty)
-                'non trovate: ${unresolved.join(", ")}',
-              if (!rejoin.isUsable && rejoin.whyNot != null) rejoin.whyNot!,
-              ...route.failures.map((f) => f.message),
-            ].join('; '),
+                'Vie non trovate sulla mappa: ${unresolved.join(", ")}.',
+              if (!rejoin.isUsable) 'Il punto di rientro è incerto.',
+              if (route.failures.isNotEmpty)
+                'Il percorso calcolato non corrisponde del tutto all\'avviso.',
+            ].join(' '),
+      // Una via non trovata perche' Photon non rispondeva potrebbe
+      // completare il percorso al prossimo giro.
+      retryable: geocodingInErrore,
     );
   }
 }

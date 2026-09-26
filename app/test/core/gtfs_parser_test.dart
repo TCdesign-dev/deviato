@@ -71,6 +71,15 @@ void main() {
       expect(index.stops.length, greaterThan(5000));
     }, timeout: long, skip: available ? false : 'GTFS non estratto in data/gtfs');
 
+    test('l elenco di tutte le linee, per cercarle', () async {
+      final tutte = await GtfsParser(directory: dir).allLines();
+      expect(tutte.length, greaterThan(200));
+      // Nell'ordine di GTT, non per nome: la 4 prima della 15.
+      final nomi = tutte.map((l) => l.shortName).toList();
+      expect(nomi.indexOf('4'), lessThan(nomi.indexOf('15')));
+      expect(tutte.firstWhere((l) => l.shortName == '4').isTram, isTrue);
+    }, timeout: long, skip: available ? false : 'GTFS non estratto in data/gtfs');
+
     test('risolve la linea dal nome che usa la gente', () async {
       final index = await GtfsParser(directory: dir).build(['55']);
       expect(index.lineByShortName('55')?.routeId, equals('55U'));
