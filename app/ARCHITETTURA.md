@@ -14,7 +14,12 @@ sostituire con Android nativo, o con uno script) senza toccare la logica.
 Se un file dentro `core/` ha bisogno di Flutter, quel file è nel posto
 sbagliato.
 
+Il calcolo gira nel job su GitHub (`tool/pubblica.dart`, lanciato da
+`.github/workflows/pubblica.yml`); l'app legge i file che pubblica. Lo stesso
+codice di `core/` serve a tutti e due: e' la ragione per cui e' Dart puro.
+
 ```
+tool/pubblica.dart               ← il giro del job: GTFS, avvisi, calcolo, file
 lib/
 ├── core/                        ← Dart puro, zero Flutter
 │   ├── config.dart              ← TUTTE le costanti tarabili, in un posto solo
@@ -26,6 +31,13 @@ lib/
 │   │   └── polyline.dart        ← codifica Google polyline
 │   ├── gtfs/                    ← scarico e indicizzazione del GTFS statico
 │   ├── sources/                 ← una classe per fonte GTT, tutte intercambiabili
+│   ├── llm/                     ← client dei modelli; llm_con_budget: tetto per giro
+│   ├── io/
+│   │   └── formato_pubblicato.dart ← indice, percorsi e stato: il contratto job ↔ app
+│   ├── publish/
+│   │   └── pubblicatore.dart    ← lo stato di tutte le linee, in un giro
+│   ├── text/
+│   │   └── display_names.dart   ← i nomi del GTFS scritti come si leggono
 │   └── pipeline/                ← i passaggi del calcolo, uno per file
 │       ├── line_resolver.dart   ← "55" → 55U   (tabella alias, §4.1)
 │       ├── notice_merge.dart    ← due fonti → un avviso solo, per linea
@@ -33,11 +45,27 @@ lib/
 │       ├── geocoder.dart        ← toponimo → coordinate, VINCOLATO
 │       ├── route_builder.dart   ← vie → polilinea  (Valhalla)
 │       ├── stop_impact.dart     ← quali fermate saltano, quali alternative
+│       ├── closure_summary.dart ← le fermate chiuse lette per tratti, non per avviso
+│       ├── stop_answer.dart     ← «la mia fermata è servita?», per una fermata salvata
+│       ├── line_search.dart     ← cercare fra le linee di GTT, per numero o per via
 │       └── narrator.dart        ← evento → frase in italiano
-├── data/                        ← persistenza, cache, watchlist
+├── data/
+│   ├── fonte_dati.dart          ← i file pubblicati, con copia sul telefono
+│   ├── app_repository.dart      ← linee, stati, fermate salvate, osservazione
+│   ├── settings.dart            ← linee e fermate di chi usa l'app
 │   └── user_location.dart       ← la posizione: plugin Flutter, quindi NON in core/
 └── ui/                          ← schermate
+    ├── theme.dart               ← tema chiaro e scuro, colori di stato misurati
+    ├── line_badge.dart          ← il numero della linea, col colore e il mezzo di GTT
+    ├── home_screen.dart         ← le tue fermate, poi le tue linee; + e scorrimento
+    ├── line_picker.dart         ← il foglio per cercare e aggiungere una linea
+    └── saved_stop_card.dart     ← una fermata salvata, con la sua risposta
 ```
+
+**I colori di stato stanno in `ui/theme.dart`**, non nelle schermate:
+`StatusColors.of(context).ok`, `.warning`, `.info`, `.observed`, con la
+versione per la modalità scura. Un `Colors.green.shade700` scritto in una
+schermata non passa il contrasto e non cambia al buio.
 
 ## Perché è diviso così
 
@@ -75,11 +103,20 @@ smentiscono.
 | `pipeline/geocoder.dart` | fatto — 150/150 sui toponimi veri |
 | `pipeline/route_builder.dart` | fatto — catena dal vivo 3/3 |
 | `pipeline/stop_impact.dart` | fatto |
+| `pipeline/closure_summary.dart` | fatto — provato sulla 10N (16 avvisi) e sulla 68 |
+| `text/display_names.dart` | fatto — sui nomi veri del GTFS |
+| `pipeline/stop_answer.dart` | fatto — provato sulla 10N |
+| `pipeline/line_search.dart` | fatto — sui nomi e capolinea veri |
+| `models/saved_stop.dart` | fatto |
 | `pipeline/rejoin_inference.dart` | fatto — misurato su 50 casi, vedi CLAUDE.md §5 |
 | `sources/vehicles_source.dart` | fatto |
 | `pipeline/vehicle_watch.dart` | fatto — prova dal vivo |
 | `pipeline/route_excursion.dart` | fatto — prova dal vivo |
-| `data/` | fatto — impostazioni, orchestrazione, osservazione, posizione |
+| `data/` | fatto — dati pubblicati con copia locale, fermate, osservazione, posizione |
+| `io/formato_pubblicato.dart` | fatto — provato andata e ritorno in JSON |
+| `publish/pubblicatore.dart` | fatto — giro completo provato con un modello finto |
+| `llm/llm_con_budget.dart` | fatto |
+| `tool/pubblica.dart` | fatto — giro vero in locale il 26/09: 216 linee, 372 avvisi, 3,9 MB |
 | `ui/` | fatto — 3 schermate, mappa, striscia dell'osservazione |
 | `core/deviation_service.dart` | fatto — la facciata |
 | `core/gtfs/gtfs_downloader.dart` | fatto — scarico ed estrazione |

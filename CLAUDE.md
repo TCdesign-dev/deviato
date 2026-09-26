@@ -17,6 +17,8 @@ docs/FASE-0-RISULTATI   le misure sulle fonti, 31/07/2026
 scripts/*.py            Python. Misure e validazione, non fanno parte dell'app
 app/                    l'app Flutter (iOS + Android)
 app/ARCHITETTURA.md     struttura dei moduli e stato
+app/tool/pubblica.dart  il giro del job che calcola per tutti
+.github/workflows/      il job su GitHub Actions che lo lancia
 validation/             snapshot GTFS giornalieri (test del Segnale A)
 ```
 
@@ -61,8 +63,20 @@ Dice se la deviazione è in corso o — cosa che nessun'altra fonte sa — se è
 l'unico dato del sistema a non venire da un testo: non è dedotto da come
 GTT ha scritto l'avviso, è quello che i bus hanno fatto.
 
-**Nessun server.** GTFS e calcoli sul telefono; geocoding con Photon,
-routing con Valhalla FOSSGIS, LLM via OpenRouter. Tutti servizi pubblici.
+**Il calcolo sta in un job su GitHub, non sul telefono.** Dal 26/09/2026
+`.github/workflows/pubblica.yml` esegue `app/tool/pubblica.dart` ogni venti
+minuti: scarica il GTFS del giorno, legge gli avvisi, calcola lo stato di
+**tutte** le linee e pubblica tre tipi di file JSON sul ramo `gh-pages`
+(`indice.json`, `percorsi/<linea>.json`, `stato/<linea>.json`, formato in
+`core/io/formato_pubblicato.dart`). L'app li scarica — qualche KB — e ne
+tiene una copia per quando non c'è rete. Niente chiavi sul telefono, niente
+24 MB di orari, niente quota per utente: le richieste al modello dipendono
+dagli avvisi nuovi di GTT (una ventina al giorno), non da quante persone
+usano l'app. Geocoding con Photon, routing con Valhalla FOSSGIS, LLM via
+OpenRouter: li chiama solo il job.
+
+Resta sul telefono l'**osservazione dei mezzi**, che legge il feed di GTT
+direttamente.
 
 ## 3. I fatti misurati (31/07/2026)
 
@@ -87,7 +101,7 @@ Non sono stime. Se li rimetti in discussione, rimisurali.
 | `active_period.start` negli alert | **161 su 161 nel passato** | idem |
 | Variazioni pubblicate da **entrambe** le fonti | **31 coppie** su 189 avvisi | `check_merge_offline.dart` |
 | Di queste, quelle in cui la data d'inizio cambia | **17** (fino a 3 mesi) | idem |
-| Test | **203** | `flutter test` |
+| Test | **302** | `flutter test` |
 | Somiglianza fra le vie nominate: coppie vere | **0,67 – 1,00** e ≥3 vie | idem |
 | Idem, coppie false | **0,67 con 2 vie**, o 3 vie a **0,38** | idem |
 | Data d'inizio estraibile a regex dal testo | **40%** — troppo poco | idem |
@@ -262,6 +276,87 @@ Ognuna di queste è costata tempo. Sono tutte silenziose: non danno errore.
   due volte vicino alla stessa via: senza il vincolo si sceglie il
   passaggio già fatto. Con la direzione sbagliata la deduzione finisce a
   2 km — verificato, e la guardia l'ha rifiutata invece di piazzarla lì.
+- **Ogni avviso sa solo delle sue fermate chiuse.** Le alternative si
+  calcolavano avviso per avviso. Il 26/09 GTT ha pubblicato per la 10N
+  **sedici avvisi, uno per fermata**, e per Verolengo le prime due
+  alternative proposte erano Largo Giachino Sud e Brin: chiuse anche
+  loro, dagli avvisi accanto. Ora `DeviationReport.reconcileAlternatives`
+  le rifà guardando la linea intera, anche sugli esiti già salvati.
+- **Sedici avvisi non sono sedici notizie.** Per chi aspetta il bus erano
+  una cosa sola: nove fermate chiuse di fila in una direzione. Il
+  dettaglio ora apre con `ClosureSummary` (per tratti, con le fermate
+  aperte ai capi) e raccoglie gli avvisi in una voce chiusa quando sono
+  più di tre. Con tratti sparsi (la 68: quattro verso Frejus) si va per
+  righe, una per tratto: una striscia di ventisette pallini non si legge.
+- **Una schermata di caricamento sopra la lista nasconde tutto.** «Controlla
+  tutte» copriva la home: spariti i risultati già pronti, nessun modo di
+  fermarsi, e col modello gratuito durava dieci minuti (sei per la sola
+  10N). Ora la lista resta, ogni riga dice a che punto è e da quanto, e
+  in fondo c'è il conto con «Annulla». Il testo sui 24 MB compariva a
+  ogni controllo: ora solo durante il download vero.
+- **Il GTFS dice già tipo di mezzo, colore e ordine delle linee.**
+  `route_type`, `route_color`, `route_sort_order`: l'app li ignorava,
+  metteva tutte le etichette dello stesso azzurro e ordinava per nome (la
+  4 dopo la 15). Il colore del *testo* di GTT invece non va usato:
+  `route_text_color` è 0000FF, blu su arancio, 3,3:1.
+- **I colori scritti a mano non passano il contrasto e non cambiano al
+  buio.** `orange.shade800` sullo sfondo dell'app fa 2,93:1. Stanno in
+  `ui/theme.dart`, misurati in chiaro e in scuro.
+- **Una `ShaderMask` col nero colora, non sfuma.** Il testo di GTT
+  richiuso usava un gradiente nero: in chiaro non si notava, al buio il
+  testo diventava nero su nero. Per sfumare serve `BlendMode.dstIn`, che
+  usa solo l'opacità.
+- **La spaziatura fra lettere di Material 3 è pensata per Roboto.** Su
+  iOS allarga il San Francisco e le scritte piccole sembrano spaziate a
+  mano: il tema la azzera.
+- **Una linea non risponde per la fermata.** «16 fermate non servite»
+  sulla 10N è vero, ma chi aspetta a Mortara non sa se c'è anche la sua.
+  Le **fermate salvate** (linea + direzione + palo, `SavedStop`) stanno in
+  cima alla home con la loro risposta (`StopAnswer`): servita, non servita
+  fino al…, dove salire. Si salvano toccando la fermata sulla mappa del
+  dettaglio. La direzione conta: le banchine opposte hanno id diversi, e
+  una deviazione è quasi sempre per un senso di marcia solo.
+- **Aggiungere una linea non deve ricaricare tutto, toglierla non deve
+  cancellare le altre.** L'aggiunta passava dalle impostazioni, col nome
+  scritto a memoria, e rileggeva gli orari di tutte le linee dietro una
+  schermata a pieno schermo; la rimozione svuotava la cache di TUTTE —
+  togliere la 65 costava la ricontrollata della 10N, sedici richieste
+  delle cinquanta. Ora si cerca dalla home (`LineSearch`, per numero o per
+  via, sulle 216 linee di `routes.txt`), si leggono gli orari della sola
+  linea nuova, e si toglie scorrendo con «Annulla», che rimette anche
+  l'esito e le fermate salvate.
+- **`Dismissible` pretende che la riga sparisca subito.** Se al primo
+  aggiornamento dello schermo la linea tolta è ancora nell'elenco, Flutter
+  si ferma con un errore. Per questo `removeLine` toglie dalla memoria
+  *prima* di qualunque `await` su disco.
+- **Un avviso non letto non vuol dire «fermate servite».** Con la quota
+  esaurita l'avviso della 7 («sospesa domenica 27») restava solo testo, e
+  la home diceva «Deviata, fermate servite»: la riga cadeva nel caso
+  «avvisi ma nessuna fermata saltata», che però vale solo se l'avviso è
+  stato letto. Ora dice «Avviso in corso», e una fermata salvata su quella
+  direzione risponde «Avviso in corso: controlla i dettagli», non
+  «Servita».
+- **La quota si consumava tre volte più del necessario, e un
+  aggiornamento fallito cancellava quelli riusciti.** Tre difetti, tutti
+  vecchi, visti insieme il 26/09: (1) ogni avviso si leggeva **una volta
+  per direzione** — la 10N, sedici avvisi, costava trentadue richieste
+  delle cinquanta; (2) ogni «Aggiorna» **rileggeva anche gli avvisi
+  identici**; (3) un aggiornamento a quota esaurita **sostituiva** gli esiti
+  buoni (15, 55, 68) con «non letto». Ora il testo si legge una volta per
+  avviso, un avviso uguale (testo, date, direzioni) non si rilegge, e i
+  fallimenti che passano — quota, rete, servizi giù — sono marcati
+  `retryable` e si ritentano al giro dopo. Gli esiti salvati prima di
+  questa correzione non hanno il segnale: si ritenta, una volta, ciò che
+  non era verificato.
+- **Un file che cambia a ogni giro riscrive tutto il sito.** Lo stato di
+  una linea non contiene l'ora del giro: quella sta solo nell'indice. Così
+  `pubblica.dart` riscrive un file solo quando il contenuto cambia, e il
+  secondo giro di prova ha cambiato zero file su 432. Il ramo `gh-pages`
+  tiene un commit solo, riscritto ogni volta (`--amend` e `push -f`): la
+  storia dei dati non serve e farebbe crescere il repository di continuo.
+- **Il job gira su un server che non sta a Torino.** Le date degli avvisi
+  vanno lette in ora di Torino: nel workflow c'è `TZ: Europe/Rome`, e nei
+  file le date si scrivono in UTC con la «Z» e si rileggono in ora locale.
 
 ## 6. Le regole di condotta del sistema
 
@@ -284,13 +379,38 @@ In pratica:
 - Gli orari si dicono in **ora locale**: "mezzanotte UTC" all'una di notte
   sembra una bugia.
 
+### Come si scrivono i testi dell'app
+
+Sono testi da applicazione, non spiegazioni: brevi, al presente, con il
+«tu» negli inviti («Aggiungi le tue linee»), mai in prima persona. Le
+etichette senza punto finale, le frasi di dettaglio con il punto. Il
+perché delle scelte sta nei commenti del codice, non sullo schermo.
+
+| Si dice | Non si dice |
+|---|---|
+| **Aggiorna**, Aggiornamento…, aggiornata alle 17:22 | controlla, ricontrolla, controllata |
+| Tocca per aggiornare (linea mai aggiornata) | Da controllare |
+| **fermata non servita** | saltata, chiusa (in interfaccia) |
+| sospesa da GTT (solo per le fermate dichiarate) | — |
+| **Mezzi in tempo reale**, Segui i mezzi, Interrompi | osservazione, Guarda adesso, Basta così |
+| Rimuovi, Linea 65 rimossa | Togli, Tolta la 65 |
+| avviso di GTT, Testo originale | nomi delle fonti (feed, tabella variazioni) |
+| Verificato · Da confermare · Solo il testo di GTT | ricostruita, geometria, validazione |
+| In vigore dal 12/10 · fra 16 giorni | Non ancora in vigore — comincia… |
+
+Nessun nome tecnico sullo schermo — LLM, GTFS, Valhalla, Photon, soglie,
+«max 3x» — salvo i crediti nelle impostazioni, che la licenza richiede
+(«© contributori di OpenStreetMap»). Gli errori dicono cosa è successo e
+cosa fare («Nessuna connessione. Riprova quando sei online.»); il testo
+dell'eccezione va nel log, mai sullo schermo.
+
 ## 7. Cosa NON fa (ancora)
 
 Per non fraintendere quello che c'è in `config.dart`:
 
-- **niente notifiche.** iOS non regge il polling in background (lezione già
-  pagata su un altro progetto). Servirebbe un cron esterno — GitHub Actions
-  è gratis e basta.
+- **niente notifiche.** Il calcolo periodico ora c'è (il job su GitHub),
+  ma nessuno manda le notifiche: servirebbe un servizio push. È il passo
+  naturale successivo.
 - **non è mai stata compilata per Android.** Il codice è condiviso e la
   configurazione è verificata a mano (Java 17 già impostato, i permessi di
   posizione nel manifest, `geolocator` che segue il `minSdk` di Flutter),
@@ -310,7 +430,7 @@ Per non fraintendere quello che c'è in `config.dart`:
 ## 8. Come si lavora
 
 ```bash
-cd app && flutter test          # 234 test, devono passare tutti
+cd app && flutter test          # 302 test, devono passare tutti
 cd app && flutter analyze       # deve essere pulito
 ```
 
@@ -357,11 +477,21 @@ facendo gli screenshot troppo presto.
   `data/` e non in `core/`.
 - Photon e Valhalla sono **servizi di cortesia**: pause fra le chiamate,
   User-Agent identificabile, e sempre un ripiego se cadono.
-- La chiave OpenRouter sta **sul dispositivo**. Per un'app personale va
-  bene; mettere un tetto di spesa e non pubblicarla mai così com'è.
+- La chiave OpenRouter sta **solo nei segreti di GitHub Actions**
+  (`OPENROUTER_API_KEY`), mai nel codice né sul telefono. Le versioni
+  precedenti la salvavano nelle preferenze: `Settings.load` la cancella.
+- **Licenza dei dati.** CC BY 4.0 sul portale del Comune, ma la pagina di GTT
+  (`gtt_gtfs_license.html`) dice «non-commercial use only»: l'app resta
+  gratuita, senza pubblicità né acquisti. Attribuzione obbligatoria: «Data
+  source: GTT S.p.A. – Gruppo Torinese Trasporti» con link — sta nelle
+  Informazioni, in fondo al dettaglio e nell'`indice.json`.
+- **La tabella `/cms/variazioni` è spenta nel job** (`USA_TABELLA_VARIAZIONI`):
+  non è un dato aperto, e le note legali del sito proteggono i contenuti. Si
+  accende quando GTT lo autorizza. Senza, le date d'inizio vengono solo dal
+  feed, che dà l'ora di pubblicazione.
 - Le 34 fixture annotate in `tests/fixtures/annotations.json` **le ho
   scritte io, non un umano**: vanno riviste prima di usarle come verità.
 
 ---
 
-*Ultimo aggiornamento: 1 agosto 2026. 234 test, 51 commit.*
+*Ultimo aggiornamento: 26 settembre 2026. 302 test.*

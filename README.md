@@ -31,8 +31,10 @@ la mia fermata è ancora servita?**
   annuncia quando cominciano ma non quando smettono.
 - 📅 **Separa ciò che è in corso da ciò che comincerà.** Il 19 % delle
   variazioni pubblicate non è ancora in vigore.
-- 📵 **Nessun server.** Orari e calcoli stanno sul telefono. La tua
-  posizione non lascia il dispositivo.
+- ☁️ **Calcola una volta per tutti.** Un job su GitHub Actions legge gli
+  avvisi ogni venti minuti e pubblica i risultati: l'app li scarica in un
+  secondo, senza chiavi né account. La tua posizione non lascia il
+  dispositivo.
 - 🤐 **Non inventa mai.** Se non riesce a ricostruire un percorso lo
   dichiara e ti mostra il testo originale di GTT.
 
@@ -82,13 +84,35 @@ git clone https://github.com/TCdesign-dev/gtt-deviazioni.git
 cd gtt-deviazioni/app && flutter pub get && flutter run
 ```
 
-Al primo avvio scarica il GTFS di GTT (24 MB) e lo riusa per una settimana.
-Aggiungi le linee che ti interessano e tocca **Controlla**.
+Aggiungi le linee che ti interessano con **+** (si cercano per numero o per
+via). Poi apri una linea, tocca la fermata che usi sulla mappa e salvala: la
+home ti dirà subito se è servita.
 
-**Serve una chiave [OpenRouter](https://openrouter.ai/keys)** per leggere il
-testo degli avvisi: si incolla nelle impostazioni e resta **solo sul
-dispositivo**. Il modello predefinito è gratuito, con cinquanta richieste al
-giorno.
+L'app legge i dati pubblicati dal job su GitHub Pages: non serve nessuna
+chiave. Per provarla contro un giro lanciato sul computer:
+
+```bash
+cd app && dart run tool/pubblica.dart --uscita ../sito/v1 --gtfs ../.gtfs
+python3 -m http.server 8765 --directory ../sito &
+flutter run --dart-define=DATI_URL=http://localhost:8765/v1/
+```
+
+### Il job su GitHub
+
+[`.github/workflows/pubblica.yml`](.github/workflows/pubblica.yml) esegue
+[`app/tool/pubblica.dart`](app/tool/pubblica.dart) ogni venti minuti di
+giorno e ogni ora di notte, e pubblica il risultato sul ramo `gh-pages`. Va
+configurato una volta:
+
+1. **Settings › Pages**: «Deploy from a branch», ramo `gh-pages`, cartella
+   `/`. Il ramo lo crea il primo giro.
+2. **Settings › Secrets and variables › Actions**: il segreto
+   `OPENROUTER_API_KEY`. Senza, si pubblicano solo le fermate sospese che GTT
+   scrive col numero, e gli altri avvisi restano «in lettura».
+
+Le richieste al modello dipendono dagli avvisi **nuovi** di GTT — una
+ventina al giorno, misurato il 26/09/2026 — e non da quante persone usano
+l'app: un avviso già letto e non cambiato non si rilegge.
 
 ### Compilarla
 
@@ -120,9 +144,13 @@ Se qualcosa non compila, [aprire una issue](https://github.com/TCdesign-dev/gtt-
 
 ### 🔴 Fermate non servite e alternative
 
-L'output più utile, e quello che GTT non fornisce quasi mai. Le alternative
-privilegiano le fermate ancora servite dalla **stessa linea**, così da non
-richiedere un cambio di mezzo.
+L'output più utile, e quello che GTT non fornisce quasi mai. Le fermate
+chiuse sono riassunte **per tratti** e non avviso per avviso: quando GTT
+pubblica un avviso per ogni fermata, sedici avvisi diventano «nove fermate
+chiuse di fila, sali a Vibò o a Statuto Nord». Le alternative privilegiano
+le fermate ancora servite dalla **stessa linea**, così da non richiedere un
+cambio di mezzo, ed escludono quelle chiuse da qualunque altro avviso della
+linea.
 
 ### 🌐 Mappa
 
@@ -145,10 +173,10 @@ sistema che non viene da un testo di GTT.
 Il 19 % delle variazioni pubblicate non è ancora in vigore. L'app le tiene
 separate — *«comincia dopodomani»* — invece di segnalarle come attive.
 
-### ⚡ Controllo per singola linea
+### ⭐ Le tue fermate
 
-La quota gratuita è di cinquanta richieste al giorno: ricontrollare tutta la
-watchlist per sapere di una linea sola sarebbe uno spreco misurabile.
+Salvi la fermata che usi — linea, direzione, palo — e la home ti risponde
+per quella: servita, non servita fino al…, e dove salire invece.
 
 ### 📄 Testo originale sempre visibile
 
@@ -226,7 +254,17 @@ sostituibile — con un'altra UI, con uno script, con un'implementazione
 nativa — senza toccare il calcolo. Se un file di `core/` avesse bisogno di
 Flutter, quel file sarebbe nel posto sbagliato.
 
+Il calcolo gira in un posto solo: il job su GitHub. L'app legge i risultati.
+
 ```
+avvisi GTT ─► job su GitHub Actions (ogni 20 min) ─► gh-pages: indice.json,
+                                                     percorsi/, stato/
+                                                          │
+                                         app ◄────────────┘  (qualche KB)
+```
+
+```
+app/tool/pubblica.dart          ← il giro del job: scarica, calcola, scrive
 app/lib/
 ├── core/                       ← Dart puro, zero dipendenze da Flutter
 │   ├── config.dart             ← tutte le soglie tarabili, in un posto solo
@@ -237,7 +275,9 @@ app/lib/
 │   │   └── polyline.dart       ← codifica Google polyline
 │   ├── gtfs/                   ← scarico e indicizzazione del GTFS statico
 │   ├── sources/                ← una classe per fonte GTT, intercambiabili
-│   ├── llm/                    ← client OpenAI-compatibile
+│   ├── llm/                    ← client OpenAI-compatibile, con tetto di spesa
+│   ├── io/formato_pubblicato.dart ← il formato dei file fra job e app
+│   ├── publish/pubblicatore.dart  ← lo stato di tutte le linee, in un giro
 │   └── pipeline/               ← un passaggio del calcolo per file
 │       ├── notice_merge.dart   ← le due fonti → un avviso solo
 │       ├── line_resolver.dart  ← «55» → 55U (tabella alias)
@@ -246,8 +286,9 @@ app/lib/
 │       ├── route_builder.dart  ← vie → polilinea (Valhalla) + validazioni
 │       ├── rejoin_inference.dart ← dove rientra, quando GTT non lo dice
 │       ├── stop_impact.dart    ← quali fermate saltano, e le alternative
+│       ├── closure_summary.dart ← le fermate chiuse lette per tratti
 │       └── vehicle_watch.dart  ← osservazione dei mezzi in tempo reale
-├── data/                       ← persistenza, orchestrazione, posizione
+├── data/                       ← dati pubblicati con copia locale, preferenze, posizione
 └── ui/                         ← schermate e mappa
 ```
 
@@ -269,11 +310,11 @@ fuori-rotta (50 m misurati contro 80 stimati) e il buffer del geocoding
 |---|---|---|
 | GTFS statico GTT | percorsi, fermate, orari | rigenerato ogni giorno alle 04:00, CC-BY |
 | `alerts.aspx` (GTFS-RT) | avvisi | porta il `route_id` canonico nel 96,7 % dei casi |
-| `/cms/variazioni` (HTML) | avvisi | unica fonte con le **date d'inizio reali** |
+| `/cms/variazioni` (HTML) | avvisi | unica fonte con le **date d'inizio reali**; **spenta** nel job finché GTT non ne autorizza l'uso |
 | `vehicle_position.aspx` | posizioni dei mezzi | si spegne di notte, il servizio no |
 | [Photon](https://photon.komoot.io/) | geocoding | nessuna chiave richiesta |
 | [Valhalla](https://valhalla1.openstreetmap.de/) (FOSSGIS) | routing `costing: bus` | polilinee a precisione 6 |
-| [OpenRouter](https://openrouter.ai) | estrazione dal testo | chiave dell'utente, sul dispositivo |
+| [OpenRouter](https://openrouter.ai) | estrazione dal testo | chiave del job, segreto di GitHub Actions |
 
 L'OTP di GTT — che il progetto originale indicava come fonte primaria — è
 stato scartato dopo verifica: espone un build più vecchio, i cui `trip_id`
@@ -283,10 +324,9 @@ non esistono nel feed corrente, e a cui mancano sette linee.
 
 ### 🔕 Non ti avvisa da sola: devi aprirla tu
 
-L'app controlla GTT solo quando gliela chiedi. Non c'è modo di farlo in
-sottofondo: iOS chiude le app che ci provano, e l'unica alternativa
-sarebbe un server sempre acceso — che è proprio la cosa che questo
-progetto evita, per non dover dipendere da niente e da nessuno.
+Il job su GitHub calcola ogni venti minuti, ma l'app non manda notifiche:
+i dati si vedono aprendola. Le notifiche sono il passo naturale successivo,
+ora che il calcolo non sta più sul telefono.
 
 ### 📏 Le distanze a piedi sono in linea d'aria
 
@@ -303,19 +343,19 @@ si fermano prima, altre passano da una via invece che da un'altra. L'app
 usa quello più frequente. Se una deviazione riguardasse **soltanto** una
 di quelle corse minori, l'app la calcolerebbe come se valesse per tutte.
 
-### 📆 Le date di inizio le dà una fonte sola
+### 📆 Le date di inizio non sono sempre quelle vere
 
-GTT pubblica gli avvisi in due posti, e in uno dei due la data di inizio
-non è quella vera: è l'ora in cui l'avviso è stato scritto. L'abbiamo
-verificato su 161 avvisi, e in 161 casi su 161 era così. L'app prende
-quindi le date dall'altra fonte, la tabella del sito, che le ha in una
-colonna apposta. Quando una variazione compare **solo** nel primo posto,
-la sua data d'inizio resta inaffidabile.
+GTT pubblica gli avvisi in due posti, e nel feed dei dati aperti la data di
+inizio non è quella vera: è l'ora in cui l'avviso è stato scritto
+(verificato su 161 avvisi su 161). Le date vere stanno nella tabella del
+sito di GTT, che però non è pubblicata come dato aperto: il job non la usa
+finché GTT non lo autorizza. Nel frattempo una variazione annunciata in
+anticipo può comparire come già in corso.
 
 ## 🧪 Sviluppo
 
 ```bash
-cd app && flutter test      # 234 test
+cd app && flutter test      # 302 test
 cd app && flutter analyze
 ```
 
@@ -326,6 +366,7 @@ sul GTFS si saltano da soli se i file non ci sono.
 Strumenti di misura, che interrogano i servizi veri:
 
 ```bash
+cd app && dart run tool/pubblica.dart --uscita ../sito/v1 --gtfs ../.gtfs  # un giro del job
 cd app && dart run tool/check_pipeline_live.dart     # catena completa
 cd app && dart run tool/check_merge_offline.dart     # unione delle fonti
 ```
@@ -376,15 +417,17 @@ progetto che credo valga di più.
 
 | | |
 |---|---|
-| 🚌 Dati di trasporto | **GTT S.p.A.**, [open data](https://www.gtt.to.it/cms/openday/open-data), **CC-BY** — l'attribuzione è obbligatoria |
+| 🚌 Dati di trasporto | **GTT S.p.A. – Gruppo Torinese Trasporti**, [dati aperti](https://www.gtt.to.it/gtt_gtfs_license.html): CC BY 4.0 sul [portale del Comune](https://aperto.comune.torino.it/dataset/feed-gtfs-trasporti-gtt), **solo uso non commerciale** secondo la licenza di GTT. L'attribuzione è obbligatoria, e l'app non ha pubblicità né acquisti |
 | 🗺️ Cartografia | **OpenStreetMap**, ODbL |
 | 🧭 Routing | **Valhalla** ospitato da [FOSSGIS](https://valhalla1.openstreetmap.de/) |
 | 📍 Geocoding | **[Photon](https://photon.komoot.io/)** di Komoot |
 
-Photon e Valhalla sono servizi offerti gratuitamente alla comunità. L'app
-introduce pause fra le chiamate, si identifica con uno User-Agent
-riconoscibile e prevede sempre un comportamento di ripiego. **Un uso
-intensivo richiede un'istanza propria.**
+Photon e Valhalla sono servizi offerti gratuitamente alla comunità. Li
+chiama solo il job, per gli avvisi nuovi: qualche decina di richieste al
+giorno, con pause fra le chiamate, uno User-Agent riconoscibile e
+l'intestazione `X-Client-Id` che FOSSGIS chiede alle app pubblicate.
+
+DeviaTo non è un'app di GTT e non è collegata a GTT.
 
 Il codice è distribuito con licenza **MIT** — vedi [`LICENSE`](LICENSE). La
 licenza riguarda il codice, non i dati.
