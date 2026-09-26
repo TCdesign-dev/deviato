@@ -48,9 +48,16 @@ Future<void> main(List<String> args) async {
   final env = Platform.environment;
 
   // 1. Gli orari di oggi.
+  // Una riga per fase, non una per blocco scaricato: il registro di
+  // GitHub ne mostrava decine uguali.
+  String? ultimaFase;
   await GtfsDownloader(directory: gtfsDir).ensureAvailable(
     maxAge: const Duration(hours: 20),
-    onProgress: (p, f) => _log('$p ${(f * 100).round()}%'),
+    onProgress: (p, f) {
+      if (p == ultimaFase) return;
+      ultimaFase = p;
+      _log(p);
+    },
   );
   final parser = GtfsParser(directory: gtfsDir);
   final index = await parser.build(await parser.allShortNames());

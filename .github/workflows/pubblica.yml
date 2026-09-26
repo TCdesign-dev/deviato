@@ -80,6 +80,11 @@ jobs:
           USA_TABELLA_VARIAZIONI: ${{ vars.USA_TABELLA_VARIAZIONI }}
         run: dart run tool/pubblica.dart --uscita ../sito/v1 --gtfs ../.gtfs
 
+      # Il sito dell'app (web/) sta accanto ai dati: la pagina principale
+      # e la privacy all'indirizzo di base, i dati sotto v1/.
+      - name: Sito
+        run: cp -R web/. sito/
+
       # Un solo commit, riscritto a ogni giro: la storia dei dati non serve
       # a nessuno e farebbe crescere il repository di continuo.
       - name: Pubblicazione
