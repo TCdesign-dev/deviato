@@ -431,11 +431,15 @@ Per non fraintendere quello che c'è in `config.dart`:
   naturale successivo.
 - **su Android è stata provata solo sul telefono virtuale** (27/09/2026,
   API 36): dati, aggiunta di una linea, mappa. Mai su un telefono vero,
-  mai la posizione né i mezzi in tempo reale. La build definitiva è ancora
-  firmata con la chiave di prova: per il Play Store servono un AAB e una
-  chiave vera. Java 17 è quello di Temurin (`flutter config --jdk-dir`);
-  `cmdline-tools` manca ancora, e `flutter doctor` se ne lamenta, ma per
-  compilare non serve.
+  mai la posizione né i mezzi in tempo reale. Java 17 è quello di Temurin
+  (`flutter config --jdk-dir`). La chiave per il Play Store sta in
+  `~/deviato-upload.jks`, e `android/key.properties` (escluso da git) dice
+  dove e con che password: senza quel file si firma con la chiave di prova.
+  **`flutter build appbundle` finisce con «failed to strip debug symbols»
+  ma l'AAB è buono**: le librerie sono alleggerite (verificato con `file`)
+  e i simboli stanno a parte in `BUNDLE-METADATA`. È il controllo di
+  Flutter a fallire, perché usa `apkanalyzer` di `cmdline-tools`, che qui
+  manca.
 - **distanze a piedi in linea d'aria**, non reali. L'interfaccia lo dichiara.
 - **dentro una direzione usa solo la variante principale.** Una deviazione
   che riguardasse la sola corsa limitata verrebbe calcolata sul percorso
