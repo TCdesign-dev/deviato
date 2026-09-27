@@ -259,11 +259,17 @@ void main() {
     await tester.tap(find.byTooltip('Mappa a tutto schermo'));
     await tester.pumpAndSettle();
 
-    // Il pannello in basso: il riassunto e il pulsante dei mezzi, e la
-    // mappa col pulsante per inquadrare tutto il percorso.
+    // I comandi della mappa con la scritta, il pulsante dei mezzi fra
+    // loro; nel pannello il riassunto, e «Più dettagli» per aprirlo.
+    expect(find.text('Tutta la linea'), findsOneWidget);
     expect(find.text('Segui i mezzi'), findsOneWidget);
-    expect(find.byTooltip('Inquadra tutto il percorso'), findsOneWidget);
+    expect(find.text('Dove sono'), findsOneWidget);
+    expect(find.text('Più dettagli'), findsOneWidget);
     expect(find.textContaining('1 fermata non servita'), findsWidgets);
+
+    await tester.tap(find.text('Più dettagli'));
+    await tester.pumpAndSettle();
+    expect(find.text('Meno dettagli'), findsOneWidget);
 
     await tester.tap(find.byTooltip('Indietro'));
     await tester.pumpAndSettle();

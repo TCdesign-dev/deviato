@@ -46,6 +46,9 @@ class LineMap extends StatefulWidget {
     this.selection,
     this.onlyDirection,
     this.inset = EdgeInsets.zero,
+    this.onToggleWatch,
+    this.watching = false,
+    this.watchCount = 0,
   });
 
   final LineStatus status;
@@ -76,6 +79,14 @@ class LineMap extends StatefulWidget {
   /// il pannello in basso della mappa a tutto schermo. L'inquadratura e i
   /// comandi ne tengono conto.
   final EdgeInsets inset;
+
+  /// A tutto schermo: segui i mezzi, o smetti. Il pulsante sta con gli
+  /// altri comandi della mappa, perche' i mezzi compaiono li'.
+  final VoidCallback? onToggleWatch;
+  final bool watching;
+
+  /// Quanti mezzi si vedono adesso, per dirlo sul pulsante.
+  final int watchCount;
 
   /// I mezzi osservati adesso, se un'osservazione e' in corso o appena
   /// conclusa. Si disegnano sopra tutto il resto: sono la cosa che si
@@ -240,6 +251,54 @@ class _LineMapState extends State<LineMap> {
     _map.fitCamera(CameraFit.bounds(bounds: b, padding: _margine));
   }
 
+  /// I comandi a tutto schermo: con la scritta, uno sotto l'altro.
+  ///
+  /// L'app la usano anche persone che non sono cresciute coi telefoni: un
+  /// cerchio con un'icona va interpretato, «Dove sono» no. Nel dettaglio
+  /// la mappa e' piccola e restano i pulsanti tondi.
+  Widget _comandiConScritta() {
+    final seguendo = _locationSub != null;
+    final n = widget.watchCount;
+    // Tutti larghi uguale: una colonna frastagliata sembra disordinata, e
+    // pulsanti allineati si leggono come un gruppo.
+    return IntrinsicWidth(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _Comando(
+            icon: Icons.zoom_out_map,
+            testo: 'Tutta la linea',
+            onPressed: _fitRoute,
+          ),
+          if (widget.onToggleWatch != null) ...[
+            const SizedBox(height: 10),
+            _Comando(
+              icon: widget.watching
+                  ? Icons.stop_circle_outlined
+                  : Icons.visibility_outlined,
+              testo: !widget.watching
+                  ? 'Segui i mezzi'
+                  : n == 0
+                  ? 'Cerco i mezzi · Interrompi'
+                  : '$n ${n == 1 ? "mezzo" : "mezzi"} · Interrompi',
+              attivo: widget.watching,
+              onPressed: widget.onToggleWatch!,
+            ),
+          ],
+          const SizedBox(height: 10),
+          _Comando(
+            icon: seguendo ? Icons.my_location : Icons.location_searching,
+            testo: seguendo ? 'Nascondi dove sono' : 'Dove sono',
+            attivo: seguendo,
+            busy: _locating,
+            onPressed: _showMe,
+          ),
+        ],
+      ),
+    );
+  }
+
   /// Il margine dell'inquadratura: un po' d'aria, piu' lo spazio coperto.
   EdgeInsets get _margine => const EdgeInsets.all(28) + widget.inset;
 
@@ -359,13 +418,13 @@ class _LineMapState extends State<LineMap> {
                 for (final i in mostrate)
                   Polyline(
                     points: directions[i].points,
-                    strokeWidth: 4,
+                    strokeWidth: Cartina.spessorePercorso,
                     color: cartina.direzione(i),
                   ),
                 for (final d in deviations)
                   Polyline(
                     points: d,
-                    strokeWidth: 6,
+                    strokeWidth: Cartina.spessoreDeviazione,
                     color: cartina.deviazione,
                   ),
                 // Il tratto che i mezzi hanno percorso DAVVERO fuori
@@ -375,7 +434,7 @@ class _LineMapState extends State<LineMap> {
                 if (osservato.length > 1)
                   Polyline(
                     points: osservato,
-                    strokeWidth: 6,
+                    strokeWidth: Cartina.spessoreDeviazione,
                     color: cartina.osservato,
                   ),
               ],
@@ -449,37 +508,39 @@ class _LineMapState extends State<LineMap> {
         Positioned(
           right: 10,
           bottom: 10 + widget.inset.bottom,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Nel dettaglio la mappa e' piccola: il pulsante la
-              // apre. A tutto schermo torna a inquadrare il percorso.
-              if (widget.onOpenFullScreen != null)
-                _MapButton(
-                  icon: Icons.open_in_full,
-                  tooltip: 'Mappa a tutto schermo',
-                  onPressed: widget.onOpenFullScreen!,
-                )
-              else
-                _MapButton(
-                  icon: Icons.zoom_out_map,
-                  tooltip: 'Inquadra tutto il percorso',
-                  onPressed: _fitRoute,
+          child: widget.fullScreen
+              ? _comandiConScritta()
+              : Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Nel dettaglio la mappa e' piccola: il pulsante la
+                    // apre. A tutto schermo torna a inquadrare il percorso.
+                    if (widget.onOpenFullScreen != null)
+                      _MapButton(
+                        icon: Icons.open_in_full,
+                        tooltip: 'Mappa a tutto schermo',
+                        onPressed: widget.onOpenFullScreen!,
+                      )
+                    else
+                      _MapButton(
+                        icon: Icons.zoom_out_map,
+                        tooltip: 'Inquadra tutto il percorso',
+                        onPressed: _fitRoute,
+                      ),
+                    const SizedBox(height: 8),
+                    _MapButton(
+                      icon: _locationSub != null
+                          ? Icons.my_location
+                          : Icons.location_searching,
+                      tooltip: _locationSub != null
+                          ? 'Non seguire la mia posizione'
+                          : 'La mia posizione',
+                      active: _locationSub != null,
+                      busy: _locating,
+                      onPressed: _showMe,
+                    ),
+                  ],
                 ),
-              const SizedBox(height: 8),
-              _MapButton(
-                icon: _locationSub != null
-                    ? Icons.my_location
-                    : Icons.location_searching,
-                tooltip: _locationSub != null
-                    ? 'Non seguire la mia posizione'
-                    : 'La mia posizione',
-                active: _locationSub != null,
-                busy: _locating,
-                onPressed: _showMe,
-              ),
-            ],
-          ),
         ),
       ],
     );
@@ -915,8 +976,8 @@ class _Legend extends StatelessWidget {
     mainAxisSize: MainAxisSize.min,
     children: [
       Container(
-        width: 18,
-        height: 4,
+        width: 20,
+        height: 5,
         decoration: BoxDecoration(
           color: c,
           borderRadius: BorderRadius.circular(2),
@@ -949,6 +1010,73 @@ class _Legend extends StatelessWidget {
 ///
 /// Stanno sulla mappa e non nella scheda sotto perche' sono comandi della
 /// mappa, ed e' li' che uno li cerca.
+/// Un comando della mappa a tutto schermo: icona e parola.
+///
+/// Alto 48 punti, con la scritta a 15: si prende col pollice e si legge
+/// senza occhiali. Acceso, prende il giallo di DeviaTo.
+class _Comando extends StatelessWidget {
+  const _Comando({
+    required this.icon,
+    required this.testo,
+    required this.onPressed,
+    this.attivo = false,
+    this.busy = false,
+  });
+
+  final IconData icon;
+  final String testo;
+  final VoidCallback onPressed;
+  final bool attivo;
+  final bool busy;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final fondo = attivo ? scheme.primaryContainer : scheme.surface;
+    final colore = attivo ? scheme.onPrimaryContainer : scheme.onSurface;
+    return Material(
+      color: fondo,
+      shape: const StadiumBorder(),
+      elevation: 3,
+      child: InkWell(
+        customBorder: const StadiumBorder(),
+        onTap: busy ? null : onPressed,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 48),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (busy)
+                  SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.5,
+                      color: colore,
+                    ),
+                  )
+                else
+                  Icon(icon, size: 20, color: colore),
+                const SizedBox(width: 8),
+                Text(
+                  testo,
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: colore,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _MapButton extends StatelessWidget {
   const _MapButton({
     required this.icon,

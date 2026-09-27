@@ -44,11 +44,19 @@ class Cartina {
   // I segni. Sulla cartina chiara quelli di sempre; su quella scura toni
   // piu' chiari, o le due direzioni sparirebbero nel grigio delle strade.
 
-  /// Le due direzioni: la linea sottile del percorso normale.
+  /// Le due direzioni: la linea del percorso normale.
+  ///
+  /// Quasi piene: semitrasparenti al 55% si confondevano con le strade,
+  /// e chi le guarda non deve cercarle.
   Color direzione(int i) => scura
       ? (i == 0 ? Colors.blueGrey.shade200 : Colors.teal.shade300)
-          .withValues(alpha: 0.75)
-      : (i == 0 ? Colors.blueGrey : Colors.teal).withValues(alpha: 0.55);
+          .withValues(alpha: 0.95)
+      : (i == 0 ? Colors.blueGrey : Colors.teal).withValues(alpha: 0.9);
+
+  /// Spessore della linea del percorso normale, e di quelle che devono
+  /// spiccarci sopra: la deviazione e il percorso visto sui mezzi.
+  static const spessorePercorso = 5.5;
+  static const spessoreDeviazione = 7.0;
 
   /// Il mezzo che fa quella direzione: pieno, col bordo bianco.
   Color mezzo(int? direzione) => switch (direzione) {

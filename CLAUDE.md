@@ -382,8 +382,8 @@ Ognuna di queste è costata tempo. Sono tutte silenziose: non danno errore.
   (1,45:1).
 - **La cartina resta chiara anche col tema scuro.** I segni disegnati
   sopra non devono seguire il tema: al buio la fermata chiusa diventava
-  `colorScheme.error` scuro, cioè rosa pallido su strade chiare. Stanno in
-  `MapColors`, fissi.
+  `colorScheme.error` scuro, cioè rosa pallido su strade chiare. Seguono
+  la cartina, non il tema: `Cartina.of` in `ui/cartina.dart`.
 - **I dati restavano quelli dell'apertura.** L'app scaricava solo
   all'avvio e con «Aggiorna»: iOS la tiene in memoria per ore, e chi la
   riapriva la sera vedeva gli avvisi del mattino. Ora riscarica tornando
@@ -425,9 +425,10 @@ Ognuna di queste è costata tempo. Sono tutte silenziose: non danno errore.
   dal pulsante in angolo o toccando un punto vuoto della mappa del
   dettaglio. In alto si può tenere una direzione sola — dove andata e
   ritorno passano per le stesse vie (la 9, la 15) le due linee si coprono —
-  e in basso un pannello si trascina: chiuso una riga col pulsante dei
-  mezzi, a metà le fermate per tratti (toccandone uno la mappa lo
-  inquadra), e la fermata toccata. È la stessa `LineMap` del dettaglio in
+  e in basso un pannello si trascina — o si apre toccando «Più
+  dettagli» —: chiuso una riga, a metà le fermate per tratti (toccandone
+  uno la mappa lo inquadra), e la fermata toccata. I comandi della mappa
+  hanno la scritta: «Tutta la linea», «Segui i mezzi», «Dove sono». È la stessa `LineMap` del dettaglio in
   modalità `fullScreen`, e lo stesso riassunto, spostato in `riassunto.dart`
   perché lo usano tutte e due. Il pulsante con le quattro frecce che
   inquadrava il percorso sembrava «ingrandisci»: nel dettaglio ora
@@ -465,6 +466,20 @@ In pratica:
   osservato" non è "va tutto bene".
 - Gli orari si dicono in **ora locale**: "mezzanotte UTC" all'una di notte
   sembra una bugia.
+
+### Chi la usa
+
+Non solo chi è cresciuto coi telefoni: alla fermata ci sono anche persone
+anziane, e l'app deve funzionare per loro senza spiegazioni.
+
+- **I comandi dicono cosa fanno con una parola**, non solo con un'icona:
+  «Dove sono», non un mirino. Dove lo spazio manca (la mappa piccola del
+  dettaglio) l'icona resta, ma con la descrizione per i lettori di schermo.
+- **Bersagli da almeno 44–48 punti** e scritte dei comandi a 15.
+- **Nessun gesto senza alternativa visibile**: il pannello che si trascina
+  si apre anche toccando «Più dettagli».
+- **Le linee sulla mappa si vedono senza cercarle**: spesse 5,5 punti,
+  quasi piene.
 
 ### Come si scrivono i testi dell'app
 

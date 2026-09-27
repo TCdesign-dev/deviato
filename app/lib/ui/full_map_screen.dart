@@ -155,6 +155,11 @@ class _FullMapScreenState extends State<FullMapScreen> {
                 isSaved: widget.isSaved,
                 onToggleSave: widget.onToggleSave,
                 inset: EdgeInsets.only(top: alto, bottom: h * chiuso),
+                watching: osservando,
+                watchCount: osservando ? repo.liveTracks.length : 0,
+                onToggleWatch: osservando
+                    ? repo.stopWatch
+                    : () => repo.startWatch(widget.line),
               ),
             ),
             _Barra(
@@ -181,12 +186,17 @@ class _FullMapScreenState extends State<FullMapScreen> {
               snapSizes: const [_meta],
               builder: (context, scorrimento) => _Pannello(
                 scorrimento: scorrimento,
-                intestazione: _PulsanteMezzi(
-                  osservando: osservando,
-                  mezzi: osservando ? repo.liveTracks.length : 0,
-                  onPressed: osservando
-                      ? repo.stopWatch
-                      : () => repo.startWatch(widget.line),
+                controller: _pannello,
+                chiuso: chiuso,
+                onApri: () => _pannello.animateTo(
+                  _meta,
+                  duration: const Duration(milliseconds: 250),
+                  curve: Curves.easeOut,
+                ),
+                onChiudi: () => _pannello.animateTo(
+                  chiuso,
+                  duration: const Duration(milliseconds: 250),
+                  curve: Curves.easeOut,
                 ),
                 children: _scelta.value != null
                     ? [_fermata(status, _scelta.value!)]
@@ -366,16 +376,25 @@ class _SceltaDirezione extends StatelessWidget {
   }
 }
 
-/// Il pannello: maniglia, il pulsante dei mezzi, e sotto il contenuto.
+/// Il pannello: la maniglia, «Più dettagli», e sotto il contenuto.
+///
+/// Si trascina, ma trascinare e' un gesto che non tutti conoscono: la
+/// testata si puo' anche toccare, e dice cosa succede.
 class _Pannello extends StatelessWidget {
   const _Pannello({
     required this.scorrimento,
-    required this.intestazione,
+    required this.controller,
+    required this.chiuso,
+    required this.onApri,
+    required this.onChiudi,
     required this.children,
   });
 
   final ScrollController scorrimento;
-  final Widget intestazione;
+  final DraggableScrollableController controller;
+  final double chiuso;
+  final VoidCallback onApri;
+  final VoidCallback onChiudi;
   final List<Widget> children;
 
   @override
@@ -395,77 +414,62 @@ class _Pannello extends StatelessWidget {
           bottom: MediaQuery.paddingOf(context).bottom + 16,
         ),
         children: [
-          SizedBox(
-            height: 52,
-            child: Stack(
-              children: [
-                Align(
-                  alignment: const Alignment(0, -0.6),
-                  child: Container(
-                    width: 36,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: scheme.outlineVariant,
-                      borderRadius: BorderRadius.circular(2),
-                    ),
+          ListenableBuilder(
+            listenable: controller,
+            builder: (context, _) {
+              final aperto =
+                  controller.isAttached && controller.size > chiuso + 0.05;
+              return InkWell(
+                onTap: aperto ? onChiudi : onApri,
+                child: SizedBox(
+                  height: 52,
+                  child: Stack(
+                    children: [
+                      Align(
+                        alignment: const Alignment(0, -0.6),
+                        child: Container(
+                          width: 36,
+                          height: 4,
+                          decoration: BoxDecoration(
+                            color: scheme.outlineVariant,
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                        ),
+                      ),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: Padding(
+                          padding: const EdgeInsets.only(right: 16, top: 6),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                aperto ? 'Meno dettagli' : 'Più dettagli',
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w600,
+                                  color: scheme.onSurface,
+                                ),
+                              ),
+                              Icon(
+                                aperto
+                                    ? Icons.keyboard_arrow_down
+                                    : Icons.keyboard_arrow_up,
+                                color: scheme.onSurface,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: Padding(
-                    padding: const EdgeInsets.only(right: 12, top: 6),
-                    child: intestazione,
-                  ),
-                ),
-              ],
-            ),
+              );
+            },
           ),
           ...children,
         ],
       ),
-    );
-  }
-}
-
-/// «Segui i mezzi» nel pannello, sempre in vista anche da chiuso.
-///
-/// Qui si accende e si spegne soltanto: i mezzi si vedono gia' sulla
-/// cartina, che e' tutta. L'esito completo resta nel dettaglio.
-class _PulsanteMezzi extends StatelessWidget {
-  const _PulsanteMezzi({
-    required this.osservando,
-    required this.mezzi,
-    required this.onPressed,
-  });
-
-  final bool osservando;
-  final int mezzi;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    if (!osservando) {
-      return FilledButton.tonalIcon(
-        onPressed: onPressed,
-        icon: const Icon(Icons.visibility_outlined, size: 18),
-        label: const Text('Segui i mezzi'),
-        style: FilledButton.styleFrom(
-          backgroundColor: scheme.primaryContainer,
-          foregroundColor: scheme.onPrimaryContainer,
-          visualDensity: VisualDensity.compact,
-        ),
-      );
-    }
-    return OutlinedButton.icon(
-      onPressed: onPressed,
-      icon: const Icon(Icons.stop_outlined, size: 18),
-      label: Text(
-        mezzi == 0
-            ? 'Ricerca… · Interrompi'
-            : '$mezzi ${mezzi == 1 ? "mezzo" : "mezzi"} · Interrompi',
-      ),
-      style: OutlinedButton.styleFrom(visualDensity: VisualDensity.compact),
     );
   }
 }
@@ -490,8 +494,8 @@ class _Legenda extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         Container(
-          width: 18,
-          height: 4,
+          width: 20,
+          height: 5,
           decoration: BoxDecoration(
             color: c,
             borderRadius: BorderRadius.circular(2),
