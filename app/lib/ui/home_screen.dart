@@ -6,6 +6,7 @@ import '../data/app_repository.dart';
 import 'line_picker.dart';
 import 'line_screen.dart';
 import 'line_tile.dart';
+import 'logo.dart';
 import 'saved_stop_card.dart';
 import 'info_screen.dart';
 
@@ -28,7 +29,7 @@ class HomeScreen extends StatelessWidget {
       builder: (context, _) {
         return Scaffold(
           appBar: AppBar(
-            title: const Text('DeviaTo'),
+            title: const DeviatoLogo(),
             actions: [
               IconButton(
                 icon: const Icon(Icons.add),
@@ -78,7 +79,8 @@ class HomeScreen extends StatelessWidget {
       return _Message(
         icon: Icons.directions_bus_outlined,
         title: 'Aggiungi le tue linee',
-        detail: 'Cercale per numero o per via: vedrai subito se sono '
+        detail:
+            'Cercale per numero o per via: vedrai subito se sono '
             'deviate.',
         action: FilledButton.icon(
           onPressed: () => showLinePicker(context, repo),
@@ -118,12 +120,15 @@ class HomeScreen extends StatelessWidget {
           ListTile(
             leading: SizedBox(
               width: 60,
-              child: Icon(Icons.add,
-                  color: Theme.of(context).colorScheme.primary),
+              child: Icon(
+                Icons.add,
+                color: Theme.of(context).colorScheme.primary,
+              ),
             ),
-            title: Text('Aggiungi una linea',
-                style: TextStyle(
-                    color: Theme.of(context).colorScheme.primary)),
+            title: Text(
+              'Aggiungi una linea',
+              style: TextStyle(color: Theme.of(context).colorScheme.primary),
+            ),
             onTap: () => showLinePicker(context, repo),
           ),
         ],
@@ -156,7 +161,11 @@ class HomeScreen extends StatelessWidget {
   }
 
   Widget _fermata(
-      BuildContext context, SavedStop s, TransitLine line, int posizione) {
+    BuildContext context,
+    SavedStop s,
+    TransitLine line,
+    int posizione,
+  ) {
     final risposta = repo.answerFor(s);
     if (risposta == null) return const SizedBox.shrink();
     return Dismissible(
@@ -165,8 +174,11 @@ class HomeScreen extends StatelessWidget {
       background: const _SwipeBackground(label: 'Rimuovi'),
       onDismissed: (_) {
         repo.unsaveStop(s);
-        _conAnnulla(context, 'Fermata rimossa',
-            () => repo.restoreSavedStop(s, posizione));
+        _conAnnulla(
+          context,
+          'Fermata rimossa',
+          () => repo.restoreSavedStop(s, posizione),
+        );
       },
       child: SavedStopCard(
         answer: risposta,
@@ -214,31 +226,39 @@ class HomeScreen extends StatelessWidget {
         final fermate = tolta.savedStops.length;
         messenger
           ..hideCurrentSnackBar()
-          ..showSnackBar(SnackBar(
-            content: Text(switch (fermate) {
-              0 => 'Linea ${line.shortName} rimossa',
-              1 => 'Linea ${line.shortName} rimossa con la sua fermata',
-              _ => 'Linea ${line.shortName} rimossa con le sue $fermate '
-                  'fermate',
-            }),
-            action: SnackBarAction(
-              label: 'Annulla',
-              onPressed: () => repo.restoreLine(tolta),
+          ..showSnackBar(
+            SnackBar(
+              content: Text(switch (fermate) {
+                0 => 'Linea ${line.shortName} rimossa',
+                1 => 'Linea ${line.shortName} rimossa con la sua fermata',
+                _ =>
+                  'Linea ${line.shortName} rimossa con le sue $fermate '
+                      'fermate',
+              }),
+              action: SnackBarAction(
+                label: 'Annulla',
+                onPressed: () => repo.restoreLine(tolta),
+              ),
             ),
-          ));
+          );
       },
       child: tile,
     );
   }
 
   static void _conAnnulla(
-      BuildContext context, String testo, VoidCallback annulla) {
+    BuildContext context,
+    String testo,
+    VoidCallback annulla,
+  ) {
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(
-        content: Text(testo),
-        action: SnackBarAction(label: 'Annulla', onPressed: annulla),
-      ));
+      ..showSnackBar(
+        SnackBar(
+          content: Text(testo),
+          action: SnackBarAction(label: 'Annulla', onPressed: annulla),
+        ),
+      );
   }
 }
 
@@ -249,9 +269,9 @@ class _SectionTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-        child: Text(text, style: Theme.of(context).textTheme.titleSmall),
-      );
+    padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+    child: Text(text, style: Theme.of(context).textTheme.titleSmall),
+  );
 }
 
 /// «Le tue linee», quando sono state controllate, e il modo di rifarlo.
@@ -314,12 +334,15 @@ class _LinesHeader extends StatelessWidget {
 
   static String _quando(DateTime? t) {
     if (t == null) return 'Non ancora aggiornate';
-    final h = '${t.hour.toString().padLeft(2, "0")}:'
+    final h =
+        '${t.hour.toString().padLeft(2, "0")}:'
         '${t.minute.toString().padLeft(2, "0")}';
     final oggi = DateTime.now();
-    final giorni = DateTime(oggi.year, oggi.month, oggi.day)
-        .difference(DateTime(t.year, t.month, t.day))
-        .inDays;
+    final giorni = DateTime(
+      oggi.year,
+      oggi.month,
+      oggi.day,
+    ).difference(DateTime(t.year, t.month, t.day)).inDays;
     return switch (giorni) {
       0 => 'Aggiornate alle $h',
       1 => 'Aggiornate ieri alle $h',
@@ -347,17 +370,22 @@ class _StopsHint extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(Icons.bookmark_add_outlined,
-                color: scheme.onSecondaryContainer),
+            Icon(
+              Icons.bookmark_add_outlined,
+              color: scheme.onSecondaryContainer,
+            ),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Salva le tue fermate',
-                      style: TextStyle(
-                          fontWeight: FontWeight.w600,
-                          color: scheme.onSecondaryContainer)),
+                  Text(
+                    'Salva le tue fermate',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: scheme.onSecondaryContainer,
+                    ),
+                  ),
                   const SizedBox(height: 2),
                   Text(
                     'Apri una linea e tocca una fermata sulla mappa: qui '
@@ -397,10 +425,13 @@ class _SwipeBackground extends StatelessWidget {
         children: [
           Icon(Icons.delete_outline, color: scheme.onErrorContainer),
           const SizedBox(width: 6),
-          Text(label,
-              style: TextStyle(
-                  color: scheme.onErrorContainer,
-                  fontWeight: FontWeight.w600)),
+          Text(
+            label,
+            style: TextStyle(
+              color: scheme.onErrorContainer,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
         ],
       ),
     );
