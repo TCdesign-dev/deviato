@@ -42,11 +42,9 @@ DeviaTo è gratuita, senza pubblicità e senza account. Non è un'app di GTT e n
 
 **Email per il feedback**: `devia.to@icloud.com` (deve essere attiva)
 
-**URL di marketing**: `https://tcdesign-dev.github.io/deviato/`
-(quando il dominio è collegato: `https://deviato.it/`)
+**URL di marketing**: `https://deviato.it/`
 
-**URL della privacy**: `https://tcdesign-dev.github.io/deviato/privacy.html`
-(poi `https://deviato.it/privacy.html`)
+**URL della privacy**: `https://deviato.it/privacy.html`
 
 ## 3. Informazioni per la revisione della beta
 
@@ -70,7 +68,8 @@ No login is needed. To try it: tap +, pick a line (for example 10N or 15), then 
 
 ## 4. Cosa testare (per ogni build)
 
-**Build 1.0.0 (1)**
+**Build 1.0.0 (2)** — la prima con l'icona vera; la (1) ha ancora quella di
+Flutter e non va data ai tester.
 
 ```text
 Prima versione di prova. Ci aiuta soprattutto sapere:
@@ -97,9 +96,8 @@ una nuova.
 
 ## 6. Prima di aprire il link, controllare
 
-- [ ] **L'icona dell'app**: adesso è quella di Flutter. Per il test
-      interno va bene, per quello pubblico no.
-- [ ] L'email `devia.to@icloud.com` è attiva (è l'indirizzo del feedback).
+- [x] L'icona dell'app (dalla build 2).
+- [x] L'email `devia.to@icloud.com` è attiva (è l'indirizzo del feedback).
 - [ ] Il job su GitHub gira con regolarità: chi prova l'app deve vedere
       dati di oggi, non di ieri.
-- [ ] Se il dominio è collegato: URL di marketing e privacy su `deviato.it`.
+- [x] Il dominio `deviato.it` risponde, con HTTPS.
