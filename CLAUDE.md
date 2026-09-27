@@ -374,6 +374,16 @@ Ognuna di queste è costata tempo. Sono tutte silenziose: non danno errore.
   chiudeva a mano. Ora dura cinque secondi, e resta solo con VoiceOver o
   TalkBack (`MediaQuery.accessibleNavigationOf`), dove raggiungere il
   pulsante richiede tempo. Vale per ogni SnackBar nuovo con un'azione.
+- **Un tema generato da un colore di partenza tinge tutto, anche gli
+  sfondi.** Con `ColorScheme.fromSeed` blu l'app sembrava azzurra
+  ovunque. Dal 27/09 la tavolozza è scritta ruolo per ruolo in
+  `ui/theme.dart` (grafite, giallo, grigi neutri, come logo e sito), con
+  i contrasti misurati. Il giallo non fa mai da testo su fondo chiaro
+  (1,45:1).
+- **La cartina resta chiara anche col tema scuro.** I segni disegnati
+  sopra non devono seguire il tema: al buio la fermata chiusa diventava
+  `colorScheme.error` scuro, cioè rosa pallido su strade chiare. Stanno in
+  `MapColors`, fissi.
 - **Gli orari programmati di GitHub sono una promessa debole.** Nelle
   prime dodici ore, coi minuti 5/25/45, sono partiti **3 giri su 27**:
   nessun errore, nessun giro annullato, semplicemente non lanciati.

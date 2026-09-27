@@ -230,9 +230,7 @@ class _LineMapState extends State<LineMap> {
     // che si tocca il pulsante per tornarci dopo aver girovagato.
     final osservato = widget.observed == null
         ? const <LatLng>[]
-        : [
-            for (final p in widget.observed!.path) LatLng(p.lat, p.lon),
-          ];
+        : [for (final p in widget.observed!.path) LatLng(p.lat, p.lon)];
 
     final bounds = LatLngBounds.fromPoints(
       deviations.isNotEmpty
@@ -378,8 +376,10 @@ class _LineMapState extends State<LineMap> {
             impact: _selected!.impact,
             direction: _shapeOf(_selected!.stop) == null
                 ? null
-                : DisplayNames.direction(_shapeOf(_selected!.stop)!.headsign,
-                    longName: status.line.longName),
+                : DisplayNames.direction(
+                    _shapeOf(_selected!.stop)!.headsign,
+                    longName: status.line.longName,
+                  ),
             saved: _savedState(_selected!.stop),
             onToggleSave: _saveAction(_selected!.stop),
             onClose: () => setState(() => _selected = null),
@@ -404,8 +404,10 @@ class _LineMapState extends State<LineMap> {
             vehiclesSeenAt: _lastSeen,
             directions: [
               for (final d in directions)
-                DisplayNames.direction(d.shape.headsign,
-                    longName: widget.status.line.longName),
+                DisplayNames.direction(
+                  d.shape.headsign,
+                  longName: widget.status.line.longName,
+                ),
             ],
           ),
       ],
@@ -437,15 +439,13 @@ class _LineMapState extends State<LineMap> {
             width: dot,
             height: dot,
             decoration: BoxDecoration(
-              color: isSkipped
-                  ? Theme.of(context).colorScheme.error
-                  : Colors.white,
+              color: isSkipped ? MapColors.chiusa : Colors.white,
               shape: BoxShape.circle,
               border: Border.all(
                 color: isSkipped
                     ? Colors.white
                     : (selected
-                          ? Theme.of(context).colorScheme.primary
+                          ? MapColors.selezione
                           : Colors.blueGrey.shade600),
                 width: selected || isSkipped ? 3 : 2,
               ),
@@ -516,9 +516,7 @@ class _LineMapState extends State<LineMap> {
       height: 26,
       child: Container(
         decoration: BoxDecoration(
-          color: off
-              ? Theme.of(context).colorScheme.error
-              : Colors.blue.shade700,
+          color: off ? MapColors.chiusa : Colors.blue.shade700,
           shape: BoxShape.circle,
           border: Border.all(color: Colors.white, width: 2),
           boxShadow: const [
@@ -628,9 +626,7 @@ class _SelectedStopBanner extends StatelessWidget {
           if (saved != null && onToggleSave != null)
             TextButton.icon(
               onPressed: onToggleSave,
-              icon: Icon(saved!
-                  ? Icons.bookmark
-                  : Icons.bookmark_add_outlined),
+              icon: Icon(saved! ? Icons.bookmark : Icons.bookmark_add_outlined),
               label: Text(saved! ? 'Salvata' : 'Salva'),
             ),
           IconButton(
@@ -705,7 +701,7 @@ class _Legend extends StatelessWidget {
           ),
           if (skippedCount > 0)
             _dot(
-              Theme.of(context).colorScheme.error,
+              MapColors.chiusa,
               Colors.white,
               '$skippedCount non servite',
               style,
@@ -728,10 +724,11 @@ class _Legend extends StatelessWidget {
               ],
             ),
           Text(
-              canSave
-                  ? 'tocca una fermata per salvarla'
-                  : 'tocca una fermata per i dettagli',
-              style: style),
+            canSave
+                ? 'tocca una fermata per salvarla'
+                : 'tocca una fermata per i dettagli',
+            style: style,
+          ),
         ],
       ),
     );

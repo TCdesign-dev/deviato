@@ -14,9 +14,13 @@ import 'package:flutter/material.dart';
 ///
 /// | Ruolo       | Chiaro    | su sfondo | Scuro     | su sfondo |
 /// |-------------|-----------|-----------|-----------|-----------|
-/// | regolare    | `2E7D32`  | 4,88      | `81C784`  | 9,23      |
-/// | attenzione  | `9A4D00`  | 5,82      | `FFB74D`  | 10,74     |
-/// | info        | `1565C0`  | 5,47      | `90CAF9`  | 10,62     |
+/// | regolare    | `2E7D32`  | 5,13      | `81C784`  | 8,28      |
+/// | attenzione  | `9A4D00`  | 6,11      | `FFB74D`  | 9,63      |
+/// | info        | `1565C0`  | 5,75      | `90CAF9`  | 9,53      |
+///
+/// (sullo sfondo bianco in chiaro e grafite `1E1E1E` in scuro; vedi
+/// [buildTheme]). Il blu di «info» resta: è il colore del tempo reale,
+/// un significato, non un'identità.
 ///
 /// Il rosso resta quello del tema (`colorScheme.error`), che passa già.
 @immutable
@@ -58,13 +62,12 @@ class StatusColors extends ThemeExtension<StatusColors> {
     Color? warning,
     Color? info,
     Color? observed,
-  }) =>
-      StatusColors(
-        ok: ok ?? this.ok,
-        warning: warning ?? this.warning,
-        info: info ?? this.info,
-        observed: observed ?? this.observed,
-      );
+  }) => StatusColors(
+    ok: ok ?? this.ok,
+    warning: warning ?? this.warning,
+    info: info ?? this.info,
+    observed: observed ?? this.observed,
+  );
 
   @override
   StatusColors lerp(StatusColors? other, double t) {
@@ -78,13 +81,121 @@ class StatusColors extends ThemeExtension<StatusColors> {
   }
 }
 
+/// I segni disegnati sulla cartina.
+///
+/// La cartina di OpenStreetMap resta chiara anche col tema scuro: i segni
+/// che ci stanno sopra si leggono sempre su un fondo chiaro, e non seguono
+/// il tema. Col tema scuro la fermata chiusa diventava rosa pallido e
+/// quella selezionata sarebbe diventata gialla, tutte e due quasi
+/// invisibili sulle strade.
+abstract final class MapColors {
+  /// Il bordo della fermata toccata.
+  static const selezione = _grafite;
+
+  /// Fermata non servita, mezzo fuori percorso.
+  static const chiusa = Color(0xFFB3261E);
+}
+
+const _grafite = Color(0xFF1E1E1E);
+const _giallo = Color(0xFFF9D400);
+
+/// La tavolozza di DeviaTo: grafite, giallo e grigi neutri, come il logo,
+/// l'icona e il sito.
+///
+/// Prima i colori nascevano da un seme blu (`0B5FA5`) e l'app sembrava
+/// azzurra anche negli sfondi, che Material 3 tinge del colore di
+/// partenza. Qui ogni ruolo è scritto a mano.
+///
+/// Il giallo non fa mai da testo su fondo chiaro: su bianco si ferma a
+/// 1,45:1. In chiaro sta *sotto* il testo grafite (11,47:1) — la striscia
+/// dei mezzi in tempo reale, le etichette senza colore di GTT, l'«Annulla»
+/// sugli avvisi scuri — e al buio diventa il colore degli elementi attivi
+/// (11,47:1 sul fondo, 10,14 sui riquadri). Misurati:
+///
+/// | Coppia                          | Contrasto |
+/// |---------------------------------|-----------|
+/// | testo `1E1E1E` su bianco        | 16,67     |
+/// | tenue `5B5B5B` su riquadro      | 6,11      |
+/// | grafite su giallo pallido       | 14,65     |
+/// | tenue `B9B9B9` su riquadro scuro| 7,51      |
+/// | giallo chiaro su oliva `4A4012` | 8,35      |
+/// | bordi `767672` / `8E8E8A`       | 4,56 / 5,07 |
+ColorScheme _tavolozza(Brightness b) => b == Brightness.light
+    ? const ColorScheme(
+        brightness: Brightness.light,
+        primary: _grafite,
+        onPrimary: Colors.white,
+        primaryContainer: _giallo,
+        onPrimaryContainer: _grafite,
+        secondary: Color(0xFF5B5B5B),
+        onSecondary: Colors.white,
+        secondaryContainer: Color(0xFFFDF1B8),
+        onSecondaryContainer: _grafite,
+        tertiary: _giallo,
+        onTertiary: _grafite,
+        error: Color(0xFFB3261E),
+        onError: Colors.white,
+        errorContainer: Color(0xFFF9DEDC),
+        onErrorContainer: Color(0xFF410E0B),
+        surface: Colors.white,
+        onSurface: _grafite,
+        onSurfaceVariant: Color(0xFF5B5B5B),
+        surfaceDim: Color(0xFFE6E6E2),
+        surfaceBright: Colors.white,
+        surfaceContainerLowest: Colors.white,
+        surfaceContainerLow: Color(0xFFF7F7F5),
+        surfaceContainer: Color(0xFFF3F3F1),
+        surfaceContainerHigh: Color(0xFFEDEDEA),
+        surfaceContainerHighest: Color(0xFFE6E6E2),
+        outline: Color(0xFF767672),
+        outlineVariant: Color(0xFFDCDCD8),
+        inverseSurface: _grafite,
+        onInverseSurface: Colors.white,
+        inversePrimary: _giallo,
+        shadow: Colors.black,
+        scrim: Colors.black,
+        surfaceTint: Colors.transparent,
+      )
+    : const ColorScheme(
+        brightness: Brightness.dark,
+        primary: _giallo,
+        onPrimary: _grafite,
+        primaryContainer: Color(0xFF4A4012),
+        onPrimaryContainer: Color(0xFFFFE866),
+        secondary: Color(0xFFB9B9B9),
+        onSecondary: _grafite,
+        secondaryContainer: Color(0xFF3A3520),
+        onSecondaryContainer: Colors.white,
+        tertiary: _giallo,
+        onTertiary: _grafite,
+        error: Color(0xFFF2B8B5),
+        onError: Color(0xFF601410),
+        errorContainer: Color(0xFF8C1D18),
+        onErrorContainer: Color(0xFFF9DEDC),
+        surface: _grafite,
+        onSurface: Colors.white,
+        onSurfaceVariant: Color(0xFFB9B9B9),
+        surfaceDim: Color(0xFF161616),
+        surfaceBright: Color(0xFF3A3A3A),
+        surfaceContainerLowest: Color(0xFF171717),
+        surfaceContainerLow: Color(0xFF232323),
+        surfaceContainer: Color(0xFF282828),
+        surfaceContainerHigh: Color(0xFF303030),
+        surfaceContainerHighest: Color(0xFF3A3A3A),
+        outline: Color(0xFF8E8E8A),
+        outlineVariant: Color(0xFF3A3A3A),
+        inverseSurface: Color(0xFFF3F3F1),
+        onInverseSurface: _grafite,
+        inversePrimary: _grafite,
+        shadow: Colors.black,
+        scrim: Colors.black,
+        surfaceTint: Colors.transparent,
+      );
+
 /// Il tema dell'app, chiaro o scuro.
 ThemeData buildTheme(Brightness brightness) {
   final base = ThemeData(
-    colorScheme: ColorScheme.fromSeed(
-      seedColor: const Color(0xFF0B5FA5),
-      brightness: brightness,
-    ),
+    colorScheme: _tavolozza(brightness),
     useMaterial3: true,
     extensions: [
       brightness == Brightness.dark ? StatusColors.dark : StatusColors.light,
