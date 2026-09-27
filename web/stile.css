@@ -565,7 +565,7 @@ mark {
 .domande p { margin-top: .5rem; max-width: 34rem; color: var(--tenue); }
 
 /* errori e contatto: il bottone della mail, largo quanto lo schermo sul
-   telefono, e la firma */
+   telefono */
 .scrivi p { margin-top: 1rem; max-width: 36rem; font-size: 1.1875rem; line-height: 1.5; }
 .bottone {
   display: flex;
@@ -583,7 +583,6 @@ mark {
   overflow-wrap: anywhere;
 }
 .bottone:hover { background: var(--testo); color: var(--fondo); }
-.scrivi .firma { margin-top: 1.5rem; font-size: 1rem; color: var(--tenue); }
 
 /* ------------------------------------------------------ piè di pagina
 
