@@ -13,16 +13,16 @@
 name: Pubblica i dati
 
 on:
+  # Il giro lo lancia cron-job.org (due attività, fuso Europe/Rome):
+  # alle :13 e alle :43 dalle 6 alle 21, e alle :13 alle 22, 23, 0, 1 e 3.
+  # Chiama l'API `workflow_dispatch` con un token a grana fine che può solo
+  # far partire le Actions di questo repository (scade il 26/09/2027).
+  #
+  # Gli orari di GitHub restano solo come riserva, radi e a un minuto
+  # diverso: da soli non bastano. Il 26-27/09 ne sono partiti 3 su 27,
+  # senza errori, semplicemente saltati.
   schedule:
-    # Ogni mezz'ora di giorno, ogni ora la sera, una volta nel cuore della
-    # notte. Gli orari sono in UTC: d'estate in Italia sono due ore avanti
-    # (6:13-21:43, poi 22:13-1:13, poi 3:13), d'inverno una.
-    #
-    # Minuti 13 e 43, non 5/25/45: GitHub lancia gli orari programmati "al
-    # meglio" e sotto carico li salta, soprattutto vicino all'inizio
-    # dell'ora. Il 26-27/09, coi minuti 5/25/45, ne sono partiti 3 su 27.
-    - cron: "13,43 4-19 * * *"
-    - cron: "13 20,21,22,23,1 * * *"
+    - cron: "37 */3 * * *"
   workflow_dispatch:
 
 permissions:

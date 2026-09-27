@@ -325,7 +325,9 @@ flutter run --dart-define=DATI_URL=http://localhost:8765/v1/
 [`.github/workflows/pubblica.yml`](.github/workflows/pubblica.yml) esegue
 [`app/tool/pubblica.dart`](app/tool/pubblica.dart) ogni mezz'ora di giorno,
 ogni ora la sera e una volta di notte, e pubblica il risultato sul ramo
-`gh-pages`. Su un fork va configurato una volta:
+`gh-pages`. A lanciarlo è un servizio esterno (cron-job.org) che chiama
+`workflow_dispatch`: gli orari programmati di GitHub saltano troppi giri, e
+restano solo come riserva. Su un fork va configurato una volta:
 
 1. **Settings › Pages**: «Deploy from a branch», ramo `gh-pages`, cartella
    `/`. Il ramo lo crea il primo giro.

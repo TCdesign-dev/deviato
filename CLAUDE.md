@@ -378,9 +378,14 @@ Ognuna di queste è costata tempo. Sono tutte silenziose: non danno errore.
   prime dodici ore, coi minuti 5/25/45, sono partiti **3 giri su 27**:
   nessun errore, nessun giro annullato, semplicemente non lanciati.
   GitHub dichiara che sotto carico li ritarda e li salta, soprattutto
-  vicino all'inizio dell'ora. Il 27/09 si è passati ai minuti 13/43 e a
-  meno giri (37 al giorno). Se non basta, il rimedio è lanciarlo da fuori
-  (`workflow_dispatch` chiamato da un servizio di cron esterno).
+  vicino all'inizio dell'ora. Nemmeno i minuti 13/43 sono bastati: dalle
+  8:29 alle 17 del 27/09 non ne è partito nessuno. Da allora il giro lo
+  lancia **cron-job.org** (account di Tommaso, due attività in ora di
+  Roma) chiamando `workflow_dispatch` con un token a grana fine, solo
+  «Actions: read and write» su questo repository, che **scade il
+  26/09/2027**. L'intestazione `X-GitHub-Api-Version: 2022-11-28` è
+  deprecata e smette di funzionare il 10/03/2028: al rinnovo del token va
+  aggiornata. Gli orari di GitHub restano come riserva, ogni tre ore.
 
 ## 6. Le regole di condotta del sistema
 
