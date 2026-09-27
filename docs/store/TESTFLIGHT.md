@@ -68,8 +68,9 @@ No login is needed. To try it: tap +, pick a line (for example 10N or 15), then 
 
 ## 4. Cosa testare (per ogni build)
 
-**Build 1.0.0 (3)** — quella da dare ai tester. La (1) ha ancora l'icona
-di Flutter; la (2) ha l'avviso «Fermata rimossa» che non sparisce.
+**Build 1.0.0 (4)** — quella da dare ai tester: icona gialla e avviso
+«Fermata rimossa» che sparisce da solo. La (1) ha l'icona di Flutter, la
+(2) e la (3) quella scura di prima.
 
 ```text
 Prima versione di prova. Ci aiuta soprattutto sapere:
@@ -96,7 +97,7 @@ una nuova.
 
 ## 6. Prima di aprire il link, controllare
 
-- [x] L'icona dell'app (dalla build 2; ai tester va la 3).
+- [x] L'icona dell'app, gialla dalla build 4.
 - [x] L'email `devia.to@icloud.com` è attiva (è l'indirizzo del feedback).
 - [ ] Il job su GitHub gira con regolarità: chi prova l'app deve vedere
       dati di oggi, non di ieri.
