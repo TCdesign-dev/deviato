@@ -9,7 +9,7 @@ la mia fermata è ancora servita?**
 [![Licenza: MIT](https://img.shields.io/badge/licenza-MIT-blue.svg)](LICENSE)
 [![Piattaforme](https://img.shields.io/badge/piattaforme-iOS%20%7C%20Android-lightgrey.svg)](#-scaricala)
 [![Flutter](https://img.shields.io/badge/Flutter-Dart%203.12+-02569B.svg)](https://flutter.dev)
-[![Test](https://img.shields.io/badge/test-314-brightgreen.svg)](#-sviluppo)
+[![Test](https://img.shields.io/badge/test-315-brightgreen.svg)](#-sviluppo)
 [![Dati: CC-BY](https://img.shields.io/badge/dati%20GTT-CC--BY-orange.svg)](https://www.gtt.to.it/cms/openday/open-data)
 
 <img src="docs/img/linea-65.png" width="320"
@@ -104,7 +104,9 @@ linea.
 
 Percorso normale di entrambe le direzioni con tonalità distinte, tratto
 deviato in rosso, fermate toccabili per il nome, fermate saltate cerchiate,
-e la tua posizione su richiesta.
+e la tua posizione su richiesta. Si apre anche a tutto schermo, con una
+direzione sola se le due si sovrappongono e un pannello che si trascina dal
+basso: le fermate non servite per tratti, e quella che tocchi.
 
 ### 🚌 Osservazione dei mezzi in tempo reale
 
@@ -308,7 +310,7 @@ Il codice è lo stesso per iOS e Android: `lib/core/` è Dart puro e non sa
 su cosa sta girando.
 
 ```bash
-cd app && flutter test      # 314 test
+cd app && flutter test      # 315 test
 cd app && flutter analyze
 cd app && flutter run       # legge i dati pubblicati, nessuna chiave
 ```

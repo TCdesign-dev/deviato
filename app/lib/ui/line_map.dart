@@ -18,6 +18,9 @@ import '../data/user_location.dart';
 import 'cartina.dart';
 import 'theme.dart';
 
+/// Una fermata toccata sulla mappa, con il suo esito se non e' servita.
+typedef FermataScelta = ({TransitStop stop, StopImpact? impact});
+
 /// La mappa della linea: percorso normale, deviazioni, e le fermate.
 ///
 /// Si mostra SEMPRE, anche quando nessuna deviazione e' stata ricostruita.
@@ -37,10 +40,42 @@ class LineMap extends StatefulWidget {
     this.initialStopId,
     this.isSaved,
     this.onToggleSave,
+    this.onOpenFullScreen,
+    this.fullScreen = false,
+    this.controller,
+    this.selection,
+    this.onlyDirection,
+    this.inset = EdgeInsets.zero,
   });
 
   final LineStatus status;
   final double height;
+
+  /// Nel dettaglio: apre la mappa a tutto schermo, dal pulsante in angolo
+  /// o toccando un punto vuoto della mappa.
+  final VoidCallback? onOpenFullScreen;
+
+  /// A tutto schermo: la mappa riempie lo spazio che le si da', senza
+  /// legenda ne' striscia sotto. La fermata toccata va a [selection], e la
+  /// mostra chi sta intorno.
+  final bool fullScreen;
+
+  /// Per spostare l'inquadratura da fuori: toccando un tratto nel pannello.
+  final MapController? controller;
+
+  /// La fermata toccata, se la tiene qualcun altro.
+  final ValueNotifier<FermataScelta?>? selection;
+
+  /// Solo questa direzione (indice fra i percorsi principali). null: tutte.
+  ///
+  /// Dove andata e ritorno passano per le stesse vie — la 15 in centro —
+  /// le due linee e le due file di fermate si coprono a vicenda.
+  final int? onlyDirection;
+
+  /// Lo spazio occupato da cio' che sta sopra la mappa: la barra in alto e
+  /// il pannello in basso della mappa a tutto schermo. L'inquadratura e i
+  /// comandi ne tengono conto.
+  final EdgeInsets inset;
 
   /// I mezzi osservati adesso, se un'osservazione e' in corso o appena
   /// conclusa. Si disegnano sopra tutto il resto: sono la cosa che si
@@ -67,7 +102,7 @@ class LineMap extends StatefulWidget {
 class _LineMapState extends State<LineMap> {
   /// Il controller serve solo a centrare la mappa su di te quando lo
   /// chiedi: per il resto la mappa si posiziona da sola sul percorso.
-  final _map = MapController();
+  late final MapController _map = widget.controller ?? MapController();
 
   /// L'inquadratura che mostra tutto il percorso. La calcola `build`, e
   /// serve al pulsante che ci riporta.
@@ -78,9 +113,37 @@ class _LineMapState extends State<LineMap> {
   GeoPoint? _me;
   bool _locating = false;
 
+  /// La fermata toccata. Dei pallini muti non servono a niente: uno tocca
+  /// per sapere COME SI CHIAMA quella fermata. Sta nella
+  /// [LineMap.selection] se qualcuno la tiene, se no qui.
+  FermataScelta? _interna;
+  FermataScelta? get _selected => widget.selection?.value ?? _interna;
+  set _selected(FermataScelta? v) {
+    final fuori = widget.selection;
+    if (fuori != null) {
+      fuori.value = v;
+    } else {
+      _interna = v;
+    }
+  }
+
+  void _ridisegna() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void didUpdateWidget(LineMap old) {
+    super.didUpdateWidget(old);
+    // Cambiando direzione si torna a inquadrare quella rimasta.
+    if (old.onlyDirection != widget.onlyDirection) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _fitRoute());
+    }
+  }
+
   @override
   void initState() {
     super.initState();
+    widget.selection?.addListener(_ridisegna);
     final id = widget.initialStopId;
     if (id == null) return;
     final saltate = {
@@ -120,6 +183,7 @@ class _LineMapState extends State<LineMap> {
 
   @override
   void dispose() {
+    widget.selection?.removeListener(_ridisegna);
     _locationSub?.cancel();
     _location.stop();
     super.dispose();
@@ -173,18 +237,15 @@ class _LineMapState extends State<LineMap> {
   void _fitRoute() {
     final b = _routeBounds;
     if (b == null) return;
-    _map.fitCamera(
-      CameraFit.bounds(bounds: b, padding: const EdgeInsets.all(28)),
-    );
+    _map.fitCamera(CameraFit.bounds(bounds: b, padding: _margine));
   }
+
+  /// Il margine dell'inquadratura: un po' d'aria, piu' lo spazio coperto.
+  EdgeInsets get _margine => const EdgeInsets.all(28) + widget.inset;
 
   void _say(String message) => ScaffoldMessenger.maybeOf(
     context,
   )?.showSnackBar(SnackBar(content: Text(message)));
-
-  /// La fermata toccata. Dei pallini muti non servono a niente: uno tocca
-  /// per sapere COME SI CHIAMA quella fermata.
-  ({TransitStop stop, StopImpact? impact})? _selected;
 
   @override
   Widget build(BuildContext context) {
@@ -206,12 +267,24 @@ class _LineMapState extends State<LineMap> {
         .toList();
     if (directions.isEmpty) return const SizedBox.shrink();
     final official = directions.first.points;
+    final sola = widget.onlyDirection;
+    // Gli indici restano quelli di tutte le direzioni: il colore di una
+    // direzione non deve cambiare quando si nasconde l'altra.
+    final mostrate = [
+      for (var i = 0; i < directions.length; i++)
+        if (sola == null || sola == i || sola >= directions.length) i,
+    ];
+    final idMostrati = {for (final i in mostrate) directions[i].shape.shapeId};
+    final fermateMostrate = {
+      for (final i in mostrate)
+        for (final s in directions[i].shape.stops) s.id,
+    };
 
     // Solo cio' che e' in corso: disegnare in rosso una deviazione che
     // comincia fra tre settimane farebbe scendere alla fermata sbagliata
     // oggi.
     final deviations = status.activeReports
-        .where((r) => r.hasMap)
+        .where((r) => r.hasMap && idMostrati.contains(r.shape.shapeId))
         .map(
           (r) => r.deviatedGeometry!
               .map((p) => LatLng(p.lat, p.lon))
@@ -221,12 +294,15 @@ class _LineMapState extends State<LineMap> {
 
     // Le fermate saltate hanno la precedenza: se una fermata e' saltata
     // non va disegnata anche come servita.
-    final skipped = {for (final s in status.allSkippedStops) s.stop.id: s};
+    final skipped = {
+      for (final s in status.allSkippedStops)
+        if (fermateMostrate.contains(s.stop.id)) s.stop.id: s,
+    };
     // Le fermate di TUTTE le direzioni, senza doppioni: molte sono in
     // comune fra andata e ritorno (banchine opposte hanno id diversi).
     final served = {
-      for (final d in directions)
-        for (final s in d.shape.stops)
+      for (final i in mostrate)
+        for (final s in directions[i].shape.stops)
           if (!skipped.containsKey(s.id)) s.id: s,
     }.values.toList(growable: false);
     final cartina = Cartina.of(context);
@@ -240,168 +316,180 @@ class _LineMapState extends State<LineMap> {
     final bounds = LatLngBounds.fromPoints(
       deviations.isNotEmpty
           ? deviations.expand((d) => d).toList()
-          : directions.expand((d) => d.points).toList(),
+          : [for (final i in mostrate) ...directions[i].points],
     );
     _routeBounds = bounds;
 
-    return Column(
+    final mappa = Stack(
       children: [
-        SizedBox(
-          height: widget.height,
-          child: Stack(
-            children: [
-              FlutterMap(
-                mapController: _map,
-                options: MapOptions(
-                  initialCameraFit: CameraFit.bounds(
-                    bounds: bounds,
-                    padding: const EdgeInsets.all(28),
+        FlutterMap(
+          mapController: _map,
+          options: MapOptions(
+            initialCameraFit: CameraFit.bounds(
+              bounds: bounds,
+              padding: _margine,
+            ),
+            interactionOptions: const InteractionOptions(
+              flags:
+                  InteractiveFlag.pinchZoom |
+                  InteractiveFlag.drag |
+                  InteractiveFlag.doubleTapZoom,
+            ),
+            // Un tocco a vuoto chiude la fermata aperta; se non ce
+            // n'e', nel dettaglio apre la mappa a tutto schermo.
+            onTap: (_, _) {
+              if (_selected != null) {
+                setState(() => _selected = null);
+              } else {
+                widget.onOpenFullScreen?.call();
+              }
+            },
+          ),
+          children: [
+            TileLayer(
+              urlTemplate: cartina.url,
+              subdomains: cartina.sottodomini,
+              retinaMode: Cartina.carto && RetinaMode.isHighDensity(context),
+              userAgentPackageName: 'dev.tcdesign.deviato',
+            ),
+            PolylineLayer(
+              polylines: [
+                // Le due direzioni con tonalita' diverse: dove i
+                // percorsi divergono si deve poter capire quale e' quale.
+                for (final i in mostrate)
+                  Polyline(
+                    points: directions[i].points,
+                    strokeWidth: 4,
+                    color: cartina.direzione(i),
                   ),
-                  interactionOptions: const InteractionOptions(
-                    flags:
-                        InteractiveFlag.pinchZoom |
-                        InteractiveFlag.drag |
-                        InteractiveFlag.doubleTapZoom,
+                for (final d in deviations)
+                  Polyline(
+                    points: d,
+                    strokeWidth: 6,
+                    color: cartina.deviazione,
                   ),
-                  onTap: (_, _) => setState(() => _selected = null),
-                ),
-                children: [
-                  TileLayer(
-                    urlTemplate: cartina.url,
-                    subdomains: cartina.sottodomini,
-                    retinaMode:
-                        Cartina.carto && RetinaMode.isHighDensity(context),
-                    userAgentPackageName: 'dev.tcdesign.deviato',
+                // Il tratto che i mezzi hanno percorso DAVVERO fuori
+                // dal percorso normale. Colore diverso dal rosso
+                // apposta: quello e' ricostruito da un testo, questo
+                // e' misurato, e non sono la stessa cosa.
+                if (osservato.length > 1)
+                  Polyline(
+                    points: osservato,
+                    strokeWidth: 6,
+                    color: cartina.osservato,
                   ),
-                  PolylineLayer(
-                    polylines: [
-                      // Le due direzioni con tonalita' diverse: dove i
-                      // percorsi divergono si deve poter capire quale e' quale.
-                      for (var i = 0; i < directions.length; i++)
-                        Polyline(
-                          points: directions[i].points,
-                          strokeWidth: 4,
-                          color: cartina.direzione(i),
-                        ),
-                      for (final d in deviations)
-                        Polyline(
-                          points: d,
-                          strokeWidth: 6,
-                          color: cartina.deviazione,
-                        ),
-                      // Il tratto che i mezzi hanno percorso DAVVERO fuori
-                      // dal percorso normale. Colore diverso dal rosso
-                      // apposta: quello e' ricostruito da un testo, questo
-                      // e' misurato, e non sono la stessa cosa.
-                      if (osservato.length > 1)
-                        Polyline(
-                          points: osservato,
-                          strokeWidth: 6,
-                          color: cartina.osservato,
-                        ),
-                    ],
+              ],
+            ),
+            // Le fermate servite: piccole e discrete, non devono coprire
+            // il percorso.
+            MarkerLayer(
+              markers: [
+                for (final s in served)
+                  _stopMarker(
+                    stop: s,
+                    impact: null,
+                    selected: _selected?.stop.id == s.id,
                   ),
-                  // Le fermate servite: piccole e discrete, non devono coprire
-                  // il percorso.
-                  MarkerLayer(
-                    markers: [
-                      for (final s in served)
-                        _stopMarker(
-                          stop: s,
-                          impact: null,
-                          selected: _selected?.stop.id == s.id,
-                        ),
-                    ],
+              ],
+            ),
+            // Le saltate sopra, piu' grandi: sono quelle che contano.
+            MarkerLayer(
+              markers: [
+                for (final entry in skipped.entries)
+                  _stopMarker(
+                    stop: entry.value.stop,
+                    impact: entry.value,
+                    selected: _selected?.stop.id == entry.key,
                   ),
-                  // Le saltate sopra, piu' grandi: sono quelle che contano.
-                  MarkerLayer(
-                    markers: [
-                      for (final entry in skipped.entries)
-                        _stopMarker(
-                          stop: entry.value.stop,
-                          impact: entry.value,
-                          selected: _selected?.stop.id == entry.key,
-                        ),
-                    ],
-                  ),
-                  MarkerLayer(
-                    markers: [
-                      _endMarker(official.first, Colors.green.shade700),
-                      _endMarker(official.last, Colors.blueGrey.shade700),
-                    ],
-                  ),
-                  // I mezzi, sopra a tutto.
-                  if (widget.vehicles.isNotEmpty)
-                    MarkerLayer(
-                      markers: [
-                        for (final t in widget.vehicles)
-                          if (t.points.isNotEmpty)
-                            _vehicleMarker(t, [
-                              for (final d in directions) d.shape,
-                            ]),
-                      ],
-                    ),
-                  if (_me != null) MarkerLayer(markers: [_meMarker(_me!)]),
-                  // Sempre visibile: CARTO non la vuole dietro un tocco, e
-                  // l'icona «i» di prima la nascondeva.
-                  // Una scritta nostra e non SimpleAttributionWidget, che mette
-                  // davanti «flutter_map | ©» e ripete il simbolo. In alto:
-                  // in basso la copre il pulsante dei mezzi, che fluttua sulla
-                  // pagina, e CARTO la vuole sempre visibile.
-                  Align(
-                    alignment: Alignment.topLeft,
-                    child: Container(
-                      margin: const EdgeInsets.all(4),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 5,
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        color: cartina.fondoAttribuzione,
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Text(
-                        cartina.attribuzione,
-                        style: TextStyle(
-                          fontSize: 10,
-                          color: cartina.scura ? Colors.white : Colors.black87,
-                        ),
-                      ),
-                    ),
-                  ),
+              ],
+            ),
+            MarkerLayer(
+              markers: [
+                _endMarker(official.first, Colors.green.shade700),
+                _endMarker(official.last, Colors.blueGrey.shade700),
+              ],
+            ),
+            // I mezzi, sopra a tutto.
+            if (widget.vehicles.isNotEmpty)
+              MarkerLayer(
+                markers: [
+                  for (final t in widget.vehicles)
+                    if (t.points.isNotEmpty &&
+                        _nellaDirezione(t, directions, sola))
+                      _vehicleMarker(t, [for (final d in directions) d.shape]),
                 ],
               ),
-              Positioned(
-                right: 10,
-                bottom: 10,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    _MapButton(
-                      icon: Icons.zoom_out_map,
-                      tooltip: 'Inquadra tutto il percorso',
-                      onPressed: _fitRoute,
-                    ),
-                    const SizedBox(height: 8),
-                    _MapButton(
-                      icon: _locationSub != null
-                          ? Icons.my_location
-                          : Icons.location_searching,
-                      tooltip: _locationSub != null
-                          ? 'Non seguire la mia posizione'
-                          : 'La mia posizione',
-                      active: _locationSub != null,
-                      busy: _locating,
-                      onPressed: _showMe,
-                    ),
-                  ],
+            if (_me != null) MarkerLayer(markers: [_meMarker(_me!)]),
+            // Sempre visibile: CARTO non la vuole dietro un tocco, e
+            // l'icona «i» di prima la nascondeva.
+            // Una scritta nostra e non SimpleAttributionWidget, che mette
+            // davanti «flutter_map | ©» e ripete il simbolo. In alto:
+            // in basso la copre il pulsante dei mezzi, che fluttua sulla
+            // pagina, e CARTO la vuole sempre visibile.
+            Align(
+              alignment: Alignment.topLeft,
+              child: Container(
+                margin: EdgeInsets.fromLTRB(4, widget.inset.top + 4, 4, 4),
+                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                decoration: BoxDecoration(
+                  color: cartina.fondoAttribuzione,
+                  borderRadius: BorderRadius.circular(4),
                 ),
+                child: Text(
+                  cartina.attribuzione,
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: cartina.scura ? Colors.white : Colors.black87,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+        Positioned(
+          right: 10,
+          bottom: 10 + widget.inset.bottom,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Nel dettaglio la mappa e' piccola: il pulsante la
+              // apre. A tutto schermo torna a inquadrare il percorso.
+              if (widget.onOpenFullScreen != null)
+                _MapButton(
+                  icon: Icons.open_in_full,
+                  tooltip: 'Mappa a tutto schermo',
+                  onPressed: widget.onOpenFullScreen!,
+                )
+              else
+                _MapButton(
+                  icon: Icons.zoom_out_map,
+                  tooltip: 'Inquadra tutto il percorso',
+                  onPressed: _fitRoute,
+                ),
+              const SizedBox(height: 8),
+              _MapButton(
+                icon: _locationSub != null
+                    ? Icons.my_location
+                    : Icons.location_searching,
+                tooltip: _locationSub != null
+                    ? 'Non seguire la mia posizione'
+                    : 'La mia posizione',
+                active: _locationSub != null,
+                busy: _locating,
+                onPressed: _showMe,
               ),
             ],
           ),
         ),
+      ],
+    );
+    if (widget.fullScreen) return mappa;
+
+    return Column(
+      children: [
+        SizedBox(height: widget.height, child: mappa),
         if (_selected != null)
-          _SelectedStopBanner(
+          FermataToccata(
             stop: _selected!.stop,
             impact: _selected!.impact,
             direction: _shapeOf(_selected!.stop) == null
@@ -486,6 +574,21 @@ class _LineMapState extends State<LineMap> {
         ),
       ),
     );
+  }
+
+  /// Un mezzo si mostra se va nella direzione mostrata, o se la sua
+  /// direzione non si capisce: nasconderlo per un dubbio farebbe sparire
+  /// proprio i mezzi in deviazione.
+  static bool _nellaDirezione(
+    VehicleTrack t,
+    List<({RouteShape shape, List<LatLng> points})> directions,
+    int? sola,
+  ) {
+    if (sola == null) return true;
+    final d = VehicleHeading.of(t, [
+      for (final x in directions) x.shape,
+    ]).directionIndex;
+    return d == null || d == sola;
   }
 
   /// Lato dell'area toccabile di una fermata: i 44 punti delle linee
@@ -582,14 +685,15 @@ class _LineMapState extends State<LineMap> {
 /// Cosa si e' toccato. Sostituisce la legenda mentre e' aperto: sono
 /// entrambe righe di servizio sotto la mappa, e averle insieme fa
 /// disordine.
-class _SelectedStopBanner extends StatelessWidget {
-  const _SelectedStopBanner({
+class FermataToccata extends StatelessWidget {
+  const FermataToccata({
     required this.stop,
     required this.impact,
     required this.onClose,
     this.direction,
     this.saved,
     this.onToggleSave,
+    super.key,
   });
 
   final TransitStop stop;

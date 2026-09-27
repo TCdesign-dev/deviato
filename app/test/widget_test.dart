@@ -247,6 +247,29 @@ void main() {
     expect(find.text('Riprova'), findsNothing);
   });
 
+  testWidgets('dal dettaglio si apre la mappa a tutto schermo, e si torna',
+      (tester) async {
+    final repo = await repoWith({'watchlist': <String>['55']}, fonte());
+    await repo.initialise();
+    await tester.pumpWidget(GttApp(repo: repo));
+    await tester.pump();
+
+    await tester.tap(find.text('1 fermata non servita'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Mappa a tutto schermo'));
+    await tester.pumpAndSettle();
+
+    // Il pannello in basso: il riassunto e il pulsante dei mezzi, e la
+    // mappa col pulsante per inquadrare tutto il percorso.
+    expect(find.text('Segui i mezzi'), findsOneWidget);
+    expect(find.byTooltip('Inquadra tutto il percorso'), findsOneWidget);
+    expect(find.textContaining('1 fermata non servita'), findsWidgets);
+
+    await tester.tap(find.byTooltip('Indietro'));
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('Mappa a tutto schermo'), findsOneWidget);
+  });
+
   test('tornando all\'app si riscarica, ma non a ogni occhiata', () async {
     final f = fonte();
     final repo = await repoWith({'watchlist': <String>['55']}, f);

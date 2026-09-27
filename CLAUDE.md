@@ -102,7 +102,7 @@ Non sono stime. Se li rimetti in discussione, rimisurali.
 | `active_period.start` negli alert | **161 su 161 nel passato** | idem |
 | Variazioni pubblicate da **entrambe** le fonti | **31 coppie** su 189 avvisi | `check_merge_offline.dart` |
 | Di queste, quelle in cui la data d'inizio cambia | **17** (fino a 3 mesi) | idem |
-| Test | **314** | `flutter test` |
+| Test | **315** | `flutter test` |
 | Somiglianza fra le vie nominate: coppie vere | **0,67 – 1,00** e ≥3 vie | idem |
 | Idem, coppie false | **0,67 con 2 vie**, o 3 vie a **0,38** | idem |
 | Data d'inizio estraibile a regex dal testo | **40%** — troppo poco | idem |
@@ -420,6 +420,18 @@ Ognuna di queste è costata tempo. Sono tutte silenziose: non danno errore.
   vuole dietro un tocco (l'icona «i» di `RichAttributionWidget`),
   `SimpleAttributionWidget` mette davanti «flutter_map | ©», e in basso la
   coprirebbe il pulsante dei mezzi.
+- **Una mappa alta 280 punti non basta a leggere una deviazione.** Dal
+  27/09 c'è la mappa a tutto schermo (`ui/full_map_screen.dart`): si apre
+  dal pulsante in angolo o toccando un punto vuoto della mappa del
+  dettaglio. In alto si può tenere una direzione sola — dove andata e
+  ritorno passano per le stesse vie (la 9, la 15) le due linee si coprono —
+  e in basso un pannello si trascina: chiuso una riga col pulsante dei
+  mezzi, a metà le fermate per tratti (toccandone uno la mappa lo
+  inquadra), e la fermata toccata. È la stessa `LineMap` del dettaglio in
+  modalità `fullScreen`, e lo stesso riassunto, spostato in `riassunto.dart`
+  perché lo usano tutte e due. Il pulsante con le quattro frecce che
+  inquadrava il percorso sembrava «ingrandisci»: nel dettaglio ora
+  ingrandisce davvero, e l'inquadratura è rimasta a tutto schermo.
 - **Gli orari programmati di GitHub sono una promessa debole.** Nelle
   prime dodici ore, coi minuti 5/25/45, sono partiti **3 giri su 27**:
   nessun errore, nessun giro annullato, semplicemente non lanciati.
@@ -511,7 +523,7 @@ Per non fraintendere quello che c'è in `config.dart`:
 ## 8. Come si lavora
 
 ```bash
-cd app && flutter test          # 314 test, devono passare tutti
+cd app && flutter test          # 315 test, devono passare tutti
 cd app && flutter analyze       # deve essere pulito
 ```
 
@@ -582,4 +594,4 @@ facendo gli screenshot troppo presto.
 
 ---
 
-*Ultimo aggiornamento: 27 settembre 2026. 314 test.*
+*Ultimo aggiornamento: 27 settembre 2026. 315 test.*
