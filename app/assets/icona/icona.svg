@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <!-- L'icona di DeviaTo, variante gialla (disegnata con Claude Design).
+       Quadrata e senza angoli arrotondati: li aggiungono iOS e Android.
+       Il tratteggio fra le due fermate è il percorso normale, chiuso; la
+       linea scura sopra è la deviazione. Il tratteggio è ricavato
+       dall'apple-touch-icon del sito, l'unico file che lo aveva. -->
+  <rect width="1024" height="1024" fill="#F9D400"/>
+  <path d="M150 640H260M764 640H874" stroke="#1E1E1E" stroke-width="64" stroke-linecap="round" fill="none"/>
+  <path d="M385 640H661" stroke="#1E1E1E" stroke-opacity="0.3" stroke-width="44" stroke-dasharray="36 44" fill="none"/>
+  <path d="M318 582V420Q318 330 408 330H616Q706 330 706 420V582" stroke="#1E1E1E" stroke-width="72" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <circle cx="318" cy="640" r="58" fill="#FFFFFF" stroke="#1E1E1E" stroke-width="30"/>
+  <circle cx="706" cy="640" r="58" fill="#FFFFFF" stroke="#1E1E1E" stroke-width="30"/>
+  <path d="M472 600l80 80M552 600l-80 80" stroke="#1E1E1E" stroke-width="30" stroke-linecap="round" fill="none"/>
+</svg>

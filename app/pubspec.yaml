@@ -104,16 +104,17 @@ flutter:
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
 
-# L'icona dell'app, da un solo disegno 1024×1024 senza trasparenza.
+# L'icona dell'app: la variante gialla, disegnata in assets/icona/icona.svg
+# e resa in icona.png (1024×1024, senza trasparenza).
 # Si rigenera con: dart run flutter_launcher_icons
 # Su Android l'icona adattiva ritaglia un cerchio o un quadrato arrotondato
 # al centro: il disegno va rientrato del 16% sullo sfondo dello stesso
-# colore, o la punta della freccia e l'anello blu finiscono tagliati.
+# colore, o le estremità della linea finiscono tagliate.
 flutter_launcher_icons:
   image_path: "assets/icona/icona.png"
   ios: true
   remove_alpha_ios: true
   android: true
-  adaptive_icon_background: "#1E1E1E"
+  adaptive_icon_background: "#F9D400"
   adaptive_icon_foreground: "assets/icona/icona.png"
   adaptive_icon_foreground_inset: 16
