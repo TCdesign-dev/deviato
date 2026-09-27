@@ -363,6 +363,11 @@ Ognuna di queste è costata tempo. Sono tutte silenziose: non danno errore.
   **non da quello di Pages**: un'app compilata con l'indirizzo vecchio
   resta senza dati. La cartella locale e gli script di misura hanno
   tenuto il nome vecchio, di proposito.
+- **La build definitiva Android non aveva il permesso internet.** Flutter
+  lo mette nei manifest di prova (`debug/`, `profile/`), non in `main/`:
+  l'app lanciata con `flutter run` funzionava, l'APK definitivo diceva
+  «Nessuna connessione» con la rete accesa. Visto alla prima build, il
+  27/09. Se ne accorge solo chi prova il file che va sullo store.
 - **Gli orari programmati di GitHub sono una promessa debole.** Nelle
   prime dodici ore, coi minuti 5/25/45, sono partiti **3 giri su 27**:
   nessun errore, nessun giro annullato, semplicemente non lanciati.
@@ -424,12 +429,13 @@ Per non fraintendere quello che c'è in `config.dart`:
 - **niente notifiche.** Il calcolo periodico ora c'è (il job su GitHub),
   ma nessuno manda le notifiche: servirebbe un servizio push. È il passo
   naturale successivo.
-- **non è mai stata compilata per Android.** Il codice è condiviso e la
-  configurazione è verificata a mano (Java 17 già impostato, i permessi di
-  posizione nel manifest, `geolocator` che segue il `minSdk` di Flutter),
-  ma su questo Mac c'è solo Java 8 e mancano `cmdline-tools` e le licenze
-  dell'SDK. Finché qualcuno non lancia `flutter build apk`, «funziona su
-  Android» è un'ipotesi, non un fatto.
+- **su Android è stata provata solo sul telefono virtuale** (27/09/2026,
+  API 36): dati, aggiunta di una linea, mappa. Mai su un telefono vero,
+  mai la posizione né i mezzi in tempo reale. La build definitiva è ancora
+  firmata con la chiave di prova: per il Play Store servono un AAB e una
+  chiave vera. Java 17 è quello di Temurin (`flutter config --jdk-dir`);
+  `cmdline-tools` manca ancora, e `flutter doctor` se ne lamenta, ma per
+  compilare non serve.
 - **distanze a piedi in linea d'aria**, non reali. L'interfaccia lo dichiara.
 - **dentro una direzione usa solo la variante principale.** Una deviazione
   che riguardasse la sola corsa limitata verrebbe calcolata sul percorso

@@ -1,4 +1,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Per scaricare i dati pubblicati, la mappa e le posizioni dei mezzi.
+         Flutter lo mette da solo nelle build di prova (debug, profile) ma
+         non in quella definitiva: senza, l'app pubblicata dice «Nessuna
+         connessione» anche quando la rete c'e'. -->
+    <uses-permission android:name="android.permission.INTERNET"/>
     <!-- Solo per mostrare dove sei sulla mappa della linea. -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
