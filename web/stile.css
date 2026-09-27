@@ -522,31 +522,68 @@ mark {
 }
 .telefono::before { left: -3px; top: 18%; height: 3.25rem; }
 .telefono::after  { right: -3px; top: 25%; height: 4.5rem; }
-.schermata figcaption {
-  margin-top: 1.25rem;
-  color: var(--tenue);
-  line-height: 1.5;
+.schermata figcaption { margin-top: 1.5rem; }
+.schermata figcaption h3 {
+  display: flex;
+  align-items: center;
+  gap: .625rem;
 }
-.schermata figcaption strong { color: var(--testo); font-weight: 700; }
+.schermata figcaption p { margin-top: .5rem; color: var(--tenue); line-height: 1.5; }
+/* il numero del passo: una fermata gialla */
+.passo {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  background: var(--giallo);
+  color: var(--grafite);
+  font-family: var(--titolo);
+  font-weight: 800;
+  font-size: 1.0625rem;
+  line-height: 1;
+}
 
 /* come si comporta */
 .motto {
   line-height: 1.14;
-  font-size: clamp(1.75rem, 7.6vw, 3.75rem);
+  font-size: clamp(2rem, 9vw, 3.75rem);
   max-width: 16ch;
 }
 
-.due { margin-top: 2.25rem; display: grid; gap: 1.75rem; }
-.due p { margin-top: .5rem; color: var(--tenue); }
-.due p a, .domande p a, .chi-fa p a { color: var(--testo); }
+/* due blocchi uno sotto l'altro, separati da un filo come le domande */
+.due { margin-top: 2rem; display: grid; }
+.due div { padding: 1.25rem 0; border-top: 1px solid var(--filo); }
+.due div:last-child { padding-bottom: 0; }
+.due p { margin-top: .5rem; max-width: 34rem; color: var(--tenue); }
+.due p a, .domande p a { color: var(--testo); }
 
 /* domande: tutte aperte */
 .domande { margin-top: 2.25rem; display: grid; }
 .domande div { padding: 1.25rem 0; border-top: 1px solid var(--filo); }
 .domande p { margin-top: .5rem; max-width: 34rem; color: var(--tenue); }
 
-/* chi l'ha fatta: due righe, niente di più */
-.chi-fa p { margin-top: 1rem; max-width: 36rem; font-size: 1.1875rem; line-height: 1.5; }
+/* errori e contatto: il bottone della mail, largo quanto lo schermo sul
+   telefono, e la firma */
+.scrivi p { margin-top: 1rem; max-width: 36rem; font-size: 1.1875rem; line-height: 1.5; }
+.bottone {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 3.25rem;
+  margin-top: 1.5rem;
+  padding: .75rem 1.5rem;
+  border-radius: 999px;
+  background: var(--giallo);
+  color: var(--grafite);
+  font-weight: 700;
+  text-align: center;
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+.bottone:hover { background: var(--testo); color: var(--fondo); }
+.scrivi .firma { margin-top: 1.5rem; font-size: 1rem; color: var(--tenue); }
 
 /* ------------------------------------------------------ piè di pagina
 
@@ -667,8 +704,7 @@ mark {
   .cartello { padding: 1.75rem 2rem 2rem; }
   .cartello-testa .data { flex-basis: auto; margin-left: auto; }
   .esito { grid-template-columns: 1fr 1fr; gap: 2rem; }
-  .due { grid-template-columns: 1fr 1fr; gap: 2.5rem; }
-  .domande { grid-template-columns: 1fr 1fr; column-gap: 2.5rem; }
+  .bottone { display: inline-flex; }
   .piede .contenitore {
     display: grid;
     grid-template-columns: 1fr auto;
@@ -773,6 +809,8 @@ mark {
     align-items: start;
   }
   .schermata { width: 100%; max-width: 18rem; }
+
+  .domande { grid-template-columns: 1fr 1fr; column-gap: 2.5rem; }
 }
 
 @media print {
