@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>DeviaTo — La tua fermata è ancora servita?</title>
-<meta name="description" content="Quando GTT devia una linea, DeviaTo ti dice quali fermate non sono servite, fino a quando e dove salire invece. Gratuita, senza pubblicità, senza account.">
+<meta name="description" content="Quando GTT devia un bus o un tram a Torino, DeviaTo ti dice se dalla tua fermata passa ancora e, se no, dove andare a prenderlo. Gratis.">
 <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#1e1e1e" media="(prefers-color-scheme: dark)">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
@@ -19,17 +19,6 @@
 <svg class="sprite" aria-hidden="true" focusable="false">
   <symbol id="i-bus" viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="15" rx="3"/><path d="M5 11h14M8.5 18v2.5M15.5 18v2.5M8.5 14.5h.01M15.5 14.5h.01"/></symbol>
   <symbol id="i-telefono" viewBox="0 0 24 24"><rect x="6.5" y="2.5" width="11" height="19" rx="2.5"/><path d="M11 18.5h2"/></symbol>
-  <symbol id="i-gratis" viewBox="0 0 24 24"><path d="M16.5 7a6 6 0 1 0 0 10"/><path d="M5.5 10.5h7M5.5 13.5h7"/><path d="M4 4l16 16"/></symbol>
-  <symbol id="i-no-pubblicita" viewBox="0 0 24 24"><path d="M4 10v4h3l6 4V6L7 10z"/><path d="M16.5 9.5a3.5 3.5 0 0 1 0 5"/><path d="M3 3l18 18"/></symbol>
-  <symbol id="i-no-account" viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.5"/><path d="M5 20a7 7 0 0 1 14 0"/><path d="M3 3l18 18"/></symbol>
-  <symbol id="i-fermata" viewBox="0 0 24 24"><rect x="6.5" y="2.5" width="11" height="9" rx="2"/><path d="M12 11.5v9.5M9 21h6M9.5 7h5"/></symbol>
-  <symbol id="i-percorso" viewBox="0 0 24 24"><circle cx="6" cy="19" r="2"/><circle cx="18" cy="5" r="2"/><path d="M8 19h8a3 3 0 0 0 0-6H8a3 3 0 0 1 0-6h8"/></symbol>
-  <symbol id="i-dal-vivo" viewBox="0 0 24 24"><circle cx="12" cy="12" r="2"/><path d="M8.5 8.5a5 5 0 0 0 0 7M15.5 8.5a5 5 0 0 1 0 7M5.6 5.6a9 9 0 0 0 0 12.8M18.4 5.6a9 9 0 0 1 0 12.8"/></symbol>
-  <symbol id="i-calendario" viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></symbol>
-  <symbol id="i-cerca" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.3-4.3"/></symbol>
-  <symbol id="i-avviso" viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h4"/></symbol>
-  <symbol id="i-aggiorna" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.7"/><path d="M20 4v5h-5"/></symbol>
-  <symbol id="i-codice" viewBox="0 0 24 24"><path d="M8 8l-4 4 4 4M16 8l4 4-4 4M13.5 5l-3 14"/></symbol>
 </svg>
 
 
@@ -42,7 +31,7 @@
       </picture>
     </a>
     <nav aria-label="Pagine">
-      <a class="facoltativo" href="#come">Come funziona</a>
+      <a class="facoltativo" href="#app">Come si usa</a>
       <a href="privacy.html">Privacy</a>
     </nav>
   </div>
@@ -56,14 +45,10 @@
     <h1 id="titolo">La tua fermata è ancora servita?</h1>
 
     <div class="apertura-sotto">
-      <p class="guida">Quando GTT devia una linea, l'avviso elenca le vie. DeviaTo lo trasforma in una risposta: quali fermate non sono servite, fino a quando, e dove salire invece.</p>
+      <p class="guida">Quando GTT devia un bus o un tram, l'avviso elenca le vie del nuovo percorso. A te serve sapere un'altra cosa: se dalla tua fermata il bus passa ancora e, se no, dove andare a prenderlo. DeviaTo te lo dice.</p>
       <div class="arrivo-app">
-        <p class="store"><svg class="icona" aria-hidden="true"><use href="#i-telefono"/></svg>In arrivo su App Store e Google Play</p>
-        <ul class="promesse">
-          <li><svg class="icona" aria-hidden="true"><use href="#i-gratis"/></svg>Gratuita</li>
-          <li><svg class="icona" aria-hidden="true"><use href="#i-no-pubblicita"/></svg>Senza pubblicità</li>
-          <li><svg class="icona" aria-hidden="true"><use href="#i-no-account"/></svg>Senza account</li>
-        </ul>
+        <p class="store"><svg class="icona" aria-hidden="true"><use href="#i-telefono"/></svg>Presto su App Store e Google Play</p>
+        <p class="nota">È gratis e non serve registrarsi.</p>
       </div>
     </div>
 
@@ -73,7 +58,7 @@
       <figcaption class="cartello-testa" id="cartello-titolo">
         <span class="numero-linea"><svg class="icona" aria-hidden="true"><use href="#i-bus"/></svg><span class="solo-lettori">Linea </span>10N</span>
         <span>verso piazza XVIII Dicembre</span>
-        <span class="data">26 settembre 2026, un caso reale</span>
+        <span class="data">26 settembre 2026</span>
       </figcaption>
 
       <div class="tracciato">
@@ -96,138 +81,108 @@
       <div class="esito">
         <div class="conta">
           <span class="cifra">16</span>
-          <p><span class="chi">avvisi di GTT</span>Uno per fermata, uno dopo l'altro, per le due direzioni.</p>
+          <p><span class="chi">avvisi di GTT</span>Uno per ogni fermata sospesa, nelle due direzioni.</p>
         </div>
         <div class="conta risposta">
           <span class="cifra">1</span>
-          <p><span class="chi">risposta di DeviaTo</span>9 fermate di fila non servite. Sali a Vibò o a Statuto Nord.</p>
+          <p><span class="chi">risposta di DeviaTo</span>Nove fermate di fila non servite. Sali a Vibò o a Statuto Nord.</p>
         </div>
       </div>
     </figure>
   </div>
 </section>
 
-<!-- -------------------------------------------------------- come funziona -->
-<section class="sezione piena" id="come" aria-labelledby="come-titolo">
+<!-- ---------------------------------------------------------- come si usa -->
+<section class="sezione piena" id="app" aria-labelledby="app-titolo">
   <div class="contenitore">
-    <h2 id="come-titolo">Dal testo dell'avviso alla tua fermata</h2>
-    <p class="intro">Gli avvisi di GTT descrivono le deviazioni a parole. DeviaTo le trasforma in un percorso sulla mappa, e da lì capisce quali fermate restano fuori.</p>
+    <h2 id="app-titolo">Come si usa</h2>
+    <p class="intro">Aggiungi le linee che prendi di solito, tram o bus, urbane o extraurbane. Da lì in poi l'app tiene d'occhio quelle.</p>
 
-    <ol class="passi">
-      <li>
-        <h3>Legge gli avvisi</h3>
-        <p>Ogni mezz'ora raccoglie gli avvisi che GTT pubblica come dati aperti, e legge le vie che nominano.</p>
-      </li>
-      <li>
-        <h3>Cerca le vie lungo la linea</h3>
-        <p>Solo vicino al percorso di quella linea: «via Roma» non finisce a Cuneo.</p>
-      </li>
-      <li>
-        <h3>Ricostruisce il giro</h3>
-        <p>Calcola la strada che fa il mezzo e controlla che abbia senso. Se una verifica non torna, lo dice.</p>
-      </li>
-      <li>
-        <h3>Risponde per la tua fermata</h3>
-        <p>Servita o no, fino a quando, e la fermata aperta più vicina sulla stessa linea.</p>
-      </li>
-    </ol>
-  </div>
-</section>
-
-<!-- ------------------------------------------------------------ cosa fa -->
-<section class="sezione" aria-labelledby="cosa-titolo">
-  <div class="contenitore">
-    <h2 id="cosa-titolo">Quello che serve, prima di uscire</h2>
-
-    <div class="cosa-fa">
+    <div class="schermate">
       <figure class="schermata">
         <div class="telefono">
-        <picture>
-          <source srcset="img/home.webp" type="image/webp">
-          <img src="img/home.png" width="600" height="1304" loading="lazy"
-               alt="La schermata principale di DeviaTo: per ogni linea salvata, lo stato. Le linee 4 e 65 hanno percorso regolare; la 7 ha un avviso in corso fino al 27/09; la 10N ha 16 fermate non servite, con 16 avvisi; la 15 ne ha 15 fino al 28/09; la 55 e la 68 una ciascuna.">
-        </picture>
+          <picture>
+            <source srcset="img/home.webp" type="image/webp">
+            <img src="img/home.jpg" width="600" height="1304" loading="lazy"
+                 alt="La home di DeviaTo. In cima la fermata salvata, Mongreno sulla linea 15, con scritto Servita. Sotto, sei linee: la 4 ha il percorso regolare, la 9 ha 10 fermate non servite, la 10N 15, la 15 15 fino al 28 settembre, la 55 13 e la 68 14.">
+          </picture>
         </div>
-        <figcaption>La home dell'app, com'è davvero.</figcaption>
+        <figcaption><strong>La home.</strong> In cima c'è la tua fermata, con scritto se il bus ci passa. Sotto, le tue linee e quante fermate saltano.</figcaption>
       </figure>
 
-      <dl class="funzioni">
-        <div>
-          <dt><span class="segno" aria-hidden="true"><svg class="icona"><use href="#i-fermata"/></svg></span>Le tue fermate, per prime</dt>
-          <dd>Salvi la fermata che usi e la home risponde per quella: servita, non servita fino al…, e dove salire.</dd>
+      <figure class="schermata">
+        <div class="telefono">
+          <picture>
+            <source srcset="img/linea.webp" type="image/webp">
+            <img src="img/linea.jpg" width="600" height="1304" loading="lazy"
+                 alt="La linea 55: 13 fermate non servite. Verso via Moncalieri non passa da Farini capolinea a Castello, si sale a Bertola; non passa da Palagiustizia, si sale a Porta Susa Sud o a Ferrucci. Verso corso Farini salta 4 fermate di fila, da Castello a Vittorio Veneto. Sotto, la mappa col percorso deviato in rosso.">
+          </picture>
         </div>
-        <div>
-          <dt><span class="segno" aria-hidden="true"><svg class="icona"><use href="#i-percorso"/></svg></span>La deviazione sulla mappa</dt>
-          <dd>Percorso normale e percorso deviato, con le fermate che saltano segnate una per una.</dd>
+        <figcaption><strong>La linea.</strong> Per ogni direzione, le fermate dove il bus non passa e quella più vicina dove prenderlo. In fondo c'è il testo dell'avviso di GTT, così com'è.</figcaption>
+      </figure>
+
+      <figure class="schermata">
+        <div class="telefono">
+          <picture>
+            <source srcset="img/mappa.webp" type="image/webp">
+            <img src="img/mappa.jpg" width="600" height="1304" loading="lazy"
+                 alt="La mappa a tutto schermo della linea 55: il percorso deviato in rosso, le fermate saltate segnate con una croce e due bus con la freccia della direzione. A destra i comandi Tutta la linea, 4 mezzi · Interrompi e Dove sono.">
+          </picture>
         </div>
-        <div>
-          <dt><span class="segno" aria-hidden="true"><svg class="icona"><use href="#i-dal-vivo"/></svg></span>I mezzi in tempo reale</dt>
-          <dd>Segui i bus sulla mappa e capisci se la deviazione è già finita: GTT annuncia quando comincia, quasi mai quando smette.</dd>
-        </div>
-        <div>
-          <dt><span class="segno" aria-hidden="true"><svg class="icona"><use href="#i-calendario"/></svg></span>Adesso o più avanti</dt>
-          <dd>Le variazioni in programma stanno a parte, con la data: non ti fanno cambiare strada oggi.</dd>
-        </div>
-        <div>
-          <dt><span class="segno" aria-hidden="true"><svg class="icona"><use href="#i-cerca"/></svg></span>Tutte le linee</dt>
-          <dd>Urbane, suburbane ed extraurbane, tram e bus: le cerchi per numero o per via.</dd>
-        </div>
-        <div>
-          <dt><span class="segno" aria-hidden="true"><svg class="icona"><use href="#i-avviso"/></svg></span>L'avviso originale, sempre</dt>
-          <dd>In fondo a ogni linea c'è il testo di GTT così com'è, per controllare con i tuoi occhi.</dd>
-        </div>
-      </dl>
+        <figcaption><strong>La mappa.</strong> Il percorso deviato in rosso e le fermate saltate. Con «Segui i mezzi» vedi dove sono i bus adesso e in che direzione vanno: così capisci se la deviazione è finita, cosa che GTT di solito non annuncia.</figcaption>
+      </figure>
     </div>
   </div>
 </section>
 
 <!-- --------------------------------------------------- onestà e privacy -->
-<section class="sezione piena comportamento" aria-labelledby="motto">
+<section class="sezione comportamento" aria-labelledby="motto">
   <div class="contenitore">
     <p class="motto" id="motto">Meglio nessuna mappa che una mappa <mark>sbagliata</mark></p>
 
     <div class="due">
       <div>
-        <h3>Se non è sicura, lo dice</h3>
-        <p>Una fermata segnata chiusa per sbaglio ti fa camminare per niente. Quando un avviso non si ricostruisce con certezza, DeviaTo lo segna «Da confermare» o ti mostra solo il testo di GTT. Un percorso inventato, mai.</p>
+        <h3>Da dove vengono i percorsi</h3>
+        <p>GTT pubblica gli avvisi come dati aperti, ma il giro della deviazione lo racconta a parole, con l'elenco delle vie. DeviaTo cerca quelle vie lungo la linea, ricostruisce il percorso e poi lo controlla. Se il risultato non la convince, non disegna niente e ti fa leggere il testo di GTT.</p>
       </div>
       <div>
-        <h3>Niente account, niente tracciamento</h3>
-        <p>Non serve registrarsi e l'app non raccoglie dati personali. Se attivi la posizione sulla mappa, resta sul telefono. Questo sito non usa cookie e non carica niente da altri server.</p>
+        <h3>I tuoi dati</h3>
+        <p>Non c'è un account e l'app non raccoglie dati personali. Dare la posizione non è obbligatorio: serve solo a vederti sulla mappa, e non esce dal telefono. Anche questo sito non usa cookie. I dettagli sono nella pagina sulla <a href="privacy.html">privacy</a>.</p>
       </div>
     </div>
-
-    <dl class="cifre">
-      <div><dt><svg class="icona" aria-hidden="true"><use href="#i-bus"/></svg>216</dt><dd>linee GTT</dd></div>
-      <div><dt><svg class="icona" aria-hidden="true"><use href="#i-aggiorna"/></svg>30 min</dt><dd>fra un aggiornamento e l'altro; la sera, ogni ora</dd></div>
-      <div><dt><svg class="icona" aria-hidden="true"><use href="#i-gratis"/></svg>Gratis</dt><dd>senza pubblicità né acquisti</dd></div>
-      <div><dt><svg class="icona" aria-hidden="true"><use href="#i-codice"/></svg>Aperto</dt><dd>il codice, <a href="https://github.com/TCdesign-dev/deviato">su GitHub</a></dd></div>
-    </dl>
   </div>
 </section>
 
 <!-- ------------------------------------------------------------- domande -->
 <section class="sezione" aria-labelledby="domande-titolo">
   <div class="contenitore">
-    <h2 id="domande-titolo">Da sapere</h2>
+    <h2 id="domande-titolo">Domande</h2>
     <div class="domande">
       <div>
         <h3>È un'app di GTT?</h3>
-        <p>No. DeviaTo non è collegata a GTT: usa i dati che GTT pubblica apertamente e li interpreta in automatico. In caso di dubbio fa fede l'avviso originale, che trovi sempre in fondo alla linea.</p>
+        <p>No, e non è collegata a GTT. Usa i dati che GTT mette a disposizione di chiunque voglia riusarli. Se l'app e l'avviso dicono cose diverse, vale l'avviso.</p>
       </div>
       <div>
-        <h3>Quanto è affidabile?</h3>
-        <p>Le fermate che GTT sospende indicandone il numero sono certe. I percorsi deviati sono ricostruiti dal testo degli avvisi e controllati con alcune verifiche: quando una non torna, l'app lo dice invece di tirare a indovinare.</p>
+        <h3>Posso fidarmi di quello che dice?</h3>
+        <p>Quando GTT sospende una fermata indicandone il numero, sì. Quando descrive un giro di vie, il percorso l'ha ricostruito l'app e può sbagliare: per questo ogni deviazione porta un'etichetta, «Verificato» o «Da confermare», e l'avviso originale è sempre in fondo alla linea.</p>
       </div>
       <div>
-        <h3>È gratuita?</h3>
-        <p>Sì, e resterà senza pubblicità e senza acquisti. I dati di GTT si possono usare solo così, ed è giusto.</p>
+        <h3>Ogni quanto si aggiorna?</h3>
+        <p>Di giorno ogni mezz'ora, la sera ogni ora, di notte più di rado. Le posizioni dei bus sulla mappa invece sono in tempo reale.</p>
       </div>
       <div>
-        <h3>Mi avvisa quando la mia linea devia?</h3>
-        <p>Non ancora: per ora le novità si vedono aprendo l'app. Le notifiche sono il prossimo passo.</p>
+        <h3>Mi avvisa se la mia linea devia?</h3>
+        <p>Non ancora. Per ora le novità si vedono aprendo l'app.</p>
       </div>
     </div>
+  </div>
+</section>
+
+<!-- ------------------------------------------------------ chi l'ha fatta -->
+<section class="sezione piena" aria-labelledby="chi-titolo">
+  <div class="contenitore chi-fa">
+    <h2 id="chi-titolo">Chi l'ha fatta</h2>
+    <p>DeviaTo è un progetto personale di Tommaso, designer a Torino, e non ha pubblicità. Se trovi una fermata segnata male o qualcosa che non si capisce, scrivi a <a href="mailto:devia.to@icloud.com">devia.to@icloud.com</a>. Il codice è pubblico <a href="https://github.com/TCdesign-dev/deviato">su GitHub</a>.</p>
   </div>
 </section>
 
@@ -236,15 +191,15 @@
 <footer class="piede">
   <div class="contenitore">
     <a class="marchio" href="./"><img src="img/logo-scuro.svg" width="637" height="194" alt="DeviaTo"></a>
-    <p class="arrivo">In arrivo su App Store e Google Play</p>
+    <p class="arrivo">Presto su App Store e Google Play</p>
     <nav aria-label="Link">
       <a href="privacy.html">Privacy</a>
+      <a href="mailto:devia.to@icloud.com">Contatti</a>
       <a href="https://github.com/TCdesign-dev/deviato">Codice su GitHub</a>
-      <a href="https://github.com/TCdesign-dev/deviato/issues">Segnala un problema</a>
     </nav>
     <div class="fonti">
       <p><a href="https://www.gtt.to.it">Data source: GTT S.p.A. – Gruppo Torinese Trasporti</a></p>
-      <p><a href="https://www.openstreetmap.org/copyright">Mappe © contributori di OpenStreetMap</a></p>
+      <p>Mappe dell'app © <a href="https://www.openstreetmap.org/copyright">contributori di OpenStreetMap</a> · © <a href="https://carto.com/attributions">CARTO</a></p>
       <p>DeviaTo non è un'app di GTT e non è collegata a GTT.</p>
     </div>
   </div>

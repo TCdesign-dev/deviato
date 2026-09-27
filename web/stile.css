@@ -123,7 +123,7 @@ a:hover {
 
 h1, h2, h3, p { margin: 0; }
 
-h1, h2, .motto, .cifre dt, .arrivo {
+h1, h2, .motto, .arrivo {
   font-family: var(--titolo);
   font-weight: 800;
   line-height: 1.05;
@@ -233,7 +233,7 @@ mark {
 /* -------------------------------------------------------------- apertura
 
    Tre piani allineati a sinistra: il titolo; sotto un filo, la spiegazione
-   e le promesse che partono alla stessa altezza; poi il cartello. */
+   e l'arrivo sugli store che partono alla stessa altezza; poi il cartello. */
 
 .apertura { padding: 1.75rem 0 2.5rem; }
 
@@ -256,7 +256,8 @@ mark {
   line-height: 1.5;
 }
 
-.arrivo-app { display: grid; gap: .875rem; justify-items: start; }
+.arrivo-app { display: grid; gap: .75rem; justify-items: start; }
+.arrivo-app .nota { font-size: .9375rem; font-weight: 500; color: var(--tenue); }
 
 .store {
   display: inline-flex;
@@ -270,19 +271,6 @@ mark {
   font-size: .9375rem;
   line-height: 1.2;
 }
-
-.promesse {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  display: flex;
-  flex-wrap: wrap;
-  gap: .5rem 1.25rem;
-  font-size: .9375rem;
-  font-weight: 500;
-}
-.promesse li { display: inline-flex; align-items: center; gap: .4rem; }
-.promesse .icona { color: var(--tenue); }
 
 /* ------------------------------------------- il cartello: la 10N il 26/09
 
@@ -500,52 +488,16 @@ mark {
   color: var(--tenue);
 }
 
-/* come funziona: quattro fermate su un tratto di linea */
-.passi {
-  list-style: none;
-  margin: 2.25rem 0 0;
-  padding: 0;
-}
-.passi li {
-  position: relative;
-  padding: 0 0 2rem 2.5rem;
-}
-.passi li::before {
-  content: "";
-  position: absolute;
-  left: calc(.6875rem - var(--spessore) / 2);
-  top: .75rem;
-  bottom: -.75rem;
-  border-left: var(--spessore) solid var(--testo);
-}
-.passi li:last-child { padding-bottom: 0; }
-.passi li:last-child::before { display: none; }
-.passi li::after {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: .0625rem;
-  width: 1.375rem;
-  height: 1.375rem;
-  border: 4px solid var(--testo);
-  border-radius: 50%;
-  background: var(--fondo);
-}
-.sezione.piena .passi li::after { background: var(--superficie); }
-.sezione .passi li:last-child::after {
-  background: var(--giallo);
-  border-color: var(--testo);
-}
-.passi p { margin-top: .375rem; max-width: 30rem; color: var(--tenue); }
-
-/* cosa fa: la schermata vera, dentro un telefono disegnato */
-.cosa-fa {
-  margin-top: 2.25rem;
+/* come si usa: tre schermate vere, dentro un telefono disegnato. Sul
+   telefono una sotto l'altra, sul desktop affiancate. */
+.schermate {
+  margin-top: 2.5rem;
   display: grid;
-  gap: 2.5rem;
+  gap: 3rem;
+  justify-items: center;
 }
 
-.schermata { margin: 0; justify-self: center; width: min(17.5rem, 78vw); }
+.schermata { margin: 0; width: min(17.5rem, 78vw); }
 .telefono {
   position: relative;
   padding: .6rem;
@@ -571,33 +523,11 @@ mark {
 .telefono::before { left: -3px; top: 18%; height: 3.25rem; }
 .telefono::after  { right: -3px; top: 25%; height: 4.5rem; }
 .schermata figcaption {
-  margin-top: .875rem;
-  text-align: center;
-  font-size: .875rem;
+  margin-top: 1.25rem;
   color: var(--tenue);
+  line-height: 1.5;
 }
-
-.funzioni { margin: 2rem 0 0; }
-.funzioni div {
-  position: relative;
-  padding: 1rem 0 1rem 3.75rem;
-  border-top: 1px solid var(--filo);
-}
-.funzioni .segno {
-  position: absolute;
-  left: 0;
-  top: 1rem;
-  display: grid;
-  place-items: center;
-  width: 2.75rem;
-  height: 2.75rem;
-  border-radius: .875rem;
-  background: var(--giallo);
-  color: var(--grafite);
-}
-.funzioni .segno .icona { width: 1.5rem; height: 1.5rem; }
-.funzioni dt { font-weight: 700; font-size: 1.1875rem; line-height: 1.25; }
-.funzioni dd { margin: .25rem 0 0; color: var(--tenue); }
+.schermata figcaption strong { color: var(--testo); font-weight: 700; }
 
 /* come si comporta */
 .motto {
@@ -608,25 +538,15 @@ mark {
 
 .due { margin-top: 2.25rem; display: grid; gap: 1.75rem; }
 .due p { margin-top: .5rem; color: var(--tenue); }
-
-.cifre {
-  margin: 2.75rem 0 0;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 2rem 1.25rem;
-}
-.cifre div {
-  padding: 1rem 1rem 0 0;
-  border-top: var(--spessore) solid var(--testo);
-}
-.cifre dt { font-size: clamp(1.5rem, 7vw, 2.25rem); line-height: 1.1; }
-.cifre .icona { display: block; width: 1.5rem; height: 1.5rem; margin-bottom: .75rem; color: var(--tenue); }
-.cifre dd { margin: .5rem 0 0; font-size: .9375rem; color: var(--tenue); }
+.due p a, .domande p a, .chi-fa p a { color: var(--testo); }
 
 /* domande: tutte aperte */
 .domande { margin-top: 2.25rem; display: grid; }
 .domande div { padding: 1.25rem 0; border-top: 1px solid var(--filo); }
 .domande p { margin-top: .5rem; max-width: 34rem; color: var(--tenue); }
+
+/* chi l'ha fatta: due righe, niente di più */
+.chi-fa p { margin-top: 1rem; max-width: 36rem; font-size: 1.1875rem; line-height: 1.5; }
 
 /* ------------------------------------------------------ piè di pagina
 
@@ -748,7 +668,6 @@ mark {
   .cartello-testa .data { flex-basis: auto; margin-left: auto; }
   .esito { grid-template-columns: 1fr 1fr; gap: 2rem; }
   .due { grid-template-columns: 1fr 1fr; gap: 2.5rem; }
-  .cifre { grid-template-columns: repeat(4, 1fr); }
   .domande { grid-template-columns: 1fr 1fr; column-gap: 2.5rem; }
   .piede .contenitore {
     display: grid;
@@ -841,37 +760,19 @@ mark {
 
   .sezione { padding: 5rem 0; }
 
-  .passi {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 2rem;
-  }
-  .passi li { padding: 2.5rem 0 0; }
-  .passi li::after { top: 0; }
-  .passi li::before {
-    left: .6875rem;
-    right: -2rem;
-    top: calc(.6875rem - var(--spessore) / 2);
-    bottom: auto;
-    border-left: 0;
-    border-top: var(--spessore) solid var(--testo);
-  }
-
-  .funzioni { margin-top: 0; }
-  .cosa-fa {
-    grid-template-columns: 19rem 1fr;
-    gap: 4rem;
-    align-items: start;
-  }
-  .funzioni { display: grid; grid-template-columns: 1fr 1fr; column-gap: 2.5rem; }
-
   .comportamento .contenitore {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     column-gap: 4rem;
   }
   .comportamento .due { margin-top: .5rem; grid-template-columns: 1fr; align-content: start; }
-  .comportamento .cifre { grid-column: 1 / -1; }
+
+  .schermate {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 3rem;
+    align-items: start;
+  }
+  .schermata { width: 100%; max-width: 18rem; }
 }
 
 @media print {
