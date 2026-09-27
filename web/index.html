@@ -4,207 +4,188 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>DeviaTo — La tua fermata è ancora servita?</title>
-<meta name="description" content="Quando GTT devia una linea, DeviaTo ti dice quali fermate saltano, fino a quando e dove salire invece. Gratuita, senza pubblicità, senza account.">
-<meta name="theme-color" content="#0b5fa5">
+<meta name="description" content="Quando GTT devia una linea, DeviaTo ti dice quali fermate non sono servite, fino a quando e dove salire invece. Gratuita, senza pubblicità, senza account.">
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#1e1e1e" media="(prefers-color-scheme: dark)">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="stile.css">
 </head>
 <body>
 
+<a class="salta-al-contenuto" href="#contenuto">Vai al contenuto</a>
+
+<!-- Icone, disegnate per il sito: si richiamano con <use href="#i-…"> -->
+<svg class="sprite" aria-hidden="true" focusable="false">
+  <symbol id="i-bus" viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="15" rx="3"/><path d="M5 11h14M8.5 18v2.5M15.5 18v2.5M8.5 14.5h.01M15.5 14.5h.01"/></symbol>
+  <symbol id="i-telefono" viewBox="0 0 24 24"><rect x="6.5" y="2.5" width="11" height="19" rx="2.5"/><path d="M11 18.5h2"/></symbol>
+  <symbol id="i-gratis" viewBox="0 0 24 24"><path d="M16.5 7a6 6 0 1 0 0 10"/><path d="M5.5 10.5h7M5.5 13.5h7"/><path d="M4 4l16 16"/></symbol>
+  <symbol id="i-no-pubblicita" viewBox="0 0 24 24"><path d="M4 10v4h3l6 4V6L7 10z"/><path d="M16.5 9.5a3.5 3.5 0 0 1 0 5"/><path d="M3 3l18 18"/></symbol>
+  <symbol id="i-no-account" viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.5"/><path d="M5 20a7 7 0 0 1 14 0"/><path d="M3 3l18 18"/></symbol>
+  <symbol id="i-fermata" viewBox="0 0 24 24"><rect x="6.5" y="2.5" width="11" height="9" rx="2"/><path d="M12 11.5v9.5M9 21h6M9.5 7h5"/></symbol>
+  <symbol id="i-percorso" viewBox="0 0 24 24"><circle cx="6" cy="19" r="2"/><circle cx="18" cy="5" r="2"/><path d="M8 19h8a3 3 0 0 0 0-6H8a3 3 0 0 1 0-6h8"/></symbol>
+  <symbol id="i-dal-vivo" viewBox="0 0 24 24"><circle cx="12" cy="12" r="2"/><path d="M8.5 8.5a5 5 0 0 0 0 7M15.5 8.5a5 5 0 0 1 0 7M5.6 5.6a9 9 0 0 0 0 12.8M18.4 5.6a9 9 0 0 1 0 12.8"/></symbol>
+  <symbol id="i-calendario" viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></symbol>
+  <symbol id="i-cerca" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.3-4.3"/></symbol>
+  <symbol id="i-avviso" viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h4"/></symbol>
+  <symbol id="i-aggiorna" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.7"/><path d="M20 4v5h-5"/></symbol>
+  <symbol id="i-codice" viewBox="0 0 24 24"><path d="M8 8l-4 4 4 4M16 8l4 4-4 4M13.5 5l-3 14"/></symbol>
+</svg>
+
+
 <header class="testata">
   <div class="contenitore">
-    <a class="marchio" href="./"><img src="favicon.svg" alt="">DeviaTo</a>
-    <nav class="navigazione" aria-label="Sezioni">
-      <a href="#come">Come funziona</a>
-      <a href="#funzioni">Cosa fa</a>
-      <a href="#domande">Domande</a>
+    <a class="marchio" href="./">
+      <picture>
+        <source srcset="img/logo-scuro.svg" media="(prefers-color-scheme: dark)">
+        <img src="img/logo-chiaro.svg" width="637" height="194" alt="DeviaTo">
+      </picture>
+    </a>
+    <nav aria-label="Pagine">
+      <a class="facoltativo" href="#come">Come funziona</a>
+      <a href="privacy.html">Privacy</a>
     </nav>
   </div>
 </header>
 
-<main>
+<main id="contenuto">
 
 <!-- ------------------------------------------------------------ apertura -->
-<section class="hero">
+<section class="apertura" aria-labelledby="titolo">
   <div class="contenitore">
-    <div>
-      <span class="occhiello">Deviazioni GTT a Torino</span>
-      <h1>La tua fermata è ancora servita?</h1>
-      <p class="sottotitolo">Quando GTT devia una linea, l'avviso ti dice le vie. DeviaTo ti dice le fermate: quali saltano, fino a quando e dove salire invece.</p>
-      <div class="azioni">
-        <a class="bottone bottone-pieno" href="#come">Come funziona</a>
-        <a class="bottone bottone-vuoto" href="https://github.com/TCdesign-dev/gtt-deviazioni">Il codice su GitHub</a>
-      </div>
-      <p class="presto">In arrivo su App Store e Google Play. Gratuita, senza pubblicità, senza account.</p>
-    </div>
+    <h1 id="titolo">La tua fermata è ancora servita?</h1>
 
-    <div class="telefono" aria-label="La home di DeviaTo: la fermata Mortara della 10N non è servita; sotto, lo stato delle linee.">
-      <div class="schermo">
-        <div class="app-titolo">DeviaTo</div>
-        <div class="app-sezione">Le tue fermate</div>
-        <div class="scheda-fermata entra">
-          <div class="riga"><span class="etichetta bus">10N</span><span class="nome">Mortara</span><span class="grigio">1763</span></div>
-          <div class="grigio" style="margin-top:4px">verso via Massari</div>
-          <div class="stato">⊖ Non servita fino al 29/09</div>
-          <div style="margin-top:3px">Sali a <b>Largo Massaia</b>, 680 m</div>
-        </div>
-        <div class="app-sezione">Le tue linee<small>Aggiornate alle 18:40</small></div>
-        <div>
-          <div class="riga-linea entra"><span class="etichetta tram">4</span><span class="ok">✓ Percorso regolare</span></div>
-          <div class="riga-linea entra"><span class="etichetta bus">10N</span><div><div class="no">⊖ 16 fermate non servite</div><div class="dettaglio">fino al 29/09 · 16 avvisi</div></div></div>
-          <div class="riga-linea entra"><span class="etichetta tram">15</span><div><div class="warn">↱ Deviata, fermate servite</div><div class="dettaglio">fino al 28/09 · 1 avviso</div></div></div>
-          <div class="riga-linea entra"><span class="etichetta bus">55</span><span class="no">⊖ 1 fermata non servita</span></div>
-          <div class="riga-linea entra"><span class="etichetta bus">65</span><span class="ok">✓ Percorso regolare</span></div>
-          <div class="riga-linea entra"><span class="etichetta bus">68</span><span class="no">⊖ 1 fermata non servita</span></div>
-        </div>
+    <div class="apertura-sotto">
+      <p class="guida">Quando GTT devia una linea, l'avviso elenca le vie. DeviaTo lo trasforma in una risposta: quali fermate non sono servite, fino a quando, e dove salire invece.</p>
+      <div class="arrivo-app">
+        <p class="store"><svg class="icona" aria-hidden="true"><use href="#i-telefono"/></svg>In arrivo su App Store e Google Play</p>
+        <ul class="promesse">
+          <li><svg class="icona" aria-hidden="true"><use href="#i-gratis"/></svg>Gratuita</li>
+          <li><svg class="icona" aria-hidden="true"><use href="#i-no-pubblicita"/></svg>Senza pubblicità</li>
+          <li><svg class="icona" aria-hidden="true"><use href="#i-no-account"/></svg>Senza account</li>
+        </ul>
       </div>
     </div>
-  </div>
-</section>
 
-<!-- ------------------------------------------------------- 16 avvisi → 1 -->
-<section class="sezione sezione-alt">
-  <div class="contenitore">
-    <span class="occhiello">Il problema</span>
-    <h2>Sedici avvisi. Una risposta.</h2>
-    <p class="intro">Il 26 settembre 2026 GTT ha pubblicato per la linea notturna 10N un avviso per ogni fermata chiusa: sedici, uno dopo l'altro. Per chi aspetta il bus erano una cosa sola.</p>
+    <!-- Il caso reale del 26 settembre 2026. Fermate e codici dagli orari
+         GTT (GTFS), nell'ordine in cui la linea le percorre. -->
+    <figure class="cartello" aria-labelledby="cartello-titolo">
+      <figcaption class="cartello-testa" id="cartello-titolo">
+        <span class="numero-linea"><svg class="icona" aria-hidden="true"><use href="#i-bus"/></svg><span class="solo-lettori">Linea </span>10N</span>
+        <span>verso piazza XVIII Dicembre</span>
+        <span class="data">26 settembre 2026, un caso reale</span>
+      </figcaption>
 
-    <div class="confronto rivela" id="confronto">
-      <div>
-        <div class="colonna-titolo">Cosa pubblica GTT</div>
-        <div class="mazzo" aria-hidden="true">
-          <div class="avviso" style="top:0px;animation-delay:.05s"><b>Linea 10N</b> — non transita dalla fermata 422 Largo Giachino Sud.</div>
-          <div class="avviso" style="top:26px;animation-delay:.15s"><b>Linea 10N</b> — non transita dalla fermata 1758 Verolengo.</div>
-          <div class="avviso" style="top:52px;animation-delay:.25s"><b>Linea 10N</b> — non transita dalla fermata 1760 Brin.</div>
-          <div class="avviso" style="top:78px;animation-delay:.35s"><b>Linea 10N</b> — non transita dalla fermata 1762 Mortara.</div>
-          <div class="avviso" style="top:104px;animation-delay:.45s"><b>Linea 10N</b> — non transita dalla fermata 1764 Treviso.</div>
-          <div class="avviso" style="top:130px;animation-delay:.55s"><b>Linea 10N</b> — non transita dalla fermata 2170 Umbria.</div>
-          <div class="avviso" style="top:156px;animation-delay:.65s"><b>Linea 10N</b> — non transita dalla fermata 1911 Regina Margherita.</div>
-          <div class="avviso" style="top:182px;animation-delay:.75s"><b>Linea 10N</b> — non transita dalla fermata 193 Industria.</div>
-          <div class="avviso" style="top:208px;animation-delay:.85s"><b>Linea 10N</b> — non transita dalla fermata 2174 Principe Eugenio.</div>
-          <div class="avviso" style="top:234px;animation-delay:.95s"><b>Linea 10N</b> — non transita dalla fermata 194 Industria.</div>
-          <div class="avviso" style="top:260px;animation-delay:1.05s"><b>Linea 10N</b> — non transita dalla fermata 192 Livorno.</div>
-          <div class="avviso" style="top:286px;animation-delay:1.15s"><b>Linea 10N</b> — non transita dalla fermata 1947 Umbria.</div>
-          <div class="avviso" style="top:312px;animation-delay:1.25s"><b>Linea 10N</b> — non transita dalla fermata 1765 Treviso.</div>
-          <div class="avviso" style="top:338px;animation-delay:1.35s"><b>Linea 10N</b> — non transita dalla fermata 1763 Mortara…</div>
-        </div>
-        <div class="contatore">…e altri due.</div>
+      <div class="tracciato">
+        <ol class="schema" aria-label="Le fermate in questa direzione">
+          <li class="aperta dismesso"><span class="punto" aria-hidden="true"></span><span class="fermata-testo"><span class="nome">Vibò</span><span class="codice">1410</span><span class="sali">sali qui</span></span></li>
+          <li class="chiusa dismesso" style="--i:0"><span class="punto" aria-hidden="true"></span><span class="fermata-testo"><span class="nome">Largo Giachino Sud</span><span class="codice">422</span><span class="solo-lettori">, non servita</span></span></li>
+          <li class="chiusa dismesso" style="--i:1"><span class="punto" aria-hidden="true"></span><span class="fermata-testo"><span class="nome">Verolengo</span><span class="codice">1758</span><span class="solo-lettori">, non servita</span></span></li>
+          <li class="chiusa dismesso" style="--i:2"><span class="punto" aria-hidden="true"></span><span class="fermata-testo"><span class="nome">Brin</span><span class="codice">1760</span><span class="solo-lettori">, non servita</span></span></li>
+          <li class="chiusa dismesso" style="--i:3"><span class="punto" aria-hidden="true"></span><span class="fermata-testo"><span class="nome">Mortara</span><span class="codice">1762</span><span class="solo-lettori">, non servita</span></span></li>
+          <li class="chiusa dismesso" style="--i:4"><span class="punto" aria-hidden="true"></span><span class="fermata-testo"><span class="nome">Treviso</span><span class="codice">1764</span><span class="solo-lettori">, non servita</span></span></li>
+          <li class="chiusa dismesso" style="--i:5"><span class="punto" aria-hidden="true"></span><span class="fermata-testo"><span class="nome">Umbria</span><span class="codice">2170</span><span class="solo-lettori">, non servita</span></span></li>
+          <li class="chiusa dismesso" style="--i:6"><span class="punto" aria-hidden="true"></span><span class="fermata-testo"><span class="nome">Regina Margherita</span><span class="codice">1911</span><span class="solo-lettori">, non servita</span></span></li>
+          <li class="chiusa dismesso" style="--i:7"><span class="punto" aria-hidden="true"></span><span class="fermata-testo"><span class="nome">Industria</span><span class="codice">193</span><span class="solo-lettori">, non servita</span></span></li>
+          <li class="chiusa dismesso" style="--i:8"><span class="punto" aria-hidden="true"></span><span class="fermata-testo"><span class="nome">Principe Eugenio</span><span class="codice">2174</span><span class="solo-lettori">, non servita</span></span></li>
+          <li class="aperta"><span class="punto" aria-hidden="true"></span><span class="fermata-testo"><span class="nome">Statuto Nord</span><span class="codice">373</span><span class="sali">sali qui</span></span></li>
+        </ol>
+        <span class="deviazione" aria-hidden="true"></span>
       </div>
 
-      <div class="freccia" aria-hidden="true">→</div>
-
-      <div>
-        <div class="colonna-titolo">Cosa ti dice DeviaTo</div>
-        <div class="risposta">
-          <div class="titolo">⊖ 9 fermate non servite</div>
-          <div class="verso">Verso piazza XVIII Dicembre</div>
-          <div>Di fila, da Largo Giachino Sud a Principe Eugenio.</div>
-          <div class="striscia" aria-hidden="true">
-            <span class="aperta"></span><span class="tratto"></span>
-            <span class="chiusa" style="animation-delay:2.1s">×</span><span class="tratto"></span>
-            <span class="chiusa" style="animation-delay:2.18s">×</span><span class="tratto"></span>
-            <span class="chiusa" style="animation-delay:2.26s">×</span><span class="tratto"></span>
-            <span class="chiusa" style="animation-delay:2.34s">×</span><span class="tratto"></span>
-            <span class="chiusa" style="animation-delay:2.42s">×</span><span class="tratto"></span>
-            <span class="chiusa" style="animation-delay:2.5s">×</span><span class="tratto"></span>
-            <span class="chiusa" style="animation-delay:2.58s">×</span><span class="tratto"></span>
-            <span class="chiusa" style="animation-delay:2.66s">×</span><span class="tratto"></span>
-            <span class="chiusa" style="animation-delay:2.74s">×</span><span class="tratto"></span>
-            <span class="aperta"></span>
-          </div>
-          <div class="estremi"><span>Vibò</span><span>Statuto Nord</span></div>
-          <div class="sali">🚶 Sali a <b>Vibò</b> o a <b>Statuto Nord</b>.</div>
+      <div class="esito">
+        <div class="conta">
+          <span class="cifra">16</span>
+          <p><span class="chi">avvisi di GTT</span>Uno per fermata, uno dopo l'altro, per le due direzioni.</p>
+        </div>
+        <div class="conta risposta">
+          <span class="cifra">1</span>
+          <p><span class="chi">risposta di DeviaTo</span>9 fermate di fila non servite. Sali a Vibò o a Statuto Nord.</p>
         </div>
       </div>
-    </div>
+    </figure>
   </div>
 </section>
 
 <!-- -------------------------------------------------------- come funziona -->
-<section class="sezione" id="come">
+<section class="sezione piena" id="come" aria-labelledby="come-titolo">
   <div class="contenitore">
-    <span class="occhiello">Come funziona</span>
-    <h2>Dal testo dell'avviso alla tua fermata.</h2>
+    <h2 id="come-titolo">Dal testo dell'avviso alla tua fermata</h2>
     <p class="intro">Gli avvisi di GTT descrivono le deviazioni a parole. DeviaTo le trasforma in un percorso sulla mappa, e da lì capisce quali fermate restano fuori.</p>
 
-    <div class="come">
-      <ol class="passi rivela">
-        <li><h3>Legge gli avvisi</h3><p>Ogni venti minuti raccoglie gli avvisi che GTT pubblica come dati aperti, e legge le vie che nominano.</p></li>
-        <li><h3>Cerca le vie lungo la linea</h3><p>Le vie si cercano solo vicino al percorso di quella linea: «via Roma» non finisce a Cuneo.</p></li>
-        <li><h3>Ricostruisce il giro del bus</h3><p>Calcola la strada che fa il mezzo e controlla che abbia senso. Se una verifica non torna, lo dice.</p></li>
-        <li><h3>Risponde per la tua fermata</h3><p>Servita o no, fino a quando, e la fermata aperta più vicina sulla stessa linea.</p></li>
-      </ol>
-
-      <div class="mappa rivela" aria-label="Animazione: il percorso normale di una linea, la deviazione in rosso, due fermate che saltano e il bus che fa il giro nuovo.">
-        <svg viewBox="0 0 460 260" role="img" aria-hidden="true">
-          <g class="strade">
-            <path d="M20 110 H440"/><path d="M20 60 H440"/><path d="M20 200 H440"/>
-            <path d="M140 20 V240"/><path d="M230 20 V240"/><path d="M330 20 V240"/>
-          </g>
-          <path class="normale" d="M40 150 L140 150 L140 110 L400 110 L400 150 L430 150"/>
-          <path class="deviata" d="M140 110 L140 60 L330 60 L330 150 L400 150"/>
-          <circle class="fermata" cx="90" cy="150" r="7"/>
-          <circle class="fermata" cx="370" cy="110" r="7"/>
-          <circle class="saltata" cx="200" cy="110" r="10"/>
-          <circle class="saltata ritardo" cx="275" cy="110" r="10"/>
-          <path class="x" d="M195 105 L205 115 M205 105 L195 115"/>
-          <path class="x ritardo" d="M270 105 L280 115 M280 105 L270 115"/>
-          <circle class="mezzo" r="9" cx="0" cy="0"/>
-          <text class="testo-mappa" x="160" y="44">percorso deviato</text>
-          <text class="testo-mappa" x="170" y="136">fermate saltate</text>
-        </svg>
-      </div>
-    </div>
+    <ol class="passi">
+      <li>
+        <h3>Legge gli avvisi</h3>
+        <p>Ogni mezz'ora raccoglie gli avvisi che GTT pubblica come dati aperti, e legge le vie che nominano.</p>
+      </li>
+      <li>
+        <h3>Cerca le vie lungo la linea</h3>
+        <p>Solo vicino al percorso di quella linea: «via Roma» non finisce a Cuneo.</p>
+      </li>
+      <li>
+        <h3>Ricostruisce il giro</h3>
+        <p>Calcola la strada che fa il mezzo e controlla che abbia senso. Se una verifica non torna, lo dice.</p>
+      </li>
+      <li>
+        <h3>Risponde per la tua fermata</h3>
+        <p>Servita o no, fino a quando, e la fermata aperta più vicina sulla stessa linea.</p>
+      </li>
+    </ol>
   </div>
 </section>
 
-<!-- ------------------------------------------------------------ funzioni -->
-<section class="sezione sezione-alt" id="funzioni">
+<!-- ------------------------------------------------------------ cosa fa -->
+<section class="sezione" aria-labelledby="cosa-titolo">
   <div class="contenitore">
-    <span class="occhiello">Cosa fa</span>
-    <h2>Quello che ti serve, prima di uscire.</h2>
+    <h2 id="cosa-titolo">Quello che serve, prima di uscire</h2>
 
-    <div class="griglia">
-      <article class="carta rivela">
-        <div class="icona"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12v18l-6-4-6 4z"/></svg></div>
-        <h3>Le tue fermate, per prime</h3>
-        <p>Salvi la fermata che usi e la home ti risponde per quella: servita, non servita fino al…, e dove salire.</p>
-      </article>
-      <article class="carta rivela">
-        <div class="icona"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6l6-3 6 3 6-3v15l-6 3-6-3-6 3z"/><path d="M9 3v15M15 6v15"/></svg></div>
-        <h3>La deviazione sulla mappa</h3>
-        <p>Percorso normale e percorso deviato, con le fermate che saltano segnate una per una.</p>
-      </article>
-      <article class="carta rivela">
-        <div class="icona"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></div>
-        <h3>I mezzi in tempo reale</h3>
-        <p>Segui i bus sulla mappa e capisci se la deviazione è già finita: GTT annuncia quando comincia, quasi mai quando smette.</p>
-      </article>
-      <article class="carta rivela">
-        <div class="icona"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></div>
-        <h3>Adesso o più avanti</h3>
-        <p>Le variazioni in programma stanno a parte, con la data: non ti fanno cambiare strada oggi.</p>
-      </article>
-      <article class="carta rivela">
-        <div class="icona"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg></div>
-        <h3>Tutte le linee di GTT</h3>
-        <p>Urbane, suburbane ed extraurbane, tram e bus: le cerchi per numero o per via.</p>
-      </article>
-      <article class="carta rivela">
-        <div class="icona"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h5"/></svg></div>
-        <h3>L'avviso originale, sempre</h3>
-        <p>In fondo a ogni linea c'è il testo di GTT così com'è, per controllare con i tuoi occhi.</p>
-      </article>
+    <div class="cosa-fa">
+      <figure class="schermata">
+        <div class="telefono">
+        <picture>
+          <source srcset="img/home.webp" type="image/webp">
+          <img src="img/home.png" width="600" height="1304" loading="lazy"
+               alt="La schermata principale di DeviaTo: per ogni linea salvata, lo stato. Le linee 4 e 65 hanno percorso regolare; la 7 ha un avviso in corso fino al 27/09; la 10N ha 16 fermate non servite, con 16 avvisi; la 15 ne ha 15 fino al 28/09; la 55 e la 68 una ciascuna.">
+        </picture>
+        </div>
+        <figcaption>La home dell'app, com'è davvero.</figcaption>
+      </figure>
+
+      <dl class="funzioni">
+        <div>
+          <dt><span class="segno" aria-hidden="true"><svg class="icona"><use href="#i-fermata"/></svg></span>Le tue fermate, per prime</dt>
+          <dd>Salvi la fermata che usi e la home risponde per quella: servita, non servita fino al…, e dove salire.</dd>
+        </div>
+        <div>
+          <dt><span class="segno" aria-hidden="true"><svg class="icona"><use href="#i-percorso"/></svg></span>La deviazione sulla mappa</dt>
+          <dd>Percorso normale e percorso deviato, con le fermate che saltano segnate una per una.</dd>
+        </div>
+        <div>
+          <dt><span class="segno" aria-hidden="true"><svg class="icona"><use href="#i-dal-vivo"/></svg></span>I mezzi in tempo reale</dt>
+          <dd>Segui i bus sulla mappa e capisci se la deviazione è già finita: GTT annuncia quando comincia, quasi mai quando smette.</dd>
+        </div>
+        <div>
+          <dt><span class="segno" aria-hidden="true"><svg class="icona"><use href="#i-calendario"/></svg></span>Adesso o più avanti</dt>
+          <dd>Le variazioni in programma stanno a parte, con la data: non ti fanno cambiare strada oggi.</dd>
+        </div>
+        <div>
+          <dt><span class="segno" aria-hidden="true"><svg class="icona"><use href="#i-cerca"/></svg></span>Tutte le linee</dt>
+          <dd>Urbane, suburbane ed extraurbane, tram e bus: le cerchi per numero o per via.</dd>
+        </div>
+        <div>
+          <dt><span class="segno" aria-hidden="true"><svg class="icona"><use href="#i-avviso"/></svg></span>L'avviso originale, sempre</dt>
+          <dd>In fondo a ogni linea c'è il testo di GTT così com'è, per controllare con i tuoi occhi.</dd>
+        </div>
+      </dl>
     </div>
   </div>
 </section>
 
 <!-- --------------------------------------------------- onestà e privacy -->
-<section class="sezione">
+<section class="sezione piena comportamento" aria-labelledby="motto">
   <div class="contenitore">
-    <span class="occhiello">Come si comporta</span>
-    <p class="citazione rivela">Meglio nessuna mappa che una mappa sbagliata.</p>
-    <div class="due rivela">
+    <p class="motto" id="motto">Meglio nessuna mappa che una mappa <mark>sbagliata</mark></p>
+
+    <div class="due">
       <div>
         <h3>Se non è sicura, lo dice</h3>
         <p>Una fermata segnata chiusa per sbaglio ti fa camminare per niente. Quando un avviso non si ricostruisce con certezza, DeviaTo lo segna «Da confermare» o ti mostra solo il testo di GTT. Un percorso inventato, mai.</p>
@@ -214,41 +195,37 @@
         <p>Non serve registrarsi e l'app non raccoglie dati personali. Se attivi la posizione sulla mappa, resta sul telefono. Questo sito non usa cookie e non carica niente da altri server.</p>
       </div>
     </div>
-    <div class="bollini rivela">
-      <span class="bollino"><b>Gratuita</b>, senza pubblicità</span>
-      <span class="bollino"><b>216</b> linee GTT</span>
-      <span class="bollino">Aggiornata <b>ogni 20 minuti</b></span>
-      <span class="bollino">Codice <b>aperto</b></span>
-    </div>
+
+    <dl class="cifre">
+      <div><dt><svg class="icona" aria-hidden="true"><use href="#i-bus"/></svg>216</dt><dd>linee GTT</dd></div>
+      <div><dt><svg class="icona" aria-hidden="true"><use href="#i-aggiorna"/></svg>30 min</dt><dd>fra un aggiornamento e l'altro; la sera, ogni ora</dd></div>
+      <div><dt><svg class="icona" aria-hidden="true"><use href="#i-gratis"/></svg>Gratis</dt><dd>senza pubblicità né acquisti</dd></div>
+      <div><dt><svg class="icona" aria-hidden="true"><use href="#i-codice"/></svg>Aperto</dt><dd>il codice, <a href="https://github.com/TCdesign-dev/deviato">su GitHub</a></dd></div>
+    </dl>
   </div>
 </section>
 
 <!-- ------------------------------------------------------------- domande -->
-<section class="sezione sezione-alt" id="domande">
+<section class="sezione" aria-labelledby="domande-titolo">
   <div class="contenitore">
-    <span class="occhiello">Domande</span>
-    <h2>Da sapere.</h2>
+    <h2 id="domande-titolo">Da sapere</h2>
     <div class="domande">
-      <details>
-        <summary>È un'app di GTT?</summary>
-        <p>No. DeviaTo non è collegata a GTT: usa i dati che GTT pubblica apertamente, e li interpreta in automatico. In caso di dubbio fa fede l'avviso originale, che trovi sempre in fondo alla linea.</p>
-      </details>
-      <details>
-        <summary>Quanto è affidabile?</summary>
+      <div>
+        <h3>È un'app di GTT?</h3>
+        <p>No. DeviaTo non è collegata a GTT: usa i dati che GTT pubblica apertamente e li interpreta in automatico. In caso di dubbio fa fede l'avviso originale, che trovi sempre in fondo alla linea.</p>
+      </div>
+      <div>
+        <h3>Quanto è affidabile?</h3>
         <p>Le fermate che GTT sospende indicandone il numero sono certe. I percorsi deviati sono ricostruiti dal testo degli avvisi e controllati con alcune verifiche: quando una non torna, l'app lo dice invece di tirare a indovinare.</p>
-      </details>
-      <details>
-        <summary>È gratuita?</summary>
+      </div>
+      <div>
+        <h3>È gratuita?</h3>
         <p>Sì, e resterà senza pubblicità e senza acquisti. I dati di GTT si possono usare solo così, ed è giusto.</p>
-      </details>
-      <details>
-        <summary>Mi avvisa quando la mia linea devia?</summary>
+      </div>
+      <div>
+        <h3>Mi avvisa quando la mia linea devia?</h3>
         <p>Non ancora: per ora le novità si vedono aprendo l'app. Le notifiche sono il prossimo passo.</p>
-      </details>
-      <details>
-        <summary>Quando esce?</summary>
-        <p>Presto, su App Store e Google Play. Nel frattempo il codice è su GitHub.</p>
-      </details>
+      </div>
     </div>
   </div>
 </section>
@@ -257,28 +234,20 @@
 
 <footer class="piede">
   <div class="contenitore">
+    <a class="marchio" href="./"><img src="img/logo-scuro.svg" width="637" height="194" alt="DeviaTo"></a>
+    <p class="arrivo">In arrivo su App Store e Google Play</p>
     <nav aria-label="Link">
       <a href="privacy.html">Privacy</a>
-      <a href="https://github.com/TCdesign-dev/gtt-deviazioni">Codice</a>
-      <a href="https://github.com/TCdesign-dev/gtt-deviazioni/issues">Segnala un problema</a>
+      <a href="https://github.com/TCdesign-dev/deviato">Codice su GitHub</a>
+      <a href="https://github.com/TCdesign-dev/deviato/issues">Segnala un problema</a>
     </nav>
-    <div>Data source: GTT S.p.A. – Gruppo Torinese Trasporti (<a href="https://www.gtt.to.it">gtt.to.it</a>). Mappe © contributori di <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>.</div>
-    <div>DeviaTo non è un'app di GTT e non è collegata a GTT.</div>
+    <div class="fonti">
+      <p><a href="https://www.gtt.to.it">Data source: GTT S.p.A. – Gruppo Torinese Trasporti</a></p>
+      <p><a href="https://www.openstreetmap.org/copyright">Mappe © contributori di OpenStreetMap</a></p>
+      <p>DeviaTo non è un'app di GTT e non è collegata a GTT.</p>
+    </div>
   </div>
 </footer>
 
-<script>
-  // Le sezioni animate partono quando entrano nello schermo, non prima:
-  // un'animazione finita mentre nessuno guardava non serve a niente.
-  const osserva = new IntersectionObserver((voci) => {
-    for (const v of voci) {
-      if (v.isIntersecting) {
-        v.target.classList.add('visibile');
-        osserva.unobserve(v.target);
-      }
-    }
-  }, { threshold: 0.25 });
-  document.querySelectorAll('.rivela').forEach((el) => osserva.observe(el));
-</script>
 </body>
 </html>

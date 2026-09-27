@@ -5,27 +5,38 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Privacy — DeviaTo</title>
 <meta name="description" content="Informativa sulla privacy di DeviaTo: nessun account, nessun dato personale raccolto, posizione solo sul telefono.">
-<meta name="theme-color" content="#0b5fa5">
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#1e1e1e" media="(prefers-color-scheme: dark)">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="stile.css">
 </head>
 <body>
 
+<a class="salta-al-contenuto" href="#contenuto">Vai al contenuto</a>
+
 <header class="testata">
   <div class="contenitore">
-    <a class="marchio" href="./"><img src="favicon.svg" alt="">DeviaTo</a>
+    <a class="marchio" href="./">
+      <picture>
+        <source srcset="img/logo-scuro.svg" media="(prefers-color-scheme: dark)">
+        <img src="img/logo-chiaro.svg" width="637" height="194" alt="DeviaTo">
+      </picture>
+    </a>
+    <nav aria-label="Pagine">
+      <a class="facoltativo" href="./#come">Come funziona</a>
+      <a href="privacy.html" aria-current="page">Privacy</a>
+    </nav>
   </div>
 </header>
 
-<main class="pagina">
-  <span class="occhiello">Privacy</span>
-  <h1>Informativa sulla privacy</h1>
-  <p class="aggiornata">Ultimo aggiornamento: 26 settembre 2026</p>
+<main class="contenitore pagina" id="contenuto">
+  <h1>Privacy</h1>
+  <p class="aggiornata">Ultimo aggiornamento: 27 settembre 2026</p>
 
   <p>DeviaTo è un'app gratuita, senza pubblicità e senza account, che mostra le deviazioni delle linee GTT di Torino. È sviluppata da un privato e non è collegata a GTT.</p>
 
-  <h2>In breve</h2>
-  <ul>
+  <h2 class="solo-lettori">In breve</h2>
+  <ul class="in-breve">
     <li>DeviaTo <strong>non raccoglie dati personali</strong>: niente account, niente statistiche d'uso, niente pubblicità, niente tracciamento.</li>
     <li>Le linee e le fermate che salvi <strong>restano sul tuo telefono</strong>.</li>
     <li>La tua posizione, se la attivi, serve solo a mostrarti sulla mappa e <strong>non lascia il telefono</strong>.</li>
@@ -50,26 +61,31 @@
   <p>Il sito non usa cookie, non ha statistiche e non carica font, script o immagini da altri server. È ospitato su GitHub Pages, che può registrare l'indirizzo IP dei visitatori per ragioni di sicurezza.</p>
 
   <h2>Se ci scrivi</h2>
-  <p>Se segnali un problema su GitHub, il tuo messaggio e il tuo nome utente sono pubblici secondo le regole di GitHub. Usiamo quello che ci scrivi solo per risponderti e per correggere l'app.</p>
+  <p>Se ci scrivi per email, usiamo il tuo indirizzo e il tuo messaggio solo per risponderti e per correggere l'app: non li diamo a nessuno e li cancelliamo quando non servono più. Se segnali un problema su GitHub, il tuo messaggio e il tuo nome utente sono pubblici secondo le regole di GitHub.</p>
 
   <h2>Modifiche</h2>
   <p>Se l'app cambierà il modo in cui tratta i dati, aggiorneremo questa pagina e la data in cima.</p>
 
   <h2>Contatti</h2>
-  <!-- DA COMPLETARE prima della pubblicazione sugli store: un indirizzo
-       email di contatto per la privacy (Apple e Google lo chiedono). -->
-  <p>Per domande su questa informativa: <a href="https://github.com/TCdesign-dev/gtt-deviazioni/issues">apri una segnalazione su GitHub</a>.</p>
+  <p>Per domande su questa informativa o sui tuoi dati scrivi a <a href="mailto:deviato@icloud.com">deviato@icloud.com</a>. Per segnalare un problema dell'app puoi anche <a href="https://github.com/TCdesign-dev/deviato/issues">aprire una segnalazione su GitHub</a>.</p>
 </main>
 
 <footer class="piede">
   <div class="contenitore">
+    <a class="marchio" href="./"><img src="img/logo-scuro.svg" width="637" height="194" alt="DeviaTo"></a>
+    <p class="arrivo">In arrivo su App Store e Google Play</p>
     <nav aria-label="Link">
-      <a href="./">DeviaTo</a>
-      <a href="https://github.com/TCdesign-dev/gtt-deviazioni">Codice</a>
+      <a href="./">Pagina principale</a>
+      <a href="https://github.com/TCdesign-dev/deviato">Codice su GitHub</a>
+      <a href="https://github.com/TCdesign-dev/deviato/issues">Segnala un problema</a>
     </nav>
-    <div>Data source: GTT S.p.A. – Gruppo Torinese Trasporti (<a href="https://www.gtt.to.it">gtt.to.it</a>). Mappe © contributori di <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>.</div>
-    <div>DeviaTo non è un'app di GTT e non è collegata a GTT.</div>
+    <div class="fonti">
+      <p><a href="https://www.gtt.to.it">Data source: GTT S.p.A. – Gruppo Torinese Trasporti</a></p>
+      <p><a href="https://www.openstreetmap.org/copyright">Mappe © contributori di OpenStreetMap</a></p>
+      <p>DeviaTo non è un'app di GTT e non è collegata a GTT.</p>
+    </div>
   </div>
 </footer>
+
 </body>
 </html>
