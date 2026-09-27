@@ -19,8 +19,10 @@ import 'theme.dart';
 /// dove salire invece — detta per tratti e non per avviso; poi la mappa,
 /// che serve a confermare; poi gli avvisi, e in fondo sempre il testo
 /// originale di GTT, cosi' se il sistema sbaglia il dato grezzo resta a
-/// disposizione (§6.2). L'osservazione dei mezzi e' un approfondimento:
-/// sta dopo, salvo quando e' accesa.
+/// disposizione (§6.2). I mezzi in tempo reale si aprono da un pulsante
+/// che fluttua in basso al centro: prima erano una scheda in fondo alla
+/// lista, e con due avvisi aperti bisognava scorrere fino alla fine per
+/// trovarla.
 class LineScreen extends StatefulWidget {
   const LineScreen({
     required this.repo,
@@ -59,7 +61,8 @@ class _LineScreenState extends State<LineScreen> {
     // Dopo il frame: cambiarlo durante la costruzione farebbe partire un
     // notifyListeners mentre l'albero si sta ancora montando.
     WidgetsBinding.instance.addPostFrameCallback(
-        (_) => widget.repo.setVisibleLine(widget.line.routeId));
+      (_) => widget.repo.setVisibleLine(widget.line.routeId),
+    );
   }
 
   @override
@@ -73,20 +76,80 @@ class _LineScreenState extends State<LineScreen> {
     // ricostruire l'albero.
     final routeId = widget.line.routeId;
     final repo = widget.repo;
-    WidgetsBinding.instance
-        .addPostFrameCallback((_) => repo.clearVisibleLine(routeId));
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => repo.clearVisibleLine(routeId),
+    );
     super.dispose();
   }
 
-  void _startWatch() =>
-      widget.repo.startWatch(widget.line, _window.duration);
+  final _mappa = GlobalKey();
+
+  void _startWatch() => widget.repo.startWatch(widget.line, _window.duration);
+
+  /// Il pannello dei mezzi, dal fondo.
+  ///
+  /// Si ricostruisce da solo mentre l'osservazione va avanti: ascolta il
+  /// repository, come la schermata. Quando si fa partire, si chiude e la
+  /// pagina scorre alla mappa: e' li' che i mezzi compaiono.
+  Future<void> _apriMezzi() => showModalBottomSheet<void>(
+    context: context,
+    showDragHandle: true,
+    isScrollControlled: true,
+    builder: (sheet) => StatefulBuilder(
+      builder: (sheet, aggiornaPannello) => ListenableBuilder(
+        listenable: widget.repo,
+        builder: (sheet, _) {
+          final status = widget.repo.statusOf(widget.line.routeId);
+          if (status == null) return const SizedBox.shrink();
+          final osservando = widget.repo.isWatching(widget.line.routeId);
+          return SafeArea(
+            child: SingleChildScrollView(
+              child: LiveWatchCard(
+                inCard: false,
+                running: osservando,
+                samples: widget.repo.watchSamples,
+                liveTracks: osservando ? widget.repo.liveTracks : const [],
+                result: widget.repo.watchResultOf(widget.line.routeId),
+                error: widget.repo.watchError,
+                window: _window,
+                shape: status.shape,
+                altraLinea: widget.repo.watchingRouteId != null && !osservando
+                    ? widget.repo.watchingLineName
+                    : null,
+                onStart: () {
+                  _startWatch();
+                  Navigator.pop(sheet);
+                  _vaiAllaMappa();
+                },
+                onStop: widget.repo.stopWatch,
+                onWindowChanged: (w) {
+                  setState(() => _window = w);
+                  aggiornaPannello(() {});
+                },
+              ),
+            ),
+          );
+        },
+      ),
+    ),
+  );
+
+  void _vaiAllaMappa() {
+    final c = _mappa.currentContext;
+    if (c == null) return;
+    Scrollable.ensureVisible(
+      c,
+      duration: const Duration(milliseconds: 300),
+      alignment: 0.05,
+    );
+  }
 
   SavedStop _salvata(TransitStop stop, RouteShape shape) => SavedStop(
-        routeId: widget.line.routeId,
-        directionId: shape.directionId,
-        stopId: stop.id,
-        stopCode: stop.code,
-      );
+    routeId: widget.line.routeId,
+    directionId: shape.directionId,
+    stopId: stop.id,
+    stopCode: stop.code,
+  );
 
   /// Salva la fermata, o la toglie se c'era gia'.
   Future<void> _salva(TransitStop stop, RouteShape shape) async {
@@ -94,13 +157,17 @@ class _LineScreenState extends State<LineScreen> {
     final messenger = ScaffoldMessenger.of(context);
     if (widget.repo.isSaved(s)) {
       await widget.repo.unsaveStop(s);
-      messenger.showSnackBar(
-          const SnackBar(content: Text('Fermata rimossa')));
+      messenger.showSnackBar(const SnackBar(content: Text('Fermata rimossa')));
     } else {
       await widget.repo.saveStop(s);
-      messenger.showSnackBar(SnackBar(
-          content: Text('${DisplayNames.stop(stop)} salvata nelle tue '
-              'fermate')));
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            '${DisplayNames.stop(stop)} salvata nelle tue '
+            'fermate',
+          ),
+        ),
+      );
     }
   }
 
@@ -118,8 +185,11 @@ class _LineScreenState extends State<LineScreen> {
 
     final oggi = DateTime.now();
     final giorno = DateTime(t.year, t.month, t.day);
-    final scarto =
-        DateTime(oggi.year, oggi.month, oggi.day).difference(giorno).inDays;
+    final scarto = DateTime(
+      oggi.year,
+      oggi.month,
+      oggi.day,
+    ).difference(giorno).inDays;
 
     return switch (scarto) {
       0 => 'aggiornata alle $h:$m',
@@ -146,30 +216,8 @@ class _LineScreenState extends State<LineScreen> {
     final checking = widget.repo.isRefreshingAll;
     final osservando = widget.repo.isWatching(widget.line.routeId);
     final esito = widget.repo.watchResultOf(widget.line.routeId);
-    // Se si sta guardando un'ALTRA linea, va detto: partire da qui la
-    // fermerebbe, e non e' una cosa che deve succedere di sorpresa.
-    final altraInCorso = widget.repo.watchingRouteId != null && !osservando
-        ? widget.repo.watchingLineName
-        : null;
     final testo = Theme.of(context).textTheme;
     final secondario = Theme.of(context).colorScheme.onSurfaceVariant;
-
-    final osservazione = LiveWatchCard(
-      running: osservando,
-      samples: widget.repo.watchSamples,
-      liveTracks: osservando ? widget.repo.liveTracks : const [],
-      result: esito,
-      error: widget.repo.watchError,
-      window: _window,
-      shape: status.shape,
-      altraLinea: altraInCorso,
-      onStart: _startWatch,
-      onStop: widget.repo.stopWatch,
-      onWindowChanged: (w) => setState(() => _window = w),
-    );
-    // Accesa, o con un esito da leggere, sta sotto la mappa: i mezzi si
-    // vedono li'. Spenta e' un approfondimento, e va in fondo.
-    final osservazioneInAlto = osservando || esito != null;
 
     final attivi = _perAvviso(status.activeReports);
     final futuri = _perAvviso(status.scheduledReports);
@@ -182,11 +230,15 @@ class _LineScreenState extends State<LineScreen> {
             LineBadge(line: status.line, height: 30),
             const SizedBox(width: 10),
             Flexible(
-              child: Text('Linea ${status.line.shortName}',
-                  overflow: TextOverflow.ellipsis),
+              child: Text(
+                'Linea ${status.line.shortName}',
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
           ],
         ),
+        // Come nella home: si aggiorna da solo e tirando giu' la pagina; il
+        // pulsante compare solo se l'ultimo tentativo non e' riuscito.
         actions: [
           if (checking)
             const Padding(
@@ -199,10 +251,10 @@ class _LineScreenState extends State<LineScreen> {
                 ),
               ),
             )
-          else
+          else if (widget.repo.offline)
             IconButton(
               icon: const Icon(Icons.refresh),
-              tooltip: 'Aggiorna',
+              tooltip: 'Riprova',
               onPressed: widget.repo.refreshAll,
             ),
         ],
@@ -211,73 +263,126 @@ class _LineScreenState extends State<LineScreen> {
           child: Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
             child: Align(
-                    alignment: Alignment.centerLeft,
-                    // I capolinea come li scrive il nome lungo della linea
-                    // («via Massari - piazza XVIII Dicembre»), non il
-                    // headsign in maiuscolo di una direzione sola.
-                    // Prima l'ora, che e' corta: se la riga si tronca, si
-                    // perde la fine del percorso e non l'ora. Il
-                    // qualificatore («circolare Tram Storici, …») resta
-                    // fuori: e' un dettaglio, e rubava la riga.
-                    child: Text(
-                      [
-                        if (_checkedLabel.isNotEmpty)
-                          _maiuscola(_checkedLabel),
-                        if (status.line.longName != null)
-                          DisplayNames.routeParts(status.line.longName!).route,
-                      ].join('  ·  '),
-                      style: testo.bodySmall?.copyWith(color: secondario),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
+              alignment: Alignment.centerLeft,
+              // I capolinea come li scrive il nome lungo della linea
+              // («via Massari - piazza XVIII Dicembre»), non il
+              // headsign in maiuscolo di una direzione sola.
+              // Prima l'ora, che e' corta: se la riga si tronca, si
+              // perde la fine del percorso e non l'ora. Il
+              // qualificatore («circolare Tram Storici, …») resta
+              // fuori: e' un dettaglio, e rubava la riga.
+              child: Text(
+                [
+                  if (_checkedLabel.isNotEmpty) _maiuscola(_checkedLabel),
+                  if (status.line.longName != null)
+                    DisplayNames.routeParts(status.line.longName!).route,
+                ].join('  ·  '),
+                style: testo.bodySmall?.copyWith(color: secondario),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
           ),
         ),
       ),
-      body: ListView(
-        padding: const EdgeInsets.only(bottom: 24),
-        children: [
-          _Riassunto(status: status),
-          // La mappa c'e' SEMPRE: vedere dove passa la linea serve anche
-          // quando la deviazione non si e' potuta ricostruire.
-          LineMap(
-            status: status,
-            vehicles: osservando ? widget.repo.liveTracks : const [],
-            observed: esito?.consensus,
-            initialStopId: widget.initialStopId,
-            isSaved: (stop, shape) =>
-                widget.repo.isSaved(_salvata(stop, shape)),
-            onToggleSave: (stop, shape) => _salva(stop, shape),
-          ),
-          if (osservazioneInAlto) osservazione,
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
+      floatingActionButton: _PulsanteMezzi(
+        osservando: osservando,
+        mezzi: osservando ? widget.repo.liveTracks.length : 0,
+        esito: esito != null,
+        onPressed: _apriMezzi,
+      ),
+      body: RefreshIndicator(
+        onRefresh: widget.repo.refreshAll,
+        child: ListView(
+          // Spazio in fondo per il pulsante dei mezzi, che fluttua sopra.
+          padding: const EdgeInsets.only(bottom: 96),
+          children: [
+            _Riassunto(status: status),
+            // La mappa c'e' SEMPRE: vedere dove passa la linea serve anche
+            // quando la deviazione non si e' potuta ricostruire.
+            LineMap(
+              key: _mappa,
+              status: status,
+              vehicles: osservando ? widget.repo.liveTracks : const [],
+              observed: esito?.consensus,
+              initialStopId: widget.initialStopId,
+              isSaved: (stop, shape) =>
+                  widget.repo.isSaved(_salvata(stop, shape)),
+              onToggleSave: (stop, shape) => _salva(stop, shape),
+            ),
 
-          if (attivi.isNotEmpty) ...[
-            if (attivi.length > _avvisiApertiMax)
-              _AvvisiRaccolti(
-                count: attivi.length,
-                children: [
-                  for (final g in attivi)
-                    _ReportCard(reports: g, status: status),
-                ],
-              )
-            else ...[
-              _Intestazione(
-                  attivi.length == 1 ? 'Avviso di GTT' : 'Avvisi di GTT'),
-              for (final g in attivi) _ReportCard(reports: g, status: status),
+            if (attivi.isNotEmpty) ...[
+              if (attivi.length > _avvisiApertiMax)
+                _AvvisiRaccolti(
+                  count: attivi.length,
+                  children: [
+                    for (final g in attivi)
+                      _ReportCard(reports: g, status: status),
+                  ],
+                )
+              else ...[
+                _Intestazione(
+                  attivi.length == 1 ? 'Avviso di GTT' : 'Avvisi di GTT',
+                ),
+                for (final g in attivi) _ReportCard(reports: g, status: status),
+              ],
+            ],
+
+            // Dopo cio' che succede adesso: sapere del 24 agosto e' utile,
+            // ma non e' la risposta alla domanda di oggi.
+            if (futuri.isNotEmpty) ...[
+              const _Intestazione('In programma'),
+              for (final g in futuri)
+                _ReportCard(reports: g, status: status, daAvvenire: true),
             ],
           ],
-
-          // Dopo cio' che succede adesso: sapere del 24 agosto e' utile,
-          // ma non e' la risposta alla domanda di oggi.
-          if (futuri.isNotEmpty) ...[
-            const _Intestazione('In programma'),
-            for (final g in futuri)
-              _ReportCard(reports: g, status: status, daAvvenire: true),
-          ],
-
-          if (!osservazioneInAlto) osservazione,
-        ],
+        ),
       ),
+    );
+  }
+}
+
+/// Il pulsante dei mezzi in tempo reale, in basso al centro.
+///
+/// Dice a che punto e' l'osservazione anche da chiuso: quanti mezzi sono
+/// sulla mappa mentre si guarda, e che c'e' un esito da leggere quando e'
+/// finita.
+class _PulsanteMezzi extends StatelessWidget {
+  const _PulsanteMezzi({
+    required this.osservando,
+    required this.mezzi,
+    required this.esito,
+    required this.onPressed,
+  });
+
+  final bool osservando;
+  final int mezzi;
+  final bool esito;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final String testo;
+    if (osservando) {
+      testo = mezzi == 0
+          ? 'Ricerca dei mezzi…'
+          : '$mezzi ${mezzi == 1 ? "mezzo" : "mezzi"} sulla mappa';
+    } else if (esito) {
+      testo = 'Esito dei mezzi';
+    } else {
+      testo = 'Segui i mezzi';
+    }
+    return FloatingActionButton.extended(
+      onPressed: onPressed,
+      icon: osservando
+          ? const SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(strokeWidth: 2.5),
+            )
+          : const Icon(Icons.visibility_outlined),
+      label: Text(testo),
     );
   }
 }
@@ -289,9 +394,9 @@ class _Intestazione extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.fromLTRB(16, 24, 16, 0),
-        child: Text(testo, style: Theme.of(context).textTheme.titleSmall),
-      );
+    padding: const EdgeInsets.fromLTRB(16, 24, 16, 0),
+    child: Text(testo, style: Theme.of(context).textTheme.titleSmall),
+  );
 }
 
 /// Tanti avvisi, raccolti in una voce che si apre.
@@ -349,7 +454,8 @@ class _Riassunto extends StatelessWidget {
         colore: colori.ok,
         icona: Icons.check_circle_outline,
         titolo: 'Percorso regolare',
-        dettaglio: 'C\'è una variazione in programma: trovi i dettagli più '
+        dettaglio:
+            'C\'è una variazione in programma: trovi i dettagli più '
             'in basso.',
       );
     }
@@ -367,7 +473,7 @@ class _Riassunto extends StatelessWidget {
         dettaglio: ricostruito
             ? 'Il percorso cambia, ma tutte le fermate restano servite.'
             : 'Non è stato possibile ricavarne le fermate: leggi il testo '
-                'di GTT più in basso.',
+                  'di GTT più in basso.',
       );
     }
 
@@ -389,8 +495,11 @@ class _Riassunto extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(Icons.do_not_disturb_on_outlined,
-                  size: 20, color: scheme.error),
+              Icon(
+                Icons.do_not_disturb_on_outlined,
+                size: 20,
+                color: scheme.error,
+              ),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
@@ -398,7 +507,9 @@ class _Riassunto extends StatelessWidget {
                       ? '1 fermata non servita'
                       : '$totale fermate non servite',
                   style: testo.titleMedium?.copyWith(
-                      color: scheme.error, fontWeight: FontWeight.w600),
+                    color: scheme.error,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
             ],
@@ -406,8 +517,10 @@ class _Riassunto extends StatelessWidget {
           if (fine != null)
             Padding(
               padding: const EdgeInsets.only(left: 28, top: 2),
-              child: Text('fino al ${_data(fine)}',
-                  style: testo.bodyMedium?.copyWith(color: scheme.error)),
+              child: Text(
+                'fino al ${_data(fine)}',
+                style: testo.bodyMedium?.copyWith(color: scheme.error),
+              ),
             ),
           for (final d in direzioni) _Direzione(d: d, line: status.line),
         ],
@@ -443,9 +556,13 @@ class _Riga extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(titolo,
-                    style: testo.titleMedium?.copyWith(
-                        color: colore, fontWeight: FontWeight.w600)),
+                Text(
+                  titolo,
+                  style: testo.titleMedium?.copyWith(
+                    color: colore,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
                 if (dettaglio != null)
                   Padding(
                     padding: const EdgeInsets.only(top: 2),
@@ -478,22 +595,23 @@ class _Direzione extends StatelessWidget {
   Widget build(BuildContext context) {
     final testo = Theme.of(context).textTheme;
     final unTratto = d.runs.length == 1;
-    final verso =
-        DisplayNames.direction(d.shape.headsign, longName: line.longName);
+    final verso = DisplayNames.direction(
+      d.shape.headsign,
+      longName: line.longName,
+    );
 
     return Padding(
       padding: const EdgeInsets.only(top: 14, bottom: 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Verso $verso',
-            style: testo.titleSmall,
-          ),
+          Text('Verso $verso', style: testo.titleSmall),
           const SizedBox(height: 2),
           if (unTratto) ...[
-            Text(_descrivi(d.runs.single, conteggio: true),
-                style: testo.bodyMedium),
+            Text(
+              _descrivi(d.runs.single, conteggio: true),
+              style: testo.bodyMedium,
+            ),
             // Oltre una quindicina di pallini non si distinguono piu' su
             // un telefono: il testo sopra basta.
             if (d.window.length <= 15) ...[
@@ -510,17 +628,23 @@ class _Direzione extends StatelessWidget {
                   children: [
                     Padding(
                       padding: const EdgeInsets.only(top: 2),
-                      child: Icon(Icons.do_not_disturb_on_outlined,
-                          size: 16, color: Theme.of(context).colorScheme.error),
+                      child: Icon(
+                        Icons.do_not_disturb_on_outlined,
+                        size: 16,
+                        color: Theme.of(context).colorScheme.error,
+                      ),
                     ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(_descrivi(r, conteggio: false),
-                              style: testo.bodyMedium
-                                  ?.copyWith(fontWeight: FontWeight.w600)),
+                          Text(
+                            _descrivi(r, conteggio: false),
+                            style: testo.bodyMedium?.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
                           _SaliA(run: r, compatto: true),
                         ],
                       ),
@@ -626,9 +750,14 @@ class _Striscia extends StatelessWidget {
                           width: 14,
                           height: 14,
                           decoration: BoxDecoration(
-                              color: scheme.error, shape: BoxShape.circle),
-                          child: Icon(Icons.close,
-                              size: 10, color: scheme.onError),
+                            color: scheme.error,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            Icons.close,
+                            size: 10,
+                            color: scheme.onError,
+                          ),
                         )
                       : Container(
                           width: 12,
@@ -637,7 +766,9 @@ class _Striscia extends StatelessWidget {
                             color: scheme.surface,
                             shape: BoxShape.circle,
                             border: Border.all(
-                                color: scheme.onSurfaceVariant, width: 2),
+                              color: scheme.onSurfaceVariant,
+                              width: 2,
+                            ),
                           ),
                         ),
                 ],
@@ -648,16 +779,20 @@ class _Striscia extends StatelessWidget {
           Row(
             children: [
               Expanded(
-                child: Text(DisplayNames.stop(w.first.stop),
-                    style: Theme.of(context).textTheme.bodySmall,
-                    overflow: TextOverflow.ellipsis),
+                child: Text(
+                  DisplayNames.stop(w.first.stop),
+                  style: Theme.of(context).textTheme.bodySmall,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: Text(DisplayNames.stop(w.last.stop),
-                    textAlign: TextAlign.end,
-                    style: Theme.of(context).textTheme.bodySmall,
-                    overflow: TextOverflow.ellipsis),
+                child: Text(
+                  DisplayNames.stop(w.last.stop),
+                  textAlign: TextAlign.end,
+                  style: Theme.of(context).textTheme.bodySmall,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
             ],
           ),
@@ -719,7 +854,8 @@ class _ReportCard extends StatelessWidget {
     // quando una delle due non lo e' sarebbe una promessa piu' grande del
     // dato.
     final peggiore = rilevanti.reduce(
-        (a, b) => a.confidence.index >= b.confidence.index ? a : b);
+      (a, b) => a.confidence.index >= b.confidence.index ? a : b,
+    );
     final piuDirezioni = conEffetto.length > 1;
 
     return Card(
@@ -737,16 +873,19 @@ class _ReportCard extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
                 child: Text(
-                    'Verso ${_verso(r.shape, status.line)}',
-                    style: Theme.of(context).textTheme.labelLarge),
+                  'Verso ${_verso(r.shape, status.line)}',
+                  style: Theme.of(context).textTheme.labelLarge,
+                ),
               ),
             _SkippedStops(stops: r.skippedStops),
           ],
           if (conEffetto.isEmpty && reports.any((r) => r.impact != null))
             const Padding(
               padding: EdgeInsets.fromLTRB(16, 12, 16, 0),
-              child: Text('Il percorso cambia, ma tutte le fermate '
-                  'restano servite.'),
+              child: Text(
+                'Il percorso cambia, ma tutte le fermate '
+                'restano servite.',
+              ),
             ),
 
           // 2. Il testo di GTT, UNA volta sola.
@@ -790,8 +929,10 @@ class _ScheduledStrip extends StatelessWidget {
           Icon(Icons.event_outlined, size: 18, color: blu),
           const SizedBox(width: 8),
           Expanded(
-            child: Text('In vigore dal $data · $quando',
-                style: TextStyle(color: blu, fontWeight: FontWeight.w600)),
+            child: Text(
+              'In vigore dal $data · $quando',
+              style: TextStyle(color: blu, fontWeight: FontWeight.w600),
+            ),
           ),
         ],
       ),
@@ -808,30 +949,34 @@ class _Affidabilita extends StatelessWidget {
   Widget build(BuildContext context) {
     final colori = StatusColors.of(context);
     final secondario = Theme.of(context).colorScheme.onSurfaceVariant;
-    final (Color colore, IconData icon, String label) =
-        switch (report.confidence) {
+    final (
+      Color colore,
+      IconData icon,
+      String label,
+    ) = switch (report.confidence) {
       Confidence.confermata => (
-          colori.ok,
-          Icons.verified_outlined,
-          'Verificato'
-        ),
+        colori.ok,
+        Icons.verified_outlined,
+        'Verificato',
+      ),
       Confidence.probabile => (
-          colori.warning,
-          Icons.help_outline,
-          'Da confermare'
-        ),
+        colori.warning,
+        Icons.help_outline,
+        'Da confermare',
+      ),
       Confidence.soloTesto => (
-          secondario,
-          Icons.article_outlined,
-          'Solo il testo di GTT'
-        ),
+        secondario,
+        Icons.article_outlined,
+        'Solo il testo di GTT',
+      ),
     };
 
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
         border: Border(
-            top: BorderSide(color: Theme.of(context).dividerColor, width: 0.5)),
+          top: BorderSide(color: Theme.of(context).dividerColor, width: 0.5),
+        ),
       ),
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
       child: Row(
@@ -843,19 +988,23 @@ class _Affidabilita extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(label,
-                    style: TextStyle(
-                        color: colore,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 13)),
+                Text(
+                  label,
+                  style: TextStyle(
+                    color: colore,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                  ),
+                ),
                 if (report.whyIncomplete != null)
                   Padding(
                     padding: const EdgeInsets.only(top: 2),
-                    child: Text(report.whyIncomplete!,
-                        style: Theme.of(context)
-                            .textTheme
-                            .bodySmall
-                            ?.copyWith(color: secondario)),
+                    child: Text(
+                      report.whyIncomplete!,
+                      style: Theme.of(
+                        context,
+                      ).textTheme.bodySmall?.copyWith(color: secondario),
+                    ),
                   ),
               ],
             ),
@@ -874,10 +1023,9 @@ class _SkippedStops extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final piccolo = Theme.of(context)
-        .textTheme
-        .bodySmall
-        ?.copyWith(color: scheme.onSurfaceVariant);
+    final piccolo = Theme.of(
+      context,
+    ).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant);
     // «in linea d'aria» si dice una volta, sotto, e non a ogni riga: sulla
     // 10N era ripetuto tre volte per scheda, sedici schede.
     final tutteInLineaDAria = stops
@@ -894,10 +1042,9 @@ class _SkippedStops extends StatelessWidget {
             stops.length == 1
                 ? '1 fermata non servita'
                 : '${stops.length} fermate non servite',
-            style: Theme.of(context)
-                .textTheme
-                .titleMedium
-                ?.copyWith(color: scheme.error),
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(color: scheme.error),
           ),
           const SizedBox(height: 8),
           for (final s in stops) ...[
@@ -906,22 +1053,35 @@ class _SkippedStops extends StatelessWidget {
               children: [
                 Padding(
                   padding: const EdgeInsets.only(top: 1),
-                  child: Icon(Icons.do_not_disturb_on_outlined,
-                      size: 18, color: scheme.error),
+                  child: Icon(
+                    Icons.do_not_disturb_on_outlined,
+                    size: 18,
+                    color: scheme.error,
+                  ),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text.rich(TextSpan(children: [
+                      Text.rich(
                         TextSpan(
-                            text: DisplayNames.stop(s.stop),
-                            style: const TextStyle(fontWeight: FontWeight.w600)),
-                        // Il numero sul palo: serve a riconoscerla.
-                        if (s.stop.code != null)
-                          TextSpan(text: '  ${s.stop.code}', style: piccolo),
-                      ])),
+                          children: [
+                            TextSpan(
+                              text: DisplayNames.stop(s.stop),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            // Il numero sul palo: serve a riconoscerla.
+                            if (s.stop.code != null)
+                              TextSpan(
+                                text: '  ${s.stop.code}',
+                                style: piccolo,
+                              ),
+                          ],
+                        ),
+                      ),
                       if (s.status == StopStatus.declaredSuspended)
                         Text('sospesa da GTT', style: piccolo),
                       for (final alt in s.alternatives)
@@ -940,7 +1100,11 @@ class _SkippedStops extends StatelessWidget {
                                   '${DisplayNames.stop(alt.stop)}'
                                   '${alt.stop.code == null ? "" : " ${alt.stop.code}"} · '
                                   '${alt.bestKnownMeters.round()} m'
-                                  '${tutteInLineaDAria ? "" : alt.walkingMeters != null ? " a piedi" : " in linea d'aria"}'
+                                  '${tutteInLineaDAria
+                                      ? ""
+                                      : alt.walkingMeters != null
+                                      ? " a piedi"
+                                      : " in linea d'aria"}'
                                   '${alt.sameLine ? "" : " · altre linee"}',
                                   style: Theme.of(context).textTheme.bodySmall,
                                 ),
@@ -949,8 +1113,10 @@ class _SkippedStops extends StatelessWidget {
                           ),
                         ),
                       if (s.alternatives.isEmpty)
-                        Text('nessuna fermata aperta entro 400 m',
-                            style: piccolo),
+                        Text(
+                          'nessuna fermata aperta entro 400 m',
+                          style: piccolo,
+                        ),
                     ],
                   ),
                 ),
@@ -1001,10 +1167,9 @@ class _OriginalTextState extends State<_OriginalText> {
   Widget build(BuildContext context) {
     final report = widget.report;
     final n = report.notice;
-    final piccolo = Theme.of(context)
-        .textTheme
-        .bodySmall
-        ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant);
+    final piccolo = Theme.of(context).textTheme.bodySmall?.copyWith(
+      color: Theme.of(context).colorScheme.onSurfaceVariant,
+    );
     // I testi del feed hanno doppi spazi a caso («non transita  alla
     // fermata  422»): si tolgono, le parole restano quelle di GTT.
     final corpo = n.text.replaceAll(RegExp(r'[ \t]{2,}'), ' ').trim();
@@ -1016,15 +1181,18 @@ class _OriginalTextState extends State<_OriginalText> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Testo originale',
-              style: Theme.of(context)
-                  .textTheme
-                  .labelMedium
-                  ?.copyWith(color: Theme.of(context).colorScheme.primary)),
+          Text(
+            'Testo originale',
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              color: Theme.of(context).colorScheme.primary,
+            ),
+          ),
           const SizedBox(height: 4),
           if (n.headline != null && n.headline!.isNotEmpty)
-            Text(n.headline!,
-                style: const TextStyle(fontWeight: FontWeight.w600)),
+            Text(
+              n.headline!,
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
           // Chiuso si vedono quattro righe sfumate in fondo: si capisce
           // che continua senza doverlo scrivere.
           //
@@ -1082,8 +1250,10 @@ class _OriginalTextState extends State<_OriginalText> {
               child: Text('Motivo: $motivo', style: piccolo),
             ),
           if (n.validUntil != null)
-            Text('Fino al ${_data(n.validUntil!)}/${n.validUntil!.year}',
-                style: piccolo)
+            Text(
+              'Fino al ${_data(n.validUntil!)}/${n.validUntil!.year}',
+              style: piccolo,
+            )
           else
             Text('Fine non indicata', style: piccolo),
         ],

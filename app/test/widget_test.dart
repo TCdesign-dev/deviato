@@ -229,6 +229,50 @@ void main() {
 
     expect(find.text('1 fermata non servita'), findsOneWidget);
     expect(find.text('Nessuna connessione: dati delle 18:40.'), findsOneWidget);
+    // Solo qui, dopo un tentativo non riuscito, c'e' il pulsante.
+    expect(find.text('Riprova'), findsOneWidget);
+  });
+
+  testWidgets('con i dati scaricati non c\'e\' nessun pulsante Aggiorna',
+      (tester) async {
+    // Si aggiorna da solo, all'apertura e tornando all'app, e tirando giu'
+    // la lista: un pulsante sempre in vista faceva pensare a dati vecchi.
+    final repo = await repoWith({'watchlist': <String>['55']}, fonte());
+    await repo.initialise();
+    await tester.pumpWidget(GttApp(repo: repo));
+    await tester.pump();
+
+    expect(find.textContaining('alle 18:40'), findsOneWidget);
+    expect(find.text('Aggiorna'), findsNothing);
+    expect(find.text('Riprova'), findsNothing);
+  });
+
+  test('tornando all\'app si riscarica, ma non a ogni occhiata', () async {
+    final f = fonte();
+    final repo = await repoWith({'watchlist': <String>['55']}, f);
+    await repo.initialise();
+    final prima = f.scaricati.where((p) => p == 'indice.json').length;
+
+    // Appena scaricato: non si riscarica.
+    await repo.aggiornaSeServe();
+    expect(f.scaricati.where((p) => p == 'indice.json').length, prima);
+
+    // Passato il tempo, si'.
+    await repo.aggiornaSeServe(dopo: Duration.zero);
+    expect(f.scaricati.where((p) => p == 'indice.json').length, prima + 1);
+  });
+
+  test('dopo un tentativo non riuscito si riprova subito', () async {
+    final f = fonte();
+    final repo = await repoWith({'watchlist': <String>['55']}, f);
+    f.rete = false;
+    await repo.initialise();
+    expect(repo.offline, isTrue);
+
+    f.rete = true;
+    await repo.aggiornaSeServe();
+    expect(repo.offline, isFalse);
+    expect(f.scaricati, contains('indice.json'));
   });
 
   test('se gli orari non cambiano, i percorsi non si riscaricano', () async {

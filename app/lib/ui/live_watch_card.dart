@@ -49,7 +49,12 @@ class LiveWatchCard extends StatelessWidget {
     required this.onWindowChanged,
     super.key,
     this.error,
+    this.inCard = true,
   });
+
+  /// false dentro il pannello che si apre dal fondo: la scheda sarebbe un
+  /// riquadro dentro un riquadro.
+  final bool inCard;
 
   final bool running;
   final int samples;
@@ -71,99 +76,108 @@ class LiveWatchCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final contenuto = _contenuto(context);
+    if (!inCard) return contenuto;
     return Card(
       margin: const EdgeInsets.fromLTRB(12, 12, 12, 0),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                const Icon(Icons.visibility_outlined, size: 18),
-                const SizedBox(width: 8),
-                Text('Mezzi in tempo reale',
-                    style: Theme.of(context).textTheme.titleSmall),
-              ],
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'Segui i mezzi sulla mappa per capire se la deviazione è '
-              'ancora in corso.',
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-            const SizedBox(height: 12),
+      child: contenuto,
+    );
+  }
 
-            // La durata si sceglie prima, e resta visibile: sapere per
-            // quanto si sta guardando fa capire quanto aspettare.
-            Text('Durata',
-                style: Theme.of(context).textTheme.bodySmall),
-            const SizedBox(height: 6),
-            Wrap(
-              spacing: 6,
-              runSpacing: 6,
-              children: [
-                for (final w in WatchWindow.values)
-                  ChoiceChip(
-                    label: Text(w.label),
-                    selected: window == w,
-                    onSelected: running ? null : (_) => onWindowChanged(w),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 12),
+  Widget _contenuto(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.visibility_outlined, size: 18),
+              const SizedBox(width: 8),
+              Text(
+                'Mezzi in tempo reale',
+                style: Theme.of(context).textTheme.titleSmall,
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Segui i mezzi sulla mappa per capire se la deviazione è '
+            'ancora in corso.',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+          const SizedBox(height: 12),
 
-            if (running) ...[
-              _Progress(samples: samples, tracks: liveTracks),
-              const SizedBox(height: 10),
-              // Si puo' sempre smettere: in continuo e' l'unico modo, e
-              // sugli altri e' scortese obbligare ad aspettare.
-              Align(
-                alignment: Alignment.centerLeft,
-                child: OutlinedButton.icon(
-                  onPressed: onStop,
-                  icon: const Icon(Icons.stop_outlined, size: 18),
-                  label: const Text('Interrompi'),
-                ),
-              ),
-            ]
-            else if (error != null)
-              Text(error!,
-                  style: TextStyle(color: Theme.of(context).colorScheme.error))
-            else if (result != null)
-              _Outcome(result: result!, shape: shape)
-            else ...[
-              FilledButton.tonalIcon(
-                onPressed: onStart,
-                icon: const Icon(Icons.visibility_outlined),
-                label: const Text('Segui i mezzi'),
-              ),
-              // Una linea alla volta: due osservazioni in parallelo
-              // raddoppierebbero le richieste al feed di GTT, e nessuno
-              // guarda due linee insieme. Ma dirlo dopo sarebbe una
-              // sorpresa sgradevole.
-              if (altraLinea != null)
-                Padding(
-                  padding: const EdgeInsets.only(top: 8),
-                  child: Text(
-                    'Stai seguendo la $altraLinea: se inizi qui, quella si '
-                    'interrompe.',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant),
-                  ),
+          // La durata si sceglie prima, e resta visibile: sapere per
+          // quanto si sta guardando fa capire quanto aspettare.
+          Text('Durata', style: Theme.of(context).textTheme.bodySmall),
+          const SizedBox(height: 6),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              for (final w in WatchWindow.values)
+                ChoiceChip(
+                  label: Text(w.label),
+                  selected: window == w,
+                  onSelected: running ? null : (_) => onWindowChanged(w),
                 ),
             ],
+          ),
+          const SizedBox(height: 12),
 
-            if (!running && (result != null || error != null))
-              Align(
-                alignment: Alignment.centerRight,
-                child: TextButton(
-                  onPressed: onStart,
-                  child: const Text('Segui di nuovo'),
+          if (running) ...[
+            _Progress(samples: samples, tracks: liveTracks),
+            const SizedBox(height: 10),
+            // Si puo' sempre smettere: in continuo e' l'unico modo, e
+            // sugli altri e' scortese obbligare ad aspettare.
+            Align(
+              alignment: Alignment.centerLeft,
+              child: OutlinedButton.icon(
+                onPressed: onStop,
+                icon: const Icon(Icons.stop_outlined, size: 18),
+                label: const Text('Interrompi'),
+              ),
+            ),
+          ] else if (error != null)
+            Text(
+              error!,
+              style: TextStyle(color: Theme.of(context).colorScheme.error),
+            )
+          else if (result != null)
+            _Outcome(result: result!, shape: shape)
+          else ...[
+            FilledButton.tonalIcon(
+              onPressed: onStart,
+              icon: const Icon(Icons.visibility_outlined),
+              label: const Text('Segui i mezzi'),
+            ),
+            // Una linea alla volta: due osservazioni in parallelo
+            // raddoppierebbero le richieste al feed di GTT, e nessuno
+            // guarda due linee insieme. Ma dirlo dopo sarebbe una
+            // sorpresa sgradevole.
+            if (altraLinea != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(
+                  'Stai seguendo la $altraLinea: se inizi qui, quella si '
+                  'interrompe.',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
                 ),
               ),
           ],
-        ),
+
+          if (!running && (result != null || error != null))
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton(
+                onPressed: onStart,
+                child: const Text('Segui di nuovo'),
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -187,8 +201,8 @@ class _Progress extends StatelessWidget {
           tracks.isEmpty
               ? 'Ricerca dei mezzi…'
               : '${tracks.length} ${tracks.length == 1 ? "mezzo" : "mezzi"} '
-                  'sulla mappa'
-                  '${off > 0 ? ", di cui $off fuori percorso" : ""}',
+                    'sulla mappa'
+                    '${off > 0 ? ", di cui $off fuori percorso" : ""}',
           style: Theme.of(context).textTheme.bodySmall,
         ),
       ],
@@ -216,22 +230,22 @@ class _Outcome extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final (Color colour, IconData icon) = switch (result.outcome) {
       WatchOutcome.tuttiSulPercorso => (
-          StatusColors.of(context).ok,
-          Icons.check_circle_outline
-        ),
+        StatusColors.of(context).ok,
+        Icons.check_circle_outline,
+      ),
       WatchOutcome.fuoriPercorso => (scheme.error, Icons.alt_route),
       WatchOutcome.nessunMezzo => (
-          scheme.onSurfaceVariant,
-          Icons.bedtime_outlined
-        ),
+        scheme.onSurfaceVariant,
+        Icons.bedtime_outlined,
+      ),
       WatchOutcome.feedSpento => (
-          scheme.onSurfaceVariant,
-          Icons.cloud_off_outlined
-        ),
+        scheme.onSurfaceVariant,
+        Icons.cloud_off_outlined,
+      ),
       WatchOutcome.inconcludente => (
-          scheme.onSurfaceVariant,
-          Icons.hourglass_empty
-        ),
+        scheme.onSurfaceVariant,
+        Icons.hourglass_empty,
+      ),
     };
 
     return Column(
@@ -243,9 +257,10 @@ class _Outcome extends StatelessWidget {
             Icon(icon, size: 18, color: colour),
             const SizedBox(width: 8),
             Expanded(
-              child: Text(result.summary,
-                  style:
-                      TextStyle(color: colour, fontWeight: FontWeight.w600)),
+              child: Text(
+                result.summary,
+                style: TextStyle(color: colour, fontWeight: FontWeight.w600),
+              ),
             ),
           ],
         ),
@@ -335,10 +350,10 @@ class _Osservato extends StatelessWidget {
             children: [
               Icon(Icons.route_outlined, size: 17, color: viola),
               const SizedBox(width: 7),
-              Text('Visto sui mezzi',
-                  style: TextStyle(
-                      fontWeight: FontWeight.w600,
-                      color: viola)),
+              Text(
+                'Visto sui mezzi',
+                style: TextStyle(fontWeight: FontWeight.w600, color: viola),
+              ),
             ],
           ),
           const SizedBox(height: 6),
@@ -351,7 +366,8 @@ class _Osservato extends StatelessWidget {
                 // deposito: va detto, non nascosto.
                 : 'Visto su un solo mezzo: potrebbe essere un caso isolato.',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: consenso.isSolid ? null : scheme.onSurfaceVariant),
+              color: consenso.isSolid ? null : scheme.onSurfaceVariant,
+            ),
           ),
         ],
       ),

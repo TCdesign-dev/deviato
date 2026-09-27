@@ -671,64 +671,94 @@ class _Legend extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final style = Theme.of(context).textTheme.bodySmall;
+    final tenue = Theme.of(context).colorScheme.onSurfaceVariant;
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-      child: Wrap(
-        spacing: 14,
-        runSpacing: 4,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          for (var i = 0; i < directions.length; i++)
-            _line(
-              (i == 0 ? Colors.blueGrey : Colors.teal).withValues(alpha: 0.55),
-              directions.length == 1
-                  ? 'percorso normale'
-                  : '→ ${_shortHeadsign(directions[i])}',
-              style,
-            ),
+          Wrap(
+            spacing: 14,
+            runSpacing: 4,
+            children: [
+              for (var i = 0; i < directions.length; i++)
+                _line(
+                  (i == 0 ? Colors.blueGrey : Colors.teal).withValues(
+                    alpha: 0.55,
+                  ),
+                  directions.length == 1
+                      ? 'percorso normale'
+                      : '→ ${_shortHeadsign(directions[i])}',
+                  style,
+                ),
+              if (hasDeviation)
+                _line(Colors.red.shade700, 'percorso deviato', style)
+              else if (onlySuspendedStops)
+                Text('nessun cambio di percorso', style: style)
+              else if (hasActiveNotices && !hasObserved)
+                Text('percorso deviato non disponibile', style: style),
+              if (hasObserved)
+                _line(Colors.purple.shade600, 'percorso dei mezzi', style),
+              _dot(
+                Colors.white,
+                Colors.blueGrey.shade600,
+                '$servedCount fermate',
+                style,
+              ),
+              if (skippedCount > 0)
+                _dot(
+                  MapColors.chiusa,
+                  Colors.white,
+                  '$skippedCount non servite',
+                  style,
+                ),
+              if (vehicleCount > 0)
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.directions_bus,
+                      size: 13,
+                      color: StatusColors.of(context).info,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      '$vehicleCount in circolazione'
+                      '${vehiclesSeenAt == null ? "" : " · ${_hhmm(vehiclesSeenAt!)}"}',
+                      style: style,
+                    ),
+                  ],
+                ),
+              Text(
+                canSave
+                    ? 'tocca una fermata per salvarla'
+                    : 'tocca una fermata per i dettagli',
+                style: style,
+              ),
+            ],
+          ),
+          // Il rosso sulla mappa sembra un fatto, ed e' una ricostruzione:
+          // le vie dell'avviso cercate sulla cartina e unite dal calcolo
+          // del percorso. Va detto accanto al disegno, non solo in fondo
+          // alla scheda dell'avviso, dove arriva chi ha gia' deciso.
           if (hasDeviation)
-            _line(Colors.red.shade700, 'percorso deviato', style)
-          else if (onlySuspendedStops)
-            Text('nessun cambio di percorso', style: style)
-          else if (hasActiveNotices && !hasObserved)
-            Text('percorso deviato non disponibile', style: style),
-          if (hasObserved)
-            _line(Colors.purple.shade600, 'percorso dei mezzi', style),
-          _dot(
-            Colors.white,
-            Colors.blueGrey.shade600,
-            '$servedCount fermate',
-            style,
-          ),
-          if (skippedCount > 0)
-            _dot(
-              MapColors.chiusa,
-              Colors.white,
-              '$skippedCount non servite',
-              style,
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(Icons.info_outline, size: 14, color: tenue),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      'Il percorso deviato è ricostruito dal testo '
+                      'dell\'avviso: potrebbe non essere esatto.',
+                      style: style?.copyWith(color: tenue),
+                    ),
+                  ),
+                ],
+              ),
             ),
-          if (vehicleCount > 0)
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  Icons.directions_bus,
-                  size: 13,
-                  color: StatusColors.of(context).info,
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  '$vehicleCount in circolazione'
-                  '${vehiclesSeenAt == null ? "" : " · ${_hhmm(vehiclesSeenAt!)}"}',
-                  style: style,
-                ),
-              ],
-            ),
-          Text(
-            canSave
-                ? 'tocca una fermata per salvarla'
-                : 'tocca una fermata per i dettagli',
-            style: style,
-          ),
         ],
       ),
     );

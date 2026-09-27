@@ -114,6 +114,7 @@ class HomeScreen extends StatelessWidget {
           _LinesHeader(
             lastCheck: _ultimoControllo(lines),
             refreshing: repo.isRefreshingAll,
+            failed: repo.offline,
             onRefreshAll: repo.refreshAll,
           ),
           for (final line in lines) _linea(context, line),
@@ -299,11 +300,15 @@ class _LinesHeader extends StatelessWidget {
   const _LinesHeader({
     required this.lastCheck,
     required this.refreshing,
+    required this.failed,
     required this.onRefreshAll,
   });
 
   final DateTime? lastCheck;
   final bool refreshing;
+
+  /// L'ultimo tentativo di scaricare non e' riuscito.
+  final bool failed;
   final VoidCallback onRefreshAll;
 
   @override
@@ -326,9 +331,14 @@ class _LinesHeader extends StatelessWidget {
               ],
             ),
           ),
-          // Mentre scarica, al posto del pulsante una rotella piccola: dura
-          // un secondo, e le righe restano quelle di prima finche' non
-          // arrivano le nuove.
+          // Mentre scarica, una rotella piccola: dura un secondo, e le righe
+          // restano quelle di prima finche' non arrivano le nuove.
+          //
+          // Il pulsante c'e' solo se l'ultimo tentativo non e' riuscito.
+          // Negli altri casi i dati si scaricano da soli, aprendo l'app e
+          // tornandoci, e si puo' sempre tirare giu' la lista: un
+          // «Aggiorna» sempre in vista faceva pensare che i dati fossero
+          // vecchi anche quando non lo erano.
           if (refreshing)
             const Padding(
               padding: EdgeInsets.all(14),
@@ -338,11 +348,11 @@ class _LinesHeader extends StatelessWidget {
                 child: CircularProgressIndicator(strokeWidth: 2.5),
               ),
             )
-          else
+          else if (failed || lastCheck == null)
             TextButton.icon(
               onPressed: onRefreshAll,
               icon: const Icon(Icons.refresh, size: 18),
-              label: const Text('Aggiorna'),
+              label: const Text('Riprova'),
             ),
         ],
       ),

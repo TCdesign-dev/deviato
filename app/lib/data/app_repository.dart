@@ -29,7 +29,7 @@ enum LoadState { idle, loading, ready, error }
 /// e l'osservazione dei mezzi, che legge il feed di GTT direttamente.
 class AppRepository extends ChangeNotifier {
   AppRepository(this.settings, {FonteDati? fonte})
-      : _fonte = fonte ?? DatiPubblicati();
+    : _fonte = fonte ?? DatiPubblicati();
 
   final Settings settings;
   final FonteDati _fonte;
@@ -71,11 +71,30 @@ class AppRepository extends ChangeNotifier {
   /// Si sta scaricando l'ultimo stato pubblicato.
   bool get isRefreshingAll => _aggiornando;
 
+  /// Quando e' finito l'ultimo tentativo di scaricare, riuscito o no.
+  DateTime? _ultimoTentativo;
+
+  /// Riscarica se l'ultimo tentativo e' vecchio di piu' di [dopo], o se
+  /// non era riuscito.
+  ///
+  /// Serve quando l'app torna in primo piano. Prima i dati restavano
+  /// quelli dell'apertura: iOS tiene l'app in memoria per ore, e chi la
+  /// riapriva la sera vedeva gli avvisi del mattino finché non premeva
+  /// «Aggiorna». Due minuti bastano a non riscaricare a ogni occhiata.
+  Future<void> aggiornaSeServe({
+    Duration dopo = const Duration(minutes: 2),
+  }) async {
+    final t = _ultimoTentativo;
+    if (!offline && t != null && DateTime.now().difference(t) < dopo) return;
+    await refreshAll();
+  }
+
   final Set<String> _busy = {};
 
   /// Si stanno scaricando i dati di [routeId].
   bool isChecking(String routeId) =>
-      _busy.contains(routeId) || (_aggiornando && !_statuses.containsKey(routeId));
+      _busy.contains(routeId) ||
+      (_aggiornando && !_statuses.containsKey(routeId));
 
   /// Tutte le linee di GTT, per cercarle e aggiungerle dalla home.
   List<TransitLine> allLines = const [];
@@ -96,10 +115,10 @@ class AppRepository extends ChangeNotifier {
   /// Le linee da mostrare: quelle pronte e quelle in preparazione,
   /// nell'ordine di GTT.
   List<TransitLine> get lines => [
-        ...?index?.lines.values,
-        for (final l in _preparing.values)
-          if (!(index?.lines.containsKey(l.routeId) ?? false)) l,
-      ]..sort(TransitLine.compare);
+    ...?index?.lines.values,
+    for (final l in _preparing.values)
+      if (!(index?.lines.containsKey(l.routeId) ?? false)) l,
+  ]..sort(TransitLine.compare);
 
   // ---------------------------------------------------------------
   // Osservazione dei mezzi
@@ -188,8 +207,7 @@ class AppRepository extends ChangeNotifier {
     try {
       final result = await VehicleWatch(maxDuration: maxDuration).watch(
         line: status.line,
-        shapes:
-            status.allShapes.isNotEmpty ? status.allShapes : [status.shape],
+        shapes: status.allShapes.isNotEmpty ? status.allShapes : [status.shape],
         onProgress: (samples, tracks) {
           // Se nel frattempo si e' passati a un'altra linea, questo ciclo
           // e' un fantasma: non deve scrivere piu' niente.
@@ -304,6 +322,7 @@ class AppRepository extends ChangeNotifier {
           : LoadState.ready;
     } finally {
       _aggiornando = false;
+      _ultimoTentativo = DateTime.now();
       notifyListeners();
     }
   }
@@ -324,7 +343,8 @@ class AppRepository extends ChangeNotifier {
     final cambiatiOrari = i.feed != _feed;
 
     final scelte = <TransitLine>[
-      for (final nome in settings.watchlist) ?LineResolver.matchIn(i.linee, nome),
+      for (final nome in settings.watchlist)
+        ?LineResolver.matchIn(i.linee, nome),
     ];
     final vecchio = index;
     final lines = <String, TransitLine>{};
@@ -337,7 +357,8 @@ class AppRepository extends ChangeNotifier {
           final file = FormatoPubblicato.nomeFile(l.routeId);
           var percorsi = vecchio?.shapesOf(l.routeId) ?? const <RouteShape>[];
           if (percorsi.isEmpty || cambiatiOrari || !rete) {
-            final j = await leggi('percorsi/$file') ??
+            final j =
+                await leggi('percorsi/$file') ??
                 (rete ? await _fonte.salvato('percorsi/$file') : null);
             if (j != null) percorsi = FormatoPubblicato.leggiPercorsi(j).shapes;
           }
@@ -364,11 +385,15 @@ class AppRepository extends ChangeNotifier {
     await Future.wait([
       for (final l in lines.values)
         () async {
-          final j =
-              await leggi('stato/${FormatoPubblicato.nomeFile(l.routeId)}');
+          final j = await leggi(
+            'stato/${FormatoPubblicato.nomeFile(l.routeId)}',
+          );
           if (j == null) return;
-          final s =
-              FormatoPubblicato.leggiStato(j, nuovo, controllata: i.generato);
+          final s = FormatoPubblicato.leggiStato(
+            j,
+            nuovo,
+            controllata: i.generato,
+          );
           if (s != null) stati[l.routeId] = s;
         }(),
     ]);
@@ -413,8 +438,11 @@ class AppRepository extends ChangeNotifier {
       }
       final st = await _fonte.scarica('stato/$file');
       if (st != null) {
-        final s = FormatoPubblicato.leggiStato(st, idx,
-            controllata: generato ?? DateTime.now());
+        final s = FormatoPubblicato.leggiStato(
+          st,
+          idx,
+          controllata: generato ?? DateTime.now(),
+        );
         if (s != null) _statuses[line.routeId] = s;
       }
       state = LoadState.ready;
@@ -422,7 +450,8 @@ class AppRepository extends ChangeNotifier {
       debugPrint('linea ${line.shortName}: $e');
       await settings.removeLine(line.shortName);
       index?.lines.remove(line.routeId);
-      error = 'Impossibile aggiungere la linea ${line.shortName}. '
+      error =
+          'Impossibile aggiungere la linea ${line.shortName}. '
           'Controlla la connessione e riprova.';
     } finally {
       _preparing.remove(line.routeId);
@@ -437,8 +466,9 @@ class AppRepository extends ChangeNotifier {
   Future<RemovedLine> removeLine(TransitLine line) async {
     final nome = _watchlistNameOf(line) ?? line.shortName;
     if (watchingRouteId == line.routeId) stopWatch();
-    final fermate =
-        settings.savedStops.where((s) => s.routeId == line.routeId).toList();
+    final fermate = settings.savedStops
+        .where((s) => s.routeId == line.routeId)
+        .toList();
     final tolta = RemovedLine(
       line: line,
       watchlistName: nome,
@@ -494,9 +524,9 @@ class AppRepository extends ChangeNotifier {
   final List<SavedStop> _removedStops = [];
 
   List<SavedStop> get savedStops => [
-        for (final s in settings.savedStops)
-          if (!_removedStops.any(s.same)) s,
-      ];
+    for (final s in settings.savedStops)
+      if (!_removedStops.any(s.same)) s,
+  ];
 
   bool isSaved(SavedStop s) => savedStops.any(s.same);
 

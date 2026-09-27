@@ -102,7 +102,7 @@ Non sono stime. Se li rimetti in discussione, rimisurali.
 | `active_period.start` negli alert | **161 su 161 nel passato** | idem |
 | Variazioni pubblicate da **entrambe** le fonti | **31 coppie** su 189 avvisi | `check_merge_offline.dart` |
 | Di queste, quelle in cui la data d'inizio cambia | **17** (fino a 3 mesi) | idem |
-| Test | **304** | `flutter test` |
+| Test | **307** | `flutter test` |
 | Somiglianza fra le vie nominate: coppie vere | **0,67 – 1,00** e ≥3 vie | idem |
 | Idem, coppie false | **0,67 con 2 vie**, o 3 vie a **0,38** | idem |
 | Data d'inizio estraibile a regex dal testo | **40%** — troppo poco | idem |
@@ -384,6 +384,18 @@ Ognuna di queste è costata tempo. Sono tutte silenziose: non danno errore.
   sopra non devono seguire il tema: al buio la fermata chiusa diventava
   `colorScheme.error` scuro, cioè rosa pallido su strade chiare. Stanno in
   `MapColors`, fissi.
+- **I dati restavano quelli dell'apertura.** L'app scaricava solo
+  all'avvio e con «Aggiorna»: iOS la tiene in memoria per ore, e chi la
+  riapriva la sera vedeva gli avvisi del mattino. Ora riscarica tornando
+  in primo piano (`AppRepository.aggiornaSeServe`, se l'ultimo tentativo
+  ha più di due minuti o non era riuscito), si aggiorna tirando giù home
+  e dettaglio, e il pulsante compare solo dopo un tentativo fallito.
+- **Un comando in fondo alla lista non lo trova nessuno.** I mezzi in
+  tempo reale erano una scheda dopo tutti gli avvisi: con due avvisi
+  aperti bisognava scorrere fino alla fine. Ora si aprono da un pulsante
+  che fluttua in basso al centro del dettaglio, che dice anche a che punto
+  è l'osservazione; partendo, il pannello si chiude e la pagina scorre
+  alla mappa, dove i mezzi compaiono.
 - **Gli orari programmati di GitHub sono una promessa debole.** Nelle
   prime dodici ore, coi minuti 5/25/45, sono partiti **3 giri su 27**:
   nessun errore, nessun giro annullato, semplicemente non lanciati.
@@ -428,6 +440,7 @@ perché delle scelte sta nei commenti del codice, non sullo schermo.
 | Si dice | Non si dice |
 |---|---|
 | **Aggiorna**, Aggiornamento…, aggiornata alle 17:22 | controlla, ricontrolla, controllata |
+| **Riprova** (solo dopo un aggiornamento non riuscito) | un «Aggiorna» sempre in vista |
 | Tocca per aggiornare (linea mai aggiornata) | Da controllare |
 | **fermata non servita** | saltata, chiusa (in interfaccia) |
 | sospesa da GTT (solo per le fermate dichiarate) | — |
@@ -474,7 +487,7 @@ Per non fraintendere quello che c'è in `config.dart`:
 ## 8. Come si lavora
 
 ```bash
-cd app && flutter test          # 304 test, devono passare tutti
+cd app && flutter test          # 307 test, devono passare tutti
 cd app && flutter analyze       # deve essere pulito
 ```
 
@@ -538,4 +551,4 @@ facendo gli screenshot troppo presto.
 
 ---
 
-*Ultimo aggiornamento: 27 settembre 2026. 304 test.*
+*Ultimo aggiornamento: 27 settembre 2026. 307 test.*

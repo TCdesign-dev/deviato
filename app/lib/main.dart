@@ -18,13 +18,35 @@ Future<void> main() async {
   runApp(GttApp(repo: repo));
 }
 
-class GttApp extends StatelessWidget {
+class GttApp extends StatefulWidget {
   const GttApp({required this.repo, super.key});
 
   final AppRepository repo;
 
   @override
+  State<GttApp> createState() => _GttAppState();
+}
+
+class _GttAppState extends State<GttApp> {
+  // Tornando all'app si riscaricano i dati, se sono di qualche minuto fa:
+  // cosi' «Aggiorna» serve solo quando qualcosa non e' andato.
+  late final AppLifecycleListener _ciclo;
+
+  @override
+  void initState() {
+    super.initState();
+    _ciclo = AppLifecycleListener(onResume: widget.repo.aggiornaSeServe);
+  }
+
+  @override
+  void dispose() {
+    _ciclo.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final repo = widget.repo;
     return MaterialApp(
       title: 'DeviaTo',
       debugShowCheckedModeBanner: false,
