@@ -222,23 +222,22 @@ class HomeScreen extends StatelessWidget {
       background: const _SwipeBackground(label: 'Rimuovi'),
       onDismissed: (_) async {
         final messenger = ScaffoldMessenger.of(context);
+        final lettore = MediaQuery.accessibleNavigationOf(context);
         final tolta = await repo.removeLine(line);
         final fermate = tolta.savedStops.length;
         messenger
           ..hideCurrentSnackBar()
           ..showSnackBar(
-            SnackBar(
-              content: Text(switch (fermate) {
+            _annullabile(
+              switch (fermate) {
                 0 => 'Linea ${line.shortName} rimossa',
                 1 => 'Linea ${line.shortName} rimossa con la sua fermata',
                 _ =>
                   'Linea ${line.shortName} rimossa con le sue $fermate '
                       'fermate',
-              }),
-              action: SnackBarAction(
-                label: 'Annulla',
-                onPressed: () => repo.restoreLine(tolta),
-              ),
+              },
+              () => repo.restoreLine(tolta),
+              lettore: lettore,
             ),
           );
       },
@@ -254,12 +253,30 @@ class HomeScreen extends StatelessWidget {
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
-        SnackBar(
-          content: Text(testo),
-          action: SnackBarAction(label: 'Annulla', onPressed: annulla),
+        _annullabile(
+          testo,
+          annulla,
+          lettore: MediaQuery.accessibleNavigationOf(context),
         ),
       );
   }
+
+  /// Un avviso in basso con «Annulla».
+  ///
+  /// Flutter tiene fermo per sempre uno SnackBar che ha un pulsante, finché
+  /// qualcuno non lo chiude: «Fermata rimossa» restava lì sopra la home.
+  /// Sparisce dopo cinque secondi, tranne con VoiceOver o TalkBack
+  /// ([lettore]), dove raggiungere il pulsante richiede più tempo.
+  static SnackBar _annullabile(
+    String testo,
+    VoidCallback annulla, {
+    required bool lettore,
+  }) => SnackBar(
+    content: Text(testo),
+    duration: const Duration(seconds: 5),
+    persist: lettore,
+    action: SnackBarAction(label: 'Annulla', onPressed: annulla),
+  );
 }
 
 class _SectionTitle extends StatelessWidget {

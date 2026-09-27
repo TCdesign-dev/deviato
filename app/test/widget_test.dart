@@ -180,6 +180,40 @@ void main() {
     expect(find.text('65'), findsOneWidget);
   });
 
+  // Flutter tiene fermo per sempre uno SnackBar con un pulsante: «Fermata
+  // rimossa» restava sopra la home finché non lo si chiudeva a mano.
+  testWidgets('l\'avviso con Annulla sparisce da solo', (tester) async {
+    final repo = await repoWith({'watchlist': <String>['55', '65']}, fonte());
+    await repo.initialise();
+    await tester.pumpWidget(GttApp(repo: repo));
+    await tester.pump();
+
+    await tester.drag(find.text('65'), const Offset(-500, 0));
+    await tester.pumpAndSettle();
+    expect(find.text('Linea 65 rimossa'), findsOneWidget);
+
+    await tester.pump(const Duration(seconds: 6));
+    await tester.pumpAndSettle();
+    expect(find.text('Linea 65 rimossa'), findsNothing);
+  });
+
+  testWidgets('con VoiceOver o TalkBack l\'avviso con Annulla resta',
+      (tester) async {
+    final repo = await repoWith({'watchlist': <String>['55', '65']}, fonte());
+    await repo.initialise();
+    await tester.pumpWidget(MediaQuery(
+      data: const MediaQueryData(accessibleNavigation: true),
+      child: GttApp(repo: repo),
+    ));
+    await tester.pump();
+
+    await tester.drag(find.text('65'), const Offset(-500, 0));
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(seconds: 6));
+    await tester.pumpAndSettle();
+    expect(find.text('Linea 65 rimossa'), findsOneWidget);
+  });
+
   testWidgets('senza rete mostra i dati salvati, e dice di quando sono',
       (tester) async {
     final f = fonte();

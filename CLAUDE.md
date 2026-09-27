@@ -102,7 +102,7 @@ Non sono stime. Se li rimetti in discussione, rimisurali.
 | `active_period.start` negli alert | **161 su 161 nel passato** | idem |
 | Variazioni pubblicate da **entrambe** le fonti | **31 coppie** su 189 avvisi | `check_merge_offline.dart` |
 | Di queste, quelle in cui la data d'inizio cambia | **17** (fino a 3 mesi) | idem |
-| Test | **302** | `flutter test` |
+| Test | **304** | `flutter test` |
 | Somiglianza fra le vie nominate: coppie vere | **0,67 – 1,00** e ≥3 vie | idem |
 | Idem, coppie false | **0,67 con 2 vie**, o 3 vie a **0,38** | idem |
 | Data d'inizio estraibile a regex dal testo | **40%** — troppo poco | idem |
@@ -368,6 +368,12 @@ Ognuna di queste è costata tempo. Sono tutte silenziose: non danno errore.
   l'app lanciata con `flutter run` funzionava, l'APK definitivo diceva
   «Nessuna connessione» con la rete accesa. Visto alla prima build, il
   27/09. Se ne accorge solo chi prova il file che va sullo store.
+- **Uno SnackBar con un pulsante non sparisce più da solo.** Nelle
+  versioni recenti di Flutter `persist` vale `true` quando c'è un'`action`:
+  «Fermata rimossa» con «Annulla» restava sopra la home finché non lo si
+  chiudeva a mano. Ora dura cinque secondi, e resta solo con VoiceOver o
+  TalkBack (`MediaQuery.accessibleNavigationOf`), dove raggiungere il
+  pulsante richiede tempo. Vale per ogni SnackBar nuovo con un'azione.
 - **Gli orari programmati di GitHub sono una promessa debole.** Nelle
   prime dodici ore, coi minuti 5/25/45, sono partiti **3 giri su 27**:
   nessun errore, nessun giro annullato, semplicemente non lanciati.
@@ -453,7 +459,7 @@ Per non fraintendere quello che c'è in `config.dart`:
 ## 8. Come si lavora
 
 ```bash
-cd app && flutter test          # 302 test, devono passare tutti
+cd app && flutter test          # 304 test, devono passare tutti
 cd app && flutter analyze       # deve essere pulito
 ```
 
@@ -517,4 +523,4 @@ facendo gli screenshot troppo presto.
 
 ---
 
-*Ultimo aggiornamento: 26 settembre 2026. 302 test.*
+*Ultimo aggiornamento: 27 settembre 2026. 304 test.*
