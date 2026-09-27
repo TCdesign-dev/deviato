@@ -68,9 +68,10 @@ No login is needed. To try it: tap +, pick a line (for example 10N or 15), then 
 
 ## 4. Cosa testare (per ogni build)
 
-**Build 1.0.0 (4)** — quella da dare ai tester: icona gialla e avviso
-«Fermata rimossa» che sparisce da solo. La (1) ha l'icona di Flutter, la
-(2) e la (3) quella scura di prima.
+**Build 1.0.0 (5)** — quella da dare ai tester: icona gialla, colori di
+DeviaTo nell'app, avviso «Fermata rimossa» che sparisce da solo. Le
+precedenti hanno l'icona di Flutter (1), quella scura (2, 3) o i colori
+azzurri di prima (4).
 
 ```text
 Prima versione di prova. Ci aiuta soprattutto sapere:
