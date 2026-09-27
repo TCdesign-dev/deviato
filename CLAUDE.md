@@ -102,7 +102,7 @@ Non sono stime. Se li rimetti in discussione, rimisurali.
 | `active_period.start` negli alert | **161 su 161 nel passato** | idem |
 | Variazioni pubblicate da **entrambe** le fonti | **31 coppie** su 189 avvisi | `check_merge_offline.dart` |
 | Di queste, quelle in cui la data d'inizio cambia | **17** (fino a 3 mesi) | idem |
-| Test | **307** | `flutter test` |
+| Test | **314** | `flutter test` |
 | Somiglianza fra le vie nominate: coppie vere | **0,67 – 1,00** e ≥3 vie | idem |
 | Idem, coppie false | **0,67 con 2 vie**, o 3 vie a **0,38** | idem |
 | Data d'inizio estraibile a regex dal testo | **40%** — troppo poco | idem |
@@ -396,6 +396,20 @@ Ognuna di queste è costata tempo. Sono tutte silenziose: non danno errore.
   che fluttua in basso al centro del dettaglio, che dice anche a che punto
   è l'osservazione; partendo, il pannello si chiude e la pagina scorre
   alla mappa, dove i mezzi compaiono.
+- **Interrompere a mano buttava via l'esito.** `stopWatch` svuota
+  `watchingRouteId` subito, e il ciclo che finiva dopo non riconosceva
+  più la sua linea: l'esito andava perso. Con le durate succedeva solo
+  premendo «Interrompi»; dal 27/09, senza durate (si guarda finché non si
+  interrompe, con un tetto di sicurezza di due ore), sarebbe successo
+  sempre. Ora si butta solo se nel frattempo si è passati a un'altra linea.
+- **La rotta dei mezzi si misura, non si legge.** Il segno del mezzo ha
+  una punta verso dove va e il colore della direzione che sta facendo
+  (`VehicleHeading`): la rotta viene dallo spostamento fra due campioni
+  distanti almeno 15 m — sotto è rumore del GPS — e solo in mancanza da
+  quella dichiarata nel feed. La direzione si assegna confrontandola col
+  verso del percorso nel punto più vicino, entro 60 m e 60°: sulla via
+  percorsa nei due sensi è l'unico modo di separare andata e ritorno.
+  Attenzione agli assi: in `Projection.toMeters` `x` è il nord.
 - **Gli orari programmati di GitHub sono una promessa debole.** Nelle
   prime dodici ore, coi minuti 5/25/45, sono partiti **3 giri su 27**:
   nessun errore, nessun giro annullato, semplicemente non lanciati.
@@ -487,7 +501,7 @@ Per non fraintendere quello che c'è in `config.dart`:
 ## 8. Come si lavora
 
 ```bash
-cd app && flutter test          # 307 test, devono passare tutti
+cd app && flutter test          # 314 test, devono passare tutti
 cd app && flutter analyze       # deve essere pulito
 ```
 
@@ -551,4 +565,4 @@ facendo gli screenshot troppo presto.
 
 ---
 
-*Ultimo aggiornamento: 27 settembre 2026. 307 test.*
+*Ultimo aggiornamento: 27 settembre 2026. 314 test.*

@@ -105,7 +105,7 @@ class WatchResult {
               'se la deviazione è in corso.',
         WatchOutcome.inconcludente =>
           '$vehiclesSeen ${vehiclesSeen == 1 ? "mezzo osservato" : "mezzi osservati"} '
-              'per troppo poco tempo: prova una durata più lunga.',
+              'per troppo poco tempo: seguili più a lungo.',
         WatchOutcome.tuttiSulPercorso =>
           '$vehiclesSeen ${vehiclesSeen == 1 ? "mezzo segue" : "mezzi seguono"} '
               'il percorso normale.',

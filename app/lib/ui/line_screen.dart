@@ -44,9 +44,7 @@ class LineScreen extends StatefulWidget {
 
 class _LineScreenState extends State<LineScreen> {
   // L'osservazione NON sta qui: sta nel repository, perche' deve
-  // continuare anche quando questa schermata viene chiusa. Qui resta solo
-  // la scelta della durata, che e' una preferenza di chi guarda.
-  WatchWindow _window = WatchWindow.media;
+  // continuare anche quando questa schermata viene chiusa.
 
   /// Oltre questo numero gli avvisi si raccolgono in una voce chiusa.
   ///
@@ -84,7 +82,7 @@ class _LineScreenState extends State<LineScreen> {
 
   final _mappa = GlobalKey();
 
-  void _startWatch() => widget.repo.startWatch(widget.line, _window.duration);
+  void _startWatch() => widget.repo.startWatch(widget.line);
 
   /// Il pannello dei mezzi, dal fondo.
   ///
@@ -95,42 +93,35 @@ class _LineScreenState extends State<LineScreen> {
     context: context,
     showDragHandle: true,
     isScrollControlled: true,
-    builder: (sheet) => StatefulBuilder(
-      builder: (sheet, aggiornaPannello) => ListenableBuilder(
-        listenable: widget.repo,
-        builder: (sheet, _) {
-          final status = widget.repo.statusOf(widget.line.routeId);
-          if (status == null) return const SizedBox.shrink();
-          final osservando = widget.repo.isWatching(widget.line.routeId);
-          return SafeArea(
-            child: SingleChildScrollView(
-              child: LiveWatchCard(
-                inCard: false,
-                running: osservando,
-                samples: widget.repo.watchSamples,
-                liveTracks: osservando ? widget.repo.liveTracks : const [],
-                result: widget.repo.watchResultOf(widget.line.routeId),
-                error: widget.repo.watchError,
-                window: _window,
-                shape: status.shape,
-                altraLinea: widget.repo.watchingRouteId != null && !osservando
-                    ? widget.repo.watchingLineName
-                    : null,
-                onStart: () {
-                  _startWatch();
-                  Navigator.pop(sheet);
-                  _vaiAllaMappa();
-                },
-                onStop: widget.repo.stopWatch,
-                onWindowChanged: (w) {
-                  setState(() => _window = w);
-                  aggiornaPannello(() {});
-                },
-              ),
+    builder: (sheet) => ListenableBuilder(
+      listenable: widget.repo,
+      builder: (sheet, _) {
+        final status = widget.repo.statusOf(widget.line.routeId);
+        if (status == null) return const SizedBox.shrink();
+        final osservando = widget.repo.isWatching(widget.line.routeId);
+        return SafeArea(
+          child: SingleChildScrollView(
+            child: LiveWatchCard(
+              inCard: false,
+              running: osservando,
+              samples: widget.repo.watchSamples,
+              liveTracks: osservando ? widget.repo.liveTracks : const [],
+              result: widget.repo.watchResultOf(widget.line.routeId),
+              error: widget.repo.watchError,
+              shape: status.shape,
+              altraLinea: widget.repo.watchingRouteId != null && !osservando
+                  ? widget.repo.watchingLineName
+                  : null,
+              onStart: () {
+                _startWatch();
+                Navigator.pop(sheet);
+                _vaiAllaMappa();
+              },
+              onStop: widget.repo.stopWatch,
             ),
-          );
-        },
-      ),
+          ),
+        );
+      },
     ),
   );
 

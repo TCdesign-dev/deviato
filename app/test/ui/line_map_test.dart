@@ -233,11 +233,12 @@ void main() {
       track('B', 45.0700, 7.6800),
     ]);
 
-    expect(find.byIcon(Icons.directions_bus), findsNWidgets(2 + 1),
-        reason: 'due mezzi sulla mappa piu quello della legenda');
+    expect(find.byIcon(Icons.directions_bus), findsNWidgets(2),
+        reason: 'due mezzi sulla mappa');
     // L'ora dice quanto sono fresche: a osservazione finita i marcatori
     // restano sulla mappa e senza orario sembrerebbero attuali.
-    expect(find.textContaining('2 in circolazione · 10:00'), findsOneWidget);
+    expect(find.textContaining('2 in circolazione, con la direzione · 10:00'),
+        findsOneWidget);
   });
 
   testWidgets('un mezzo fuori percorso si distingue da uno regolare',
@@ -248,14 +249,13 @@ void main() {
     ]);
 
     // Il colore e' l'informazione: rosso = sta deviando.
-    final containers = tester
-        .widgetList<Container>(find.ancestor(
+    final colours = tester
+        .widgetList<CustomPaint>(find.ancestor(
             of: find.byIcon(Icons.directions_bus),
-            matching: find.byType(Container)))
-        .toList();
-    final colours = containers
-        .map((c) => (c.decoration as BoxDecoration?)?.color)
-        .whereType<Color>()
+            matching: find.byType(CustomPaint)))
+        .map((c) => c.painter)
+        .whereType<SegnoMezzo>()
+        .map((p) => p.colore)
         .toSet();
     expect(colours.length, greaterThanOrEqualTo(2),
         reason: 'i due mezzi non devono avere lo stesso colore');

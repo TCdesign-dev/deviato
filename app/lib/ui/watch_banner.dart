@@ -59,9 +59,11 @@ class _WatchBannerState extends State<WatchBanner> {
     if (line == null) return;
     final nav = Navigator.of(context);
     nav.popUntil((r) => r.isFirst);
-    nav.push(MaterialPageRoute<void>(
-      builder: (_) => LineScreen(repo: widget.repo, line: line),
-    ));
+    nav.push(
+      MaterialPageRoute<void>(
+        builder: (_) => LineScreen(repo: widget.repo, line: line),
+      ),
+    );
   }
 
   @override
@@ -102,19 +104,11 @@ class _WatchBannerState extends State<WatchBanner> {
     );
   }
 
-  /// "ancora 3 min" mentre c'e' una fine, "da 4 min" quando non c'e'.
+  /// "da 4 min": si guarda finche' non si interrompe, e quello che serve
+  /// sapere e' da quanto.
   static String _tempo(AppRepository repo) {
-    if (repo.watchIsContinuous) {
-      final d = repo.watchElapsed ?? Duration.zero;
-      return d.inMinutes < 1 ? 'senza limite' : 'da ${d.inMinutes} min';
-    }
-    final resta = repo.watchRemaining ?? Duration.zero;
-    if (resta.inSeconds <= 0) return 'in chiusura';
-    if (resta.inSeconds < 60) return 'ancora ${resta.inSeconds} s';
-    // Si arrotonda per ECCESSO al minuto: "ancora 1 min" quando ne
-    // restano 70 secondi sarebbe una bugia breve ma fastidiosa. E si usa
-    // ceil() e non inMinutes+1, che con 5 minuti esatti direbbe 6.
-    return 'ancora ${(resta.inSeconds / 60).ceil()} min';
+    final d = repo.watchElapsed ?? Duration.zero;
+    return d.inMinutes < 1 ? 'da meno di 1 min' : 'da ${d.inMinutes} min';
   }
 }
 
@@ -151,8 +145,11 @@ class _Striscia extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(14, 6, 4, 6),
             child: Row(
               children: [
-                Icon(line.isTram ? Icons.tram : Icons.directions_bus,
-                    size: 18, color: blu),
+                Icon(
+                  line.isTram ? Icons.tram : Icons.directions_bus,
+                  size: 18,
+                  color: blu,
+                ),
                 const SizedBox(width: 9),
                 Expanded(
                   child: Text(

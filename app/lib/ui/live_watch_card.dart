@@ -6,30 +6,6 @@ import '../core/pipeline/route_excursion.dart';
 import '../core/pipeline/vehicle_watch.dart';
 import 'theme.dart';
 
-/// Per quanto guardare.
-///
-/// La durata scelta e' **vincolante**: si guarda per tutto il tempo, non
-/// finche' basta. Prima non era cosi' e il selettore non serviva a nulla —
-/// su una linea in servizio due campioni bastavano, cioe' 31 secondi, sia
-/// che si fossero chiesti 1 o 10 minuti.
-enum WatchWindow {
-  breve(Duration(minutes: 1), '1 min'),
-  media(Duration(minutes: 3), '3 min'),
-  lunga(Duration(minutes: 5), '5 min'),
-  moltoLunga(Duration(minutes: 10), '10 min'),
-
-  /// Finche' non si dice basta. Per guardare i mezzi muoversi sulla mappa,
-  /// che e' una cosa diversa dal rispondere a una domanda.
-  continua(Duration(hours: 2), 'Senza limite');
-
-  const WatchWindow(this.duration, this.label);
-
-  final Duration duration;
-  final String label;
-
-  bool get isContinuous => this == WatchWindow.continua;
-}
-
 /// "Dove sono i mezzi adesso": comandi ed esito.
 ///
 /// Non tiene lo stato dell'osservazione: quello sta nella schermata, che
@@ -41,12 +17,10 @@ class LiveWatchCard extends StatelessWidget {
     required this.samples,
     required this.liveTracks,
     required this.result,
-    required this.window,
     required this.shape,
     required this.altraLinea,
     required this.onStart,
     required this.onStop,
-    required this.onWindowChanged,
     super.key,
     this.error,
     this.inCard = true,
@@ -61,7 +35,6 @@ class LiveWatchCard extends StatelessWidget {
   final List<VehicleTrack> liveTracks;
   final WatchResult? result;
   final String? error;
-  final WatchWindow window;
 
   /// Il percorso principale: serve a dire "escono dopo Sabotino" invece
   /// di "escono al metro 1420".
@@ -72,7 +45,6 @@ class LiveWatchCard extends StatelessWidget {
   final String? altraLinea;
   final VoidCallback onStart;
   final VoidCallback onStop;
-  final ValueChanged<WatchWindow> onWindowChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -102,27 +74,9 @@ class LiveWatchCard extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            'Segui i mezzi sulla mappa per capire se la deviazione è '
-            'ancora in corso.',
+            'Vedi dove sono i mezzi, in tempo reale, finché non '
+            'interrompi: capisci se la deviazione è ancora in corso.',
             style: Theme.of(context).textTheme.bodySmall,
-          ),
-          const SizedBox(height: 12),
-
-          // La durata si sceglie prima, e resta visibile: sapere per
-          // quanto si sta guardando fa capire quanto aspettare.
-          Text('Durata', style: Theme.of(context).textTheme.bodySmall),
-          const SizedBox(height: 6),
-          Wrap(
-            spacing: 6,
-            runSpacing: 6,
-            children: [
-              for (final w in WatchWindow.values)
-                ChoiceChip(
-                  label: Text(w.label),
-                  selected: window == w,
-                  onSelected: running ? null : (_) => onWindowChanged(w),
-                ),
-            ],
           ),
           const SizedBox(height: 12),
 

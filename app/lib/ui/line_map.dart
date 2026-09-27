@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:math' as math;
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -9,6 +11,7 @@ import '../core/models/transit.dart';
 import '../core/geo/projection.dart';
 import '../core/pipeline/route_excursion.dart';
 import '../core/pipeline/stop_impact.dart';
+import '../core/pipeline/vehicle_heading.dart';
 import '../core/pipeline/vehicle_watch.dart';
 import '../core/text/display_names.dart';
 import '../data/user_location.dart';
@@ -329,7 +332,10 @@ class _LineMapState extends State<LineMap> {
                     MarkerLayer(
                       markers: [
                         for (final t in widget.vehicles)
-                          if (t.points.isNotEmpty) _vehicleMarker(t),
+                          if (t.points.isNotEmpty)
+                            _vehicleMarker(t, [
+                              for (final d in directions) d.shape,
+                            ]),
                       ],
                     ),
                   if (_me != null) MarkerLayer(markers: [_meMarker(_me!)]),
@@ -507,27 +513,34 @@ class _LineMapState extends State<LineMap> {
     ),
   );
 
-  Marker _vehicleMarker(VehicleTrack track) {
+  /// Il mezzo: un pallino con la punta verso dove sta andando.
+  ///
+  /// Il colore e' quello della direzione che sta facendo, lo stesso delle
+  /// due linee del percorso: si vede a colpo d'occhio se il 15 laggiu'
+  /// viene verso di te o se ne va. Rosso se e' fuori percorso — e' la
+  /// cosa che conta di piu' — e blu se la direzione non si capisce.
+  Marker _vehicleMarker(VehicleTrack track, List<RouteShape> directions) {
     final last = track.points.last;
-    final off = track.isOffRoute;
+    final rotta = VehicleHeading.of(track, directions);
+    final Color colore;
+    if (track.isOffRoute) {
+      colore = MapColors.chiusa;
+    } else {
+      colore = switch (rotta.directionIndex) {
+        0 => Colors.blueGrey.shade700,
+        1 => Colors.teal.shade700,
+        _ => Colors.blue.shade700,
+      };
+    }
     return Marker(
       point: LatLng(last.position.lat, last.position.lon),
-      width: 26,
-      height: 26,
-      child: Container(
-        decoration: BoxDecoration(
-          color: off ? MapColors.chiusa : Colors.blue.shade700,
-          shape: BoxShape.circle,
-          border: Border.all(color: Colors.white, width: 2),
-          boxShadow: const [
-            BoxShadow(
-              color: Colors.black26,
-              blurRadius: 3,
-              offset: Offset(0, 1),
-            ),
-          ],
+      width: 40,
+      height: 40,
+      child: CustomPaint(
+        painter: SegnoMezzo(colore: colore, gradi: rotta.degrees),
+        child: const Center(
+          child: Icon(Icons.directions_bus, size: 13, color: Colors.white),
         ),
-        child: const Icon(Icons.directions_bus, size: 14, color: Colors.white),
       ),
     );
   }
@@ -716,14 +729,10 @@ class _Legend extends StatelessWidget {
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(
-                      Icons.directions_bus,
-                      size: 13,
-                      color: StatusColors.of(context).info,
-                    ),
+                    Icon(Icons.navigation, size: 13, color: tenue),
                     const SizedBox(width: 4),
                     Text(
-                      '$vehicleCount in circolazione'
+                      '$vehicleCount in circolazione, con la direzione'
                       '${vehiclesSeenAt == null ? "" : " · ${_hhmm(vehiclesSeenAt!)}"}',
                       style: style,
                     ),
@@ -866,4 +875,54 @@ class _MapButton extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Il segno del mezzo: un cerchio con una punta nella direzione di marcia.
+///
+/// Senza rotta nota resta un cerchio: una freccia orientata a caso
+/// direbbe una cosa che non sappiamo.
+class SegnoMezzo extends CustomPainter {
+  const SegnoMezzo({required this.colore, required this.gradi});
+
+  final Color colore;
+
+  /// 0 nord, in senso orario. null se non si sa.
+  final double? gradi;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final c = size.center(Offset.zero);
+    const raggio = 10.5;
+    const punta = 17.0;
+    var forma = ui.Path()..addOval(Rect.fromCircle(center: c, radius: raggio));
+    final g = gradi;
+    if (g != null) {
+      // Sullo schermo y cresce verso il basso: il nord e' -y.
+      final a = g * math.pi / 180;
+      Offset verso(double angolo, double r) =>
+          c + Offset(math.sin(angolo), -math.cos(angolo)) * r;
+      final cima = verso(a, punta);
+      final destra = verso(a + 0.62, raggio);
+      final sinistra = verso(a - 0.62, raggio);
+      final freccia = ui.Path()
+        ..moveTo(cima.dx, cima.dy)
+        ..lineTo(destra.dx, destra.dy)
+        ..lineTo(sinistra.dx, sinistra.dy)
+        ..close();
+      forma = ui.Path.combine(PathOperation.union, forma, freccia);
+    }
+    canvas.drawShadow(forma, Colors.black, 2, false);
+    canvas.drawPath(forma, Paint()..color = colore);
+    canvas.drawPath(
+      forma,
+      Paint()
+        ..color = Colors.white
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2
+        ..strokeJoin = StrokeJoin.round,
+    );
+  }
+
+  @override
+  bool shouldRepaint(SegnoMezzo old) => old.colore != colore || old.gradi != gradi;
 }

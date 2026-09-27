@@ -9,7 +9,7 @@ la mia fermata è ancora servita?**
 [![Licenza: MIT](https://img.shields.io/badge/licenza-MIT-blue.svg)](LICENSE)
 [![Piattaforme](https://img.shields.io/badge/piattaforme-iOS%20%7C%20Android-lightgrey.svg)](#-scaricala)
 [![Flutter](https://img.shields.io/badge/Flutter-Dart%203.12+-02569B.svg)](https://flutter.dev)
-[![Test](https://img.shields.io/badge/test-307-brightgreen.svg)](#-sviluppo)
+[![Test](https://img.shields.io/badge/test-314-brightgreen.svg)](#-sviluppo)
 [![Dati: CC-BY](https://img.shields.io/badge/dati%20GTT-CC--BY-orange.svg)](https://www.gtt.to.it/cms/openday/open-data)
 
 <img src="docs/img/linea-65.png" width="320"
@@ -108,8 +108,9 @@ e la tua posizione su richiesta.
 
 ### 🚌 Osservazione dei mezzi in tempo reale
 
-Da un minuto a dieci, oppure in continuo, con i veicoli che si aggiornano
-sulla mappa. **Continua mentre guardi altre linee** — una alla volta, per
+In tempo reale, finché non la interrompi, con i mezzi che si aggiornano
+sulla mappa: ognuno ha una punta verso dove sta andando e il colore della
+direzione che sta facendo. **Continua mentre guardi altre linee** — una alla volta, per
 non raddoppiare le richieste al feed di GTT. Risponde a una domanda che nessun'altra fonte copre — **la
 deviazione è già finita?** — e a una che il testo non sa rispondere bene:
 **dove escono e dove rientrano davvero**. L'app lo dice con i nomi delle
@@ -307,7 +308,7 @@ Il codice è lo stesso per iOS e Android: `lib/core/` è Dart puro e non sa
 su cosa sta girando.
 
 ```bash
-cd app && flutter test      # 307 test
+cd app && flutter test      # 314 test
 cd app && flutter analyze
 cd app && flutter run       # legge i dati pubblicati, nessuna chiave
 ```

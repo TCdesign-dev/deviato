@@ -137,26 +137,13 @@ class AppRepository extends ChangeNotifier {
   /// La linea che si sta osservando adesso. null se nessuna.
   String? watchingRouteId;
 
-  /// Da quando si sta guardando, e per quanto era stato chiesto.
-  ///
-  /// Servono a dire "ancora 3 min" invece di "5 min": la durata scelta
-  /// non dice niente di utile mentre gira, l'hai scelta tu poco fa.
+  /// Da quando si sta guardando.
   DateTime? watchStartedAt;
-  Duration? watchMaxDuration;
 
-  /// L'osservazione senza fine: si mostra il tempo trascorso, non quello
-  /// che manca, perche' non manca niente.
-  bool get watchIsContinuous =>
-      watchMaxDuration != null && watchMaxDuration! >= const Duration(hours: 1);
-
-  /// Quanto manca. null in modalita' continua o se non si sta guardando.
-  Duration? get watchRemaining {
-    final da = watchStartedAt;
-    final max = watchMaxDuration;
-    if (da == null || max == null || watchIsContinuous) return null;
-    final resta = max - DateTime.now().difference(da);
-    return resta.isNegative ? Duration.zero : resta;
-  }
+  /// Un tetto, non una durata: si guarda finche' non si interrompe, ma chi
+  /// se ne dimentica non deve consumare batteria e dati per una giornata.
+  /// Due ore sono ben oltre qualsiasi attesa alla fermata.
+  static const watchSafetyLimit = Duration(hours: 2);
 
   /// Da quanto si sta guardando.
   Duration? get watchElapsed => watchStartedAt == null
@@ -179,17 +166,17 @@ class AppRepository extends ChangeNotifier {
 
   bool _stopWatchRequested = false;
 
-  /// Comincia a guardare i mezzi di [line] per [maxDuration].
+  /// Comincia a guardare i mezzi di [line], finche' non si chiama
+  /// [stopWatch] (o fino a [watchSafetyLimit]).
   ///
   /// Se se ne stava gia' guardando un'altra, quella si ferma: [stopWatch]
   /// viene chiamato prima, e il ciclo vecchio se ne accorge al giro
   /// successivo perche' `watchingRouteId` non e' piu' il suo.
-  Future<void> startWatch(TransitLine line, Duration maxDuration) async {
+  Future<void> startWatch(TransitLine line) async {
     if (watchingRouteId != null) stopWatch();
 
     watchingRouteId = line.routeId;
     watchStartedAt = DateTime.now();
-    watchMaxDuration = maxDuration;
     _stopWatchRequested = false;
     watchSamples = 0;
     liveTracks = const [];
@@ -205,7 +192,7 @@ class AppRepository extends ChangeNotifier {
     }
 
     try {
-      final result = await VehicleWatch(maxDuration: maxDuration).watch(
+      final result = await VehicleWatch(maxDuration: watchSafetyLimit).watch(
         line: status.line,
         shapes: status.allShapes.isNotEmpty ? status.allShapes : [status.shape],
         onProgress: (samples, tracks) {
@@ -219,7 +206,11 @@ class AppRepository extends ChangeNotifier {
         shouldStop: () =>
             _stopWatchRequested || watchingRouteId != line.routeId,
       );
-      if (watchingRouteId == line.routeId) {
+      // L'esito si tiene anche quando si e' interrotto a mano: senza
+      // durate e' l'unico modo di finire, e prima andava perso — il
+      // ciclo trovava `watchingRouteId` gia' vuoto e non salvava niente.
+      // Si butta solo se nel frattempo si e' passati a un'altra linea.
+      if (watchingRouteId == line.routeId || watchingRouteId == null) {
         _watchResults[line.routeId] = result;
         liveTracks = result.tracks;
       }
@@ -229,7 +220,6 @@ class AppRepository extends ChangeNotifier {
       if (watchingRouteId == line.routeId) {
         watchingRouteId = null;
         watchStartedAt = null;
-        watchMaxDuration = null;
       }
       notifyListeners();
     }
@@ -239,7 +229,6 @@ class AppRepository extends ChangeNotifier {
     _stopWatchRequested = true;
     watchingRouteId = null;
     watchStartedAt = null;
-    watchMaxDuration = null;
     notifyListeners();
   }
 
