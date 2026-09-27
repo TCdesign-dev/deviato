@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../data/app_repository.dart';
+import 'cartina.dart';
 
 /// Da dove vengono i dati, cosa sono, e cosa non sono.
 ///
@@ -53,7 +54,8 @@ class InfoScreen extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
               child: Text(
                 [
-                  if (generato != null) 'Dati aggiornati alle ${_ora(generato)}',
+                  if (generato != null)
+                    'Dati aggiornati alle ${_ora(generato)}',
                   if (feed != null) 'Orari GTT del ${_feed(feed)}',
                 ].join(' · '),
                 style: testo.bodySmall?.copyWith(color: secondario),
@@ -65,9 +67,10 @@ class InfoScreen extends StatelessWidget {
             'posizione, se la attivi sulla mappa, resta sul telefono.',
           ),
           const _Sezione('Crediti'),
-          const _Paragrafo(
-            'Mappe © contributori di OpenStreetMap. Percorsi calcolati con '
-            'Valhalla (FOSSGIS), indirizzi con Photon.',
+          _Paragrafo(
+            'Mappe © contributori di OpenStreetMap'
+            '${Cartina.carto ? ', immagini della cartina © CARTO' : ''}. '
+            'Percorsi calcolati con Valhalla (FOSSGIS), indirizzi con Photon.',
           ),
         ],
       ),
@@ -75,7 +78,8 @@ class InfoScreen extends StatelessWidget {
   }
 
   static String _ora(DateTime t) {
-    final h = '${t.hour.toString().padLeft(2, "0")}:'
+    final h =
+        '${t.hour.toString().padLeft(2, "0")}:'
         '${t.minute.toString().padLeft(2, "0")}';
     final oggi = DateTime.now();
     final stessoGiorno =
@@ -96,13 +100,14 @@ class _Sezione extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.fromLTRB(16, 20, 16, 6),
-        child: Text(testo,
-            style: Theme.of(context)
-                .textTheme
-                .titleSmall
-                ?.copyWith(color: Theme.of(context).colorScheme.primary)),
-      );
+    padding: const EdgeInsets.fromLTRB(16, 20, 16, 6),
+    child: Text(
+      testo,
+      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+        color: Theme.of(context).colorScheme.primary,
+      ),
+    ),
+  );
 }
 
 class _Paragrafo extends StatelessWidget {
@@ -112,7 +117,7 @@ class _Paragrafo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        child: Text(testo, style: Theme.of(context).textTheme.bodyMedium),
-      );
+    padding: const EdgeInsets.symmetric(horizontal: 16),
+    child: Text(testo, style: Theme.of(context).textTheme.bodyMedium),
+  );
 }

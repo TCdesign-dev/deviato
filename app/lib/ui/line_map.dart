@@ -15,6 +15,7 @@ import '../core/pipeline/vehicle_heading.dart';
 import '../core/pipeline/vehicle_watch.dart';
 import '../core/text/display_names.dart';
 import '../data/user_location.dart';
+import 'cartina.dart';
 import 'theme.dart';
 
 /// La mappa della linea: percorso normale, deviazioni, e le fermate.
@@ -228,6 +229,7 @@ class _LineMapState extends State<LineMap> {
         for (final s in d.shape.stops)
           if (!skipped.containsKey(s.id)) s.id: s,
     }.values.toList(growable: false);
+    final cartina = Cartina.of(context);
 
     // La stessa inquadratura serve due volte: all'apertura, e ogni volta
     // che si tocca il pulsante per tornarci dopo aver girovagato.
@@ -265,9 +267,11 @@ class _LineMapState extends State<LineMap> {
                 ),
                 children: [
                   TileLayer(
-                    urlTemplate:
-                        'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                    userAgentPackageName: 'dev.tcdesign.gtt_deviazioni',
+                    urlTemplate: cartina.url,
+                    subdomains: cartina.sottodomini,
+                    retinaMode:
+                        Cartina.carto && RetinaMode.isHighDensity(context),
+                    userAgentPackageName: 'dev.tcdesign.deviato',
                   ),
                   PolylineLayer(
                     polylines: [
@@ -277,14 +281,13 @@ class _LineMapState extends State<LineMap> {
                         Polyline(
                           points: directions[i].points,
                           strokeWidth: 4,
-                          color: (i == 0 ? Colors.blueGrey : Colors.teal)
-                              .withValues(alpha: 0.55),
+                          color: cartina.direzione(i),
                         ),
                       for (final d in deviations)
                         Polyline(
                           points: d,
                           strokeWidth: 6,
-                          color: Colors.red.shade700,
+                          color: cartina.deviazione,
                         ),
                       // Il tratto che i mezzi hanno percorso DAVVERO fuori
                       // dal percorso normale. Colore diverso dal rosso
@@ -294,7 +297,7 @@ class _LineMapState extends State<LineMap> {
                         Polyline(
                           points: osservato,
                           strokeWidth: 6,
-                          color: Colors.purple.shade600,
+                          color: cartina.osservato,
                         ),
                     ],
                   ),
@@ -339,11 +342,32 @@ class _LineMapState extends State<LineMap> {
                       ],
                     ),
                   if (_me != null) MarkerLayer(markers: [_meMarker(_me!)]),
-                  const RichAttributionWidget(
-                    alignment: AttributionAlignment.bottomLeft,
-                    attributions: [
-                      TextSourceAttribution('contributori di OpenStreetMap'),
-                    ],
+                  // Sempre visibile: CARTO non la vuole dietro un tocco, e
+                  // l'icona «i» di prima la nascondeva.
+                  // Una scritta nostra e non SimpleAttributionWidget, che mette
+                  // davanti «flutter_map | ©» e ripete il simbolo. In alto:
+                  // in basso la copre il pulsante dei mezzi, che fluttua sulla
+                  // pagina, e CARTO la vuole sempre visibile.
+                  Align(
+                    alignment: Alignment.topLeft,
+                    child: Container(
+                      margin: const EdgeInsets.all(4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 5,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: cartina.fondoAttribuzione,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        cartina.attribuzione,
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: cartina.scura ? Colors.white : Colors.black87,
+                        ),
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -425,6 +449,7 @@ class _LineMapState extends State<LineMap> {
     required StopImpact? impact,
     required bool selected,
   }) {
+    final cartina = Cartina.of(context);
     final isSkipped = impact != null;
     final dot = isSkipped ? 20.0 : (selected ? 16.0 : 11.0);
 
@@ -445,14 +470,12 @@ class _LineMapState extends State<LineMap> {
             width: dot,
             height: dot,
             decoration: BoxDecoration(
-              color: isSkipped ? MapColors.chiusa : Colors.white,
+              color: isSkipped ? cartina.chiusa : Colors.white,
               shape: BoxShape.circle,
               border: Border.all(
                 color: isSkipped
                     ? Colors.white
-                    : (selected
-                          ? MapColors.selezione
-                          : Colors.blueGrey.shade600),
+                    : (selected ? cartina.selezione : cartina.bordoFermata),
                 width: selected || isSkipped ? 3 : 2,
               ),
             ),
@@ -520,17 +543,14 @@ class _LineMapState extends State<LineMap> {
   /// viene verso di te o se ne va. Rosso se e' fuori percorso — e' la
   /// cosa che conta di piu' — e blu se la direzione non si capisce.
   Marker _vehicleMarker(VehicleTrack track, List<RouteShape> directions) {
+    final cartina = Cartina.of(context);
     final last = track.points.last;
     final rotta = VehicleHeading.of(track, directions);
     final Color colore;
     if (track.isOffRoute) {
-      colore = MapColors.chiusa;
+      colore = cartina.chiusa;
     } else {
-      colore = switch (rotta.directionIndex) {
-        0 => Colors.blueGrey.shade700,
-        1 => Colors.teal.shade700,
-        _ => Colors.blue.shade700,
-      };
+      colore = cartina.mezzo(rotta.directionIndex);
     }
     return Marker(
       point: LatLng(last.position.lat, last.position.lon),
@@ -683,6 +703,7 @@ class _Legend extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cartina = Cartina.of(context);
     final style = Theme.of(context).textTheme.bodySmall;
     final tenue = Theme.of(context).colorScheme.onSurfaceVariant;
     return Padding(
@@ -696,31 +717,29 @@ class _Legend extends StatelessWidget {
             children: [
               for (var i = 0; i < directions.length; i++)
                 _line(
-                  (i == 0 ? Colors.blueGrey : Colors.teal).withValues(
-                    alpha: 0.55,
-                  ),
+                  cartina.direzione(i),
                   directions.length == 1
                       ? 'percorso normale'
                       : '→ ${_shortHeadsign(directions[i])}',
                   style,
                 ),
               if (hasDeviation)
-                _line(Colors.red.shade700, 'percorso deviato', style)
+                _line(cartina.deviazione, 'percorso deviato', style)
               else if (onlySuspendedStops)
                 Text('nessun cambio di percorso', style: style)
               else if (hasActiveNotices && !hasObserved)
                 Text('percorso deviato non disponibile', style: style),
               if (hasObserved)
-                _line(Colors.purple.shade600, 'percorso dei mezzi', style),
+                _line(cartina.osservato, 'percorso dei mezzi', style),
               _dot(
                 Colors.white,
-                Colors.blueGrey.shade600,
+                cartina.bordoFermata,
                 '$servedCount fermate',
                 style,
               ),
               if (skippedCount > 0)
                 _dot(
-                  MapColors.chiusa,
+                  cartina.chiusa,
                   Colors.white,
                   '$skippedCount non servite',
                   style,
@@ -924,5 +943,6 @@ class SegnoMezzo extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(SegnoMezzo old) => old.colore != colore || old.gradi != gradi;
+  bool shouldRepaint(SegnoMezzo old) =>
+      old.colore != colore || old.gradi != gradi;
 }

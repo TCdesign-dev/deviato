@@ -398,7 +398,7 @@ progetto che credo valga di più.
 | | |
 |---|---|
 | 🚌 Dati di trasporto | **GTT S.p.A. – Gruppo Torinese Trasporti**, [dati aperti](https://www.gtt.to.it/gtt_gtfs_license.html): CC BY 4.0 sul [portale del Comune](https://aperto.comune.torino.it/dataset/feed-gtfs-trasporti-gtt), **solo uso non commerciale** secondo la licenza di GTT. L'attribuzione è obbligatoria, e l'app non ha pubblicità né acquisti |
-| 🗺️ Cartografia | **OpenStreetMap**, ODbL |
+| 🗺️ Cartografia | **OpenStreetMap**, ODbL; immagini della cartina di **[CARTO](https://carto.com/attribution/)** (Positron e Dark Matter) |
 | 🧭 Routing | **Valhalla** ospitato da [FOSSGIS](https://valhalla1.openstreetmap.de/) |
 | 📍 Geocoding | **[Photon](https://photon.komoot.io/)** di Komoot |
 

@@ -81,21 +81,6 @@ class StatusColors extends ThemeExtension<StatusColors> {
   }
 }
 
-/// I segni disegnati sulla cartina.
-///
-/// La cartina di OpenStreetMap resta chiara anche col tema scuro: i segni
-/// che ci stanno sopra si leggono sempre su un fondo chiaro, e non seguono
-/// il tema. Col tema scuro la fermata chiusa diventava rosa pallido e
-/// quella selezionata sarebbe diventata gialla, tutte e due quasi
-/// invisibili sulle strade.
-abstract final class MapColors {
-  /// Il bordo della fermata toccata.
-  static const selezione = _grafite;
-
-  /// Fermata non servita, mezzo fuori percorso.
-  static const chiusa = Color(0xFFB3261E);
-}
-
 const _grafite = Color(0xFF1E1E1E);
 const _giallo = Color(0xFFF9D400);
 

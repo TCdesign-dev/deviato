@@ -410,6 +410,16 @@ Ognuna di queste è costata tempo. Sono tutte silenziose: non danno errore.
   verso del percorso nel punto più vicino, entro 60 m e 60°: sulla via
   percorsa nei due sensi è l'unico modo di separare andata e ritorno.
   Attenzione agli assi: in `Projection.toMeters` `x` è il nord.
+- **Le immagini della cartina vengono da CARTO dal 27/09** (`ui/cartina.dart`):
+  Positron in chiaro e Dark Matter in scuro, gratuite per uso non
+  commerciale fino a 5 milioni al mese, con una chiave. Prima erano quelle
+  di OpenStreetMap, un servizio volontario che non ha la versione scura:
+  la cartina restava chiara anche col tema scuro. I colori dei segni
+  cambiano con la cartina (`Cartina.of`), non col tema. L'attribuzione è
+  una scritta nostra in alto a sinistra, sempre visibile: CARTO non la
+  vuole dietro un tocco (l'icona «i» di `RichAttributionWidget`),
+  `SimpleAttributionWidget` mette davanti «flutter_map | ©», e in basso la
+  coprirebbe il pulsante dei mezzi.
 - **Gli orari programmati di GitHub sono una promessa debole.** Nelle
   prime dodici ore, coi minuti 5/25/45, sono partiti **3 giri su 27**:
   nessun errore, nessun giro annullato, semplicemente non lanciati.
@@ -504,6 +514,13 @@ Per non fraintendere quello che c'è in `config.dart`:
 cd app && flutter test          # 314 test, devono passare tutti
 cd app && flutter analyze       # deve essere pulito
 ```
+
+**Ogni build dell'app va fatta con le chiavi**: `--dart-define-from-file=chiavi.json`
+(`flutter run`, `flutter build ipa`, `flutter build appbundle`). Il file sta in
+`app/chiavi.json`, escluso da git; il modello è `app/chiavi.esempio.json`.
+Oggi contiene solo `CARTO_KEY`, la chiave gratuita delle immagini della
+cartina: senza, l'app torna alle cartine di OpenStreetMap e funziona lo
+stesso, ma una build per lo store fatta così cambierebbe cartina di nascosto.
 
 Misure offline, su fixture e GTFS già scaricati:
 

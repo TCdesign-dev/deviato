@@ -43,3 +43,7 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Le chiavi dei servizi, passate alla compilazione con
+# --dart-define-from-file=chiavi.json. Il modello e' chiavi.esempio.json.
+/chiavi.json
