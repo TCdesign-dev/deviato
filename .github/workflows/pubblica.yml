@@ -14,10 +14,15 @@ name: Pubblica i dati
 
 on:
   schedule:
-    # Ogni 20 minuti dalle 6 a mezzanotte, ogni ora di notte (ora
-    # italiana d'estate; GitHub ragiona in UTC e puo' ritardare).
-    - cron: "5,25,45 4-21 * * *"
-    - cron: "5 22,23,0,1,2,3 * * *"
+    # Ogni mezz'ora di giorno, ogni ora la sera, una volta nel cuore della
+    # notte. Gli orari sono in UTC: d'estate in Italia sono due ore avanti
+    # (6:13-21:43, poi 22:13-1:13, poi 3:13), d'inverno una.
+    #
+    # Minuti 13 e 43, non 5/25/45: GitHub lancia gli orari programmati "al
+    # meglio" e sotto carico li salta, soprattutto vicino all'inizio
+    # dell'ora. Il 26-27/09, coi minuti 5/25/45, ne sono partiti 3 su 27.
+    - cron: "13,43 4-19 * * *"
+    - cron: "13 20,21,22,23,1 * * *"
   workflow_dispatch:
 
 permissions:

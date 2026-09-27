@@ -7,9 +7,9 @@ DeviaTo li trasforma in una mappa e risponde a una domanda sola:
 la mia fermata è ancora servita?**
 
 [![Licenza: MIT](https://img.shields.io/badge/licenza-MIT-blue.svg)](LICENSE)
-[![Piattaforme](https://img.shields.io/badge/piattaforme-iOS%20%7C%20Android-lightgrey.svg)](#-installazione)
+[![Piattaforme](https://img.shields.io/badge/piattaforme-iOS%20%7C%20Android-lightgrey.svg)](#-scaricala)
 [![Flutter](https://img.shields.io/badge/Flutter-Dart%203.12+-02569B.svg)](https://flutter.dev)
-[![Test](https://img.shields.io/badge/test-234-brightgreen.svg)](#-sviluppo)
+[![Test](https://img.shields.io/badge/test-302-brightgreen.svg)](#-sviluppo)
 [![Dati: CC-BY](https://img.shields.io/badge/dati%20GTT-CC--BY-orange.svg)](https://www.gtt.to.it/cms/openday/open-data)
 
 <img src="docs/img/linea-65.png" width="320"
@@ -32,7 +32,7 @@ la mia fermata è ancora servita?**
 - 📅 **Separa ciò che è in corso da ciò che comincerà.** Il 19 % delle
   variazioni pubblicate non è ancora in vigore.
 - ☁️ **Calcola una volta per tutti.** Un job su GitHub Actions legge gli
-  avvisi ogni venti minuti e pubblica i risultati: l'app li scarica in un
+  avvisi ogni mezz'ora e pubblica i risultati: l'app li scarica in un
   secondo, senza chiavi né account. La tua posizione non lascia il
   dispositivo.
 - 🤐 **Non inventa mai.** Se non riesce a ricostruire un percorso lo
@@ -41,7 +41,7 @@ la mia fermata è ancora servita?**
 ## 📑 Indice
 
 - [Il problema](#-il-problema)
-- [Installazione](#-installazione)
+- [Scaricala](#-scaricala)
 - [Cosa fa](#-cosa-fa)
 - [Come funziona](#-come-funziona)
 - [Architettura](#-architettura)
@@ -71,74 +71,22 @@ e determina quali fermate restano fuori.
 > **DeviaTo** — da «devia» e «To», che a Torino è come si scrive Torino.
 > Progetto personale, non affiliato a GTT né approvato da GTT.
 
-## 📲 Installazione
+## 📲 Scaricala
+
+DeviaTo è gratuita, senza pubblicità e senza account. **Arriva a breve su
+App Store e Google Play**: i link compariranno qui e sul
+[sito](https://tcdesign-dev.github.io/gtt-deviazioni/).
+
+Aggiungi le linee che usi con **+**: si cercano per numero o per via. Poi
+apri una linea, tocca la tua fermata sulla mappa e salvala: la home ti dice
+subito se è servita.
 
 > [!IMPORTANT]
-> **Qui c'è il codice sorgente.** DeviaTo va compilata: è un progetto
-> personale, pubblicato perché il metodo possa servire a qualcun altro.
-
-Requisiti: [Flutter](https://docs.flutter.dev/get-started/install), Dart ≥ 3.12.
-
-```bash
-git clone https://github.com/TCdesign-dev/gtt-deviazioni.git
-cd gtt-deviazioni/app && flutter pub get && flutter run
-```
-
-Aggiungi le linee che ti interessano con **+** (si cercano per numero o per
-via). Poi apri una linea, tocca la fermata che usi sulla mappa e salvala: la
-home ti dirà subito se è servita.
-
-L'app legge i dati pubblicati dal job su GitHub Pages: non serve nessuna
-chiave. Per provarla contro un giro lanciato sul computer:
-
-```bash
-cd app && dart run tool/pubblica.dart --uscita ../sito/v1 --gtfs ../.gtfs
-python3 -m http.server 8765 --directory ../sito &
-flutter run --dart-define=DATI_URL=http://localhost:8765/v1/
-```
-
-### Il job su GitHub
-
-[`.github/workflows/pubblica.yml`](.github/workflows/pubblica.yml) esegue
-[`app/tool/pubblica.dart`](app/tool/pubblica.dart) ogni venti minuti di
-giorno e ogni ora di notte, e pubblica il risultato sul ramo `gh-pages`. Va
-configurato una volta:
-
-1. **Settings › Pages**: «Deploy from a branch», ramo `gh-pages`, cartella
-   `/`. Il ramo lo crea il primo giro.
-2. **Settings › Secrets and variables › Actions**: il segreto
-   `OPENROUTER_API_KEY`. Senza, si pubblicano solo le fermate sospese che GTT
-   scrive col numero, e gli altri avvisi restano «in lettura».
-
-Le richieste al modello dipendono dagli avvisi **nuovi** di GTT — una
-ventina al giorno, misurato il 26/09/2026 — e non da quante persone usano
-l'app: un avviso già letto e non cambiato non si rilegge.
-
-### Compilarla
-
-Il codice è lo stesso per le due piattaforme: `lib/core/` è Dart puro e non
-sa su cosa sta girando.
-
-```bash
-flutter build ios      # richiede Xcode
-flutter build apk      # richiede un JDK 17+ e le licenze dell'SDK Android
-```
-
-Su Android le licenze si accettano una volta sola:
-
-```bash
-flutter doctor --android-licenses
-```
-
-Se qualcosa non compila, [aprire una issue](https://github.com/TCdesign-dev/gtt-deviazioni/issues)
-è il contributo più utile che si possa fare.
-
-> [!IMPORTANT]
-> **Privacy.** La posizione, se la attivi, non lascia il dispositivo: non
-> viene salvata e non compare in nessuna richiesta di rete. I servizi
-> esterni ricevono i toponimi degli avvisi e il percorso della linea, mai
-> dove sei tu. Il permesso viene chiesto quando tocchi il pulsante, non
-> all'apertura della schermata.
+> **Privacy.** Nessun account, nessuna statistica d'uso, nessuna
+> pubblicità. La posizione, se la attivi, serve solo a mostrarti sulla
+> mappa: non viene salvata e non esce dal telefono. Il permesso si chiede
+> quando tocchi il pulsante, non all'apertura.
+> [Informativa completa](https://tcdesign-dev.github.io/gtt-deviazioni/privacy.html).
 
 ## 🧭 Cosa fa
 
@@ -257,7 +205,7 @@ Flutter, quel file sarebbe nel posto sbagliato.
 Il calcolo gira in un posto solo: il job su GitHub. L'app legge i risultati.
 
 ```
-avvisi GTT ─► job su GitHub Actions (ogni 20 min) ─► gh-pages: indice.json,
+avvisi GTT ─► job su GitHub Actions (ogni 30 min) ─► gh-pages: indice.json,
                                                      percorsi/, stato/
                                                           │
                                          app ◄────────────┘  (qualche KB)
@@ -324,7 +272,7 @@ non esistono nel feed corrente, e a cui mancano sette linee.
 
 ### 🔕 Non ti avvisa da sola: devi aprirla tu
 
-Il job su GitHub calcola ogni venti minuti, ma l'app non manda notifiche:
+Il job su GitHub calcola ogni mezz'ora, ma l'app non manda notifiche:
 i dati si vedono aprendola. Le notifiche sono il passo naturale successivo,
 ora che il calcolo non sta più sul telefono.
 
@@ -354,10 +302,40 @@ anticipo può comparire come già in corso.
 
 ## 🧪 Sviluppo
 
+Serve [Flutter](https://docs.flutter.dev/get-started/install) con Dart ≥ 3.12.
+Il codice è lo stesso per iOS e Android: `lib/core/` è Dart puro e non sa
+su cosa sta girando.
+
 ```bash
 cd app && flutter test      # 302 test
 cd app && flutter analyze
+cd app && flutter run       # legge i dati pubblicati, nessuna chiave
 ```
+
+Per provare l'app contro un giro del job lanciato sul computer:
+
+```bash
+cd app && dart run tool/pubblica.dart --uscita ../sito/v1 --gtfs ../.gtfs
+python3 -m http.server 8765 --directory ../sito &
+flutter run --dart-define=DATI_URL=http://localhost:8765/v1/
+```
+
+### Il job su GitHub
+
+[`.github/workflows/pubblica.yml`](.github/workflows/pubblica.yml) esegue
+[`app/tool/pubblica.dart`](app/tool/pubblica.dart) ogni mezz'ora di giorno,
+ogni ora la sera e una volta di notte, e pubblica il risultato sul ramo
+`gh-pages`. Su un fork va configurato una volta:
+
+1. **Settings › Pages**: «Deploy from a branch», ramo `gh-pages`, cartella
+   `/`. Il ramo lo crea il primo giro.
+2. **Settings › Secrets and variables › Actions**: il segreto
+   `OPENROUTER_API_KEY`. Senza, si pubblicano solo le fermate sospese che GTT
+   scrive col numero, e gli altri avvisi restano da leggere.
+
+Le richieste al modello dipendono dagli avvisi **nuovi** di GTT — una
+ventina al giorno, misurato il 26/09/2026 — e non da quante persone usano
+l'app: un avviso già letto e non cambiato non si rilegge.
 
 I test sulle fonti girano **offline su dati reali**: il feed protobuf e la
 pagina HTML di GTT del 31 luglio 2026 stanno in `app/test/fixtures/`. I test
@@ -366,7 +344,6 @@ sul GTFS si saltano da soli se i file non ci sono.
 Strumenti di misura, che interrogano i servizi veri:
 
 ```bash
-cd app && dart run tool/pubblica.dart --uscita ../sito/v1 --gtfs ../.gtfs  # un giro del job
 cd app && dart run tool/check_pipeline_live.dart     # catena completa
 cd app && dart run tool/check_merge_offline.dart     # unione delle fonti
 ```

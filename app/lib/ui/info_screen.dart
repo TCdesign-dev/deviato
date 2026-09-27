@@ -36,8 +36,9 @@ class InfoScreen extends StatelessWidget {
           const _Sezione('Da dove vengono i dati'),
           const _Paragrafo(
             'Avvisi, percorsi, fermate e posizioni dei mezzi sono dati '
-            'aperti di GTT. Gli avvisi vengono letti ogni venti minuti per '
-            'ricavarne i percorsi deviati e le fermate non servite.',
+            'aperti di GTT. Gli avvisi vengono letti ogni mezz\'ora durante '
+            'il giorno per ricavarne i percorsi deviati e le fermate non '
+            'servite.',
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),

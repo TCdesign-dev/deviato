@@ -1,17 +1,12 @@
-# gtt_deviazioni
+# DeviaTo — l'app
 
-A new Flutter project.
+Il codice Flutter dell'app. La presentazione del progetto sta nel
+[README principale](../README.md), la struttura dei moduli in
+[ARCHITETTURA.md](ARCHITETTURA.md), e ciò che non sta nel codice (misure,
+decisioni, trappole) in [CLAUDE.md](../CLAUDE.md).
 
-## Getting Started
-
-This project is a starting point for a Flutter application.
-
-A few resources to get you started if this is your first Flutter project:
-
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+```bash
+flutter test      # devono passare tutti
+flutter analyze   # deve essere pulito
+flutter run       # legge i dati pubblicati dal job su GitHub
+```

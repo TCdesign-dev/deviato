@@ -64,8 +64,9 @@ l'unico dato del sistema a non venire da un testo: non è dedotto da come
 GTT ha scritto l'avviso, è quello che i bus hanno fatto.
 
 **Il calcolo sta in un job su GitHub, non sul telefono.** Dal 26/09/2026
-`.github/workflows/pubblica.yml` esegue `app/tool/pubblica.dart` ogni venti
-minuti: scarica il GTFS del giorno, legge gli avvisi, calcola lo stato di
+`.github/workflows/pubblica.yml` esegue `app/tool/pubblica.dart` ogni
+mezz'ora di giorno, ogni ora la sera e una volta nel cuore della notte:
+scarica il GTFS del giorno, legge gli avvisi, calcola lo stato di
 **tutte** le linee e pubblica tre tipi di file JSON sul ramo `gh-pages`
 (`indice.json`, `percorsi/<linea>.json`, `stato/<linea>.json`, formato in
 `core/io/formato_pubblicato.dart`). L'app li scarica — qualche KB — e ne
@@ -357,6 +358,13 @@ Ognuna di queste è costata tempo. Sono tutte silenziose: non danno errore.
 - **Il job gira su un server che non sta a Torino.** Le date degli avvisi
   vanno lette in ora di Torino: nel workflow c'è `TZ: Europe/Rome`, e nei
   file le date si scrivono in UTC con la «Z» e si rileggono in ora locale.
+- **Gli orari programmati di GitHub sono una promessa debole.** Nelle
+  prime dodici ore, coi minuti 5/25/45, sono partiti **3 giri su 27**:
+  nessun errore, nessun giro annullato, semplicemente non lanciati.
+  GitHub dichiara che sotto carico li ritarda e li salta, soprattutto
+  vicino all'inizio dell'ora. Il 27/09 si è passati ai minuti 13/43 e a
+  meno giri (37 al giorno). Se non basta, il rimedio è lanciarlo da fuori
+  (`workflow_dispatch` chiamato da un servizio di cron esterno).
 
 ## 6. Le regole di condotta del sistema
 

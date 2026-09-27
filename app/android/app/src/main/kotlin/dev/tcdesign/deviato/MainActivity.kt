@@ -1,4 +1,4 @@
-package dev.tcdesign.gtt_deviazioni
+package dev.tcdesign.deviato
 
 import io.flutter.embedding.android.FlutterActivity
 

@@ -2,7 +2,7 @@ import 'llm_client.dart';
 
 /// Un [LlmClient] che smette di chiedere quando non ha piu' senso.
 ///
-/// Serve al job che calcola per tutti: gira ogni venti minuti, e ogni giro
+/// Serve al job che calcola per tutti: gira ogni mezz'ora, e ogni giro
 /// deve restare dentro un tetto di richieste e di tempo. Tre casi in cui
 /// si smette:
 ///

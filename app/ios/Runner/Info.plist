@@ -2,29 +2,6 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<!-- DeviaTo chiede solo il permesso "mentre usi l'app", e non ha
-	     nessuna funzione in background. Questa seconda chiave c'e' perche'
-	     l'analisi statica di Apple (avviso 90683) vede il riferimento a
-	     requestAlwaysAuthorization dentro geolocator e pretende la stringa
-	     anche se quel ramo non viene mai eseguito: il plugin lo raggiunge
-	     solo quando NSLocationWhenInUseUsageDescription manca, e qui c'e'.
-	     Con CocoaPods si sarebbe potuto compilare via quel codice col flag
-	     BYPASS_PERMISSION_LOCATION_ALWAYS; con Swift Package Manager, che
-	     e' quello che Flutter usa qui, non si puo' passare un define a una
-	     dipendenza. Il testo e' lo stesso dell'altra chiave: se mai venisse
-	     mostrato, direbbe comunque la verita'. -->
-	<!-- Solo la rete locale, per provare l'app contro il job lanciato sul
-	     computer (DATI_URL=http://localhost:…). Tutto il resto resta in
-	     HTTPS: GitHub Pages, GTT, le mappe. -->
-	<key>NSAppTransportSecurity</key>
-	<dict>
-		<key>NSAllowsLocalNetworking</key>
-		<true/>
-	</dict>
-	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>Ti mostra sulla mappa della linea, così vedi quale fermata ti conviene. La posizione resta sul telefono e non viene inviata a nessuno.</string>
-	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Ti mostra sulla mappa della linea, così vedi quale fermata ti conviene. La posizione resta sul telefono e non viene inviata a nessuno.</string>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>CFBundleDevelopmentRegion</key>
@@ -38,7 +15,7 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>gtt_deviazioni</string>
+	<string>DeviaTo</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
@@ -49,6 +26,15 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Ti mostra sulla mappa della linea, così vedi quale fermata ti conviene. La posizione resta sul telefono e non viene inviata a nessuno.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Ti mostra sulla mappa della linea, così vedi quale fermata ti conviene. La posizione resta sul telefono e non viene inviata a nessuno.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
