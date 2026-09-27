@@ -75,7 +75,7 @@ e determina quali fermate restano fuori.
 
 DeviaTo è gratuita, senza pubblicità e senza account. **Arriva a breve su
 App Store e Google Play**: i link compariranno qui e sul
-[sito](https://tcdesign-dev.github.io/deviato/).
+[sito](https://deviato.it/).
 
 Aggiungi le linee che usi con **+**: si cercano per numero o per via. Poi
 apri una linea, tocca la tua fermata sulla mappa e salvala: la home ti dice
@@ -86,7 +86,7 @@ subito se è servita.
 > pubblicità. La posizione, se la attivi, serve solo a mostrarti sulla
 > mappa: non viene salvata e non esce dal telefono. Il permesso si chiede
 > quando tocchi il pulsante, non all'apertura.
-> [Informativa completa](https://tcdesign-dev.github.io/deviato/privacy.html).
+> [Informativa completa](https://deviato.it/privacy.html).
 
 ## 🧭 Cosa fa
 

@@ -40,7 +40,7 @@ Aggiungi le linee che usi con +. Poi apri una linea e tocca la tua fermata sulla
 DeviaTo è gratuita, senza pubblicità e senza account. Non è un'app di GTT e non è collegata a GTT.
 ```
 
-**Email per il feedback**: `deviato@icloud.com` (deve essere attiva)
+**Email per il feedback**: `devia.to@icloud.com` (deve essere attiva)
 
 **URL di marketing**: `https://tcdesign-dev.github.io/deviato/`
 (quando il dominio è collegato: `https://deviato.it/`)
@@ -99,7 +99,7 @@ una nuova.
 
 - [ ] **L'icona dell'app**: adesso è quella di Flutter. Per il test
       interno va bene, per quello pubblico no.
-- [ ] L'email `deviato@icloud.com` è attiva (è l'indirizzo del feedback).
+- [ ] L'email `devia.to@icloud.com` è attiva (è l'indirizzo del feedback).
 - [ ] Il job su GitHub gira con regolarità: chi prova l'app deve vedere
       dati di oggi, non di ieri.
 - [ ] Se il dominio è collegato: URL di marketing e privacy su `deviato.it`.
