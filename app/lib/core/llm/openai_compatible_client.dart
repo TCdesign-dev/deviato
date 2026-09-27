@@ -81,7 +81,7 @@ class OpenAiCompatibleClient implements LlmClient {
         model: model,
         providerName: 'openrouter',
         apiKey: apiKey,
-        extraHeaders: const {'X-Title': 'gtt-deviazioni'},
+        extraHeaders: const {'X-Title': 'DeviaTo'},
         // I modelli gratuiti stanno in coda dietro a quelli a pagamento:
         // 30 s non bastano e il timeout sembrerebbe un errore di rete.
         timeout: const Duration(seconds: 90),

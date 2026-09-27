@@ -358,6 +358,11 @@ Ognuna di queste è costata tempo. Sono tutte silenziose: non danno errore.
 - **Il job gira su un server che non sta a Torino.** Le date degli avvisi
   vanno lette in ora di Torino: nel workflow c'è `TZ: Europe/Rome`, e nei
   file le date si scrivono in UTC con la «Z» e si rileggono in ora locale.
+- **Il repository si chiama `deviato` dal 27/09/2026** (prima
+  `gtt-deviazioni`). GitHub rimanda dal vecchio indirizzo del codice, ma
+  **non da quello di Pages**: un'app compilata con l'indirizzo vecchio
+  resta senza dati. La cartella locale e gli script di misura hanno
+  tenuto il nome vecchio, di proposito.
 - **Gli orari programmati di GitHub sono una promessa debole.** Nelle
   prime dodici ore, coi minuti 5/25/45, sono partiti **3 giri su 27**:
   nessun errore, nessun giro annullato, semplicemente non lanciati.

@@ -34,7 +34,7 @@ class GttConfig {
   /// personale: il codice e' pubblico, e le richieste ora partono anche
   /// dal job su GitHub.
   static const userAgent =
-      'DeviaTo/1.0 (+https://github.com/TCdesign-dev/gtt-deviazioni)';
+      'DeviaTo/1.0 (+https://github.com/TCdesign-dev/deviato)';
 
   /// Chi chiama il server Valhalla di FOSSGIS. Lo chiedono espressamente
   /// alle app pubblicate, insieme a un avviso nelle loro Discussions.
@@ -48,7 +48,7 @@ class GttConfig {
   /// locale: `--dart-define=DATI_URL=http://localhost:8765/v1/`.
   static const datiUrl = String.fromEnvironment(
     'DATI_URL',
-    defaultValue: 'https://tcdesign-dev.github.io/gtt-deviazioni/v1/',
+    defaultValue: 'https://tcdesign-dev.github.io/deviato/v1/',
   );
 
   /// Il modello che legge gli avvisi. Scelto per misura sui 34 avvisi
