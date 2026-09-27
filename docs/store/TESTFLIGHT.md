@@ -68,9 +68,10 @@ No login is needed. To try it: tap +, pick a line (for example 10N or 15), then 
 
 ## 4. Cosa testare (per ogni build)
 
-**Build 1.0.0 (7)** — quella da dare ai tester: icona gialla, colori di
-DeviaTo, mezzi in tempo reale dal pulsante in basso, finché non li
-interrompi e con la direzione di marcia, dati che si aggiornano da soli.
+**Build 1.0.0 (8)** — quella da dare ai tester: la cartina di CARTO,
+chiara o scura col tema, i mezzi in tempo reale con la direzione, icona e
+colori di DeviaTo, dati che si aggiornano da soli. Va compilata con
+`--dart-define-from-file=chiavi.json`, o torna la cartina di OpenStreetMap.
 
 ```text
 Prima versione di prova. Ci aiuta soprattutto sapere:
