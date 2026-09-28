@@ -515,7 +515,14 @@ class _Legenda extends StatelessWidget {
             runSpacing: 4,
             children: [
               for (final (i, nome) in direzioni)
-                linea(cartina.direzione(i), '→ $nome'),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    CampioneDirezione(colore: cartina.direzione(i)),
+                    const SizedBox(width: 6),
+                    Text('verso $nome', style: stile),
+                  ],
+                ),
               if (deviata) linea(cartina.deviazione, 'percorso deviato'),
             ],
           ),

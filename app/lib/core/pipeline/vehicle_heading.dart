@@ -56,7 +56,7 @@ class VehicleHeading {
       final p = Geometry.projectOnPolyline(qui, linea);
       if (p.distance > distanzaMassima) continue;
       final s = p.segmentIndex.clamp(0, linea.length - 2);
-      final tangente = _rotta(linea[s], linea[s + 1]);
+      final tangente = rotta(linea[s], linea[s + 1]);
       if (tangente == null) continue;
       if (_scarto(gradi, tangente) > scartoAngolare) continue;
       // Andata e ritorno spesso passano per la stessa via: la rotta le
@@ -77,15 +77,18 @@ class VehicleHeading {
     for (var i = track.points.length - 2; i >= 0; i--) {
       final prima = track.points[i].position.meters;
       if (prima.distanceTo(ultimo) >= spostamentoMinimo) {
-        return _rotta(prima, ultimo);
+        return rotta(prima, ultimo);
       }
     }
     return null;
   }
 
+  /// La rotta per andare da [da] ad [a], in gradi: 0 nord, 90 est. null se
+  /// i due punti coincidono.
+  ///
   /// Attenzione agli assi: in [Projection.toMeters] `x` e' la latitudine
   /// (nord) e `y` la longitudine (est), al contrario del solito.
-  static double? _rotta(Point da, Point a) {
+  static double? rotta(Point da, Point a) {
     final nord = a.x - da.x;
     final est = a.y - da.y;
     if (nord == 0 && est == 0) return null;

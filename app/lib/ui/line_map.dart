@@ -12,6 +12,7 @@ import '../core/geo/projection.dart';
 import '../core/pipeline/route_excursion.dart';
 import '../core/pipeline/stop_impact.dart';
 import '../core/pipeline/vehicle_heading.dart';
+import '../core/pipeline/verso_fermate.dart';
 import '../core/pipeline/vehicle_watch.dart';
 import '../core/text/display_names.dart';
 import '../data/user_location.dart';
@@ -364,6 +365,19 @@ class _LineMapState extends State<LineMap> {
         for (final s in directions[i].shape.stops)
           if (!skipped.containsKey(s.id)) s.id: s,
     }.values.toList(growable: false);
+    // La direzione di ogni fermata, per il colore e la freccia. Un palo
+    // usato da tutte e due (certi capolinea) non ha un verso solo: null.
+    final direzioneDi = <String, int?>{};
+    for (final i in mostrate) {
+      for (final s in directions[i].shape.stops) {
+        direzioneDi[s.id] =
+            !direzioneDi.containsKey(s.id) || direzioneDi[s.id] == i ? i : null;
+      }
+    }
+    double? versoDi(String id) {
+      final d = direzioneDi[id];
+      return d == null ? null : VersoFermate.di(directions[d].shape)[id];
+    }
     final cartina = Cartina.of(context);
 
     // La stessa inquadratura serve due volte: all'apertura, e ogni volta
@@ -448,6 +462,8 @@ class _LineMapState extends State<LineMap> {
                     stop: s,
                     impact: null,
                     selected: _selected?.stop.id == s.id,
+                    direzione: direzioneDi[s.id],
+                    verso: versoDi(s.id),
                   ),
               ],
             ),
@@ -593,14 +609,21 @@ class _LineMapState extends State<LineMap> {
     );
   }
 
+  /// Una fermata. Quelle servite hanno il bordo del colore della loro
+  /// direzione e una freccia verso dove va il mezzo che passa di li'
+  /// ([verso], preso dal percorso); quelle non servite sono rosse con la
+  /// croce, che e' la cosa da vedere.
   Marker _stopMarker({
     required TransitStop stop,
     required StopImpact? impact,
     required bool selected,
+    int? direzione,
+    double? verso,
   }) {
     final cartina = Cartina.of(context);
     final isSkipped = impact != null;
-    final dot = isSkipped ? 20.0 : (selected ? 16.0 : 11.0);
+    // Servite a 17: a 11, com'erano, dentro non ci stava una freccia.
+    final dot = isSkipped ? 20.0 : (selected ? 22.0 : 17.0);
 
     // Il pallino visibile e' piccolo, ma il Marker di flutter_map usa le
     // proprie dimensioni ANCHE come area sensibile al tocco: con 11 px non
@@ -615,23 +638,29 @@ class _LineMapState extends State<LineMap> {
         onTap: () => setState(() => _selected = (stop: stop, impact: impact)),
         behavior: HitTestBehavior.opaque,
         child: Center(
-          child: Container(
-            width: dot,
-            height: dot,
-            decoration: BoxDecoration(
-              color: isSkipped ? cartina.chiusa : Colors.white,
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: isSkipped
-                    ? Colors.white
-                    : (selected ? cartina.selezione : cartina.bordoFermata),
-                width: selected || isSkipped ? 3 : 2,
-              ),
-            ),
-            child: isSkipped
-                ? const Icon(Icons.close, size: 11, color: Colors.white)
-                : null,
-          ),
+          child: isSkipped
+              ? Container(
+                  width: dot,
+                  height: dot,
+                  decoration: BoxDecoration(
+                    color: cartina.chiusa,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white, width: 3),
+                  ),
+                  child: const Icon(Icons.close, size: 11, color: Colors.white),
+                )
+              : SizedBox.square(
+                  dimension: dot,
+                  child: CustomPaint(
+                    painter: SegnoFermata(
+                      colore: direzione == null
+                          ? cartina.bordoFermata
+                          : cartina.direzione(direzione),
+                      bordo: selected ? cartina.selezione : null,
+                      gradi: verso,
+                    ),
+                  ),
+                ),
         ),
       ),
     );
@@ -881,12 +910,18 @@ class _Legend extends StatelessWidget {
             runSpacing: 4,
             children: [
               for (var i = 0; i < directions.length; i++)
-                _line(
-                  cartina.direzione(i),
-                  directions.length == 1
-                      ? 'percorso normale'
-                      : '→ ${_shortHeadsign(directions[i])}',
-                  style,
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    CampioneDirezione(colore: cartina.direzione(i)),
+                    const SizedBox(width: 6),
+                    Text(
+                      directions.length == 1
+                          ? 'percorso normale'
+                          : 'verso ${_shortHeadsign(directions[i])}',
+                      style: style,
+                    ),
+                  ],
                 ),
               if (hasDeviation)
                 _line(cartina.deviazione, 'percorso deviato', style)
@@ -1177,4 +1212,95 @@ class SegnoMezzo extends CustomPainter {
   @override
   bool shouldRepaint(SegnoMezzo old) =>
       old.colore != colore || old.gradi != gradi;
+}
+
+/// Il segno di una fermata servita: un pallino bianco col bordo del colore
+/// della direzione e, dentro, una freccia verso dove va il mezzo.
+///
+/// Senza verso resta un pallino: una freccia a caso direbbe una cosa che
+/// non sappiamo.
+class SegnoFermata extends CustomPainter {
+  const SegnoFermata({required this.colore, this.bordo, this.gradi});
+
+  /// Il colore della direzione: bordo e freccia.
+  final Color colore;
+
+  /// Il bordo della fermata toccata, se diverso da [colore].
+  final Color? bordo;
+
+  /// 0 nord, in senso orario. null se non si sa.
+  final double? gradi;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final c = size.center(Offset.zero);
+    final r = size.shortestSide / 2;
+    final spessore = bordo == null ? 2.0 : 3.0;
+    canvas.drawCircle(c, r, Paint()..color = Colors.white);
+    canvas.drawCircle(
+      c,
+      r - spessore / 2,
+      Paint()
+        ..color = bordo ?? colore
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = spessore,
+    );
+    final g = gradi;
+    if (g == null) return;
+    // Sullo schermo y cresce verso il basso: il nord e' -y. Una punta di
+    // freccia piena, con la coda incavata: si legge anche a 17 punti.
+    final a = g * math.pi / 180;
+    final l = r - spessore - 1;
+    Offset verso(double angolo, double d) =>
+        c + Offset(math.sin(angolo), -math.cos(angolo)) * d;
+    final cima = verso(a, l);
+    final destra = verso(a + 2.45, l);
+    final sinistra = verso(a - 2.45, l);
+    final coda = verso(a + math.pi, l * 0.35);
+    canvas.drawPath(
+      ui.Path()
+        ..moveTo(cima.dx, cima.dy)
+        ..lineTo(destra.dx, destra.dy)
+        ..lineTo(coda.dx, coda.dy)
+        ..lineTo(sinistra.dx, sinistra.dy)
+        ..close(),
+      Paint()..color = colore,
+    );
+  }
+
+  @override
+  bool shouldRepaint(SegnoFermata old) =>
+      old.colore != colore || old.bordo != bordo || old.gradi != gradi;
+}
+
+/// Il campione di una direzione nelle legende: un tratto di linea con una
+/// fermata e la sua freccia, come sulla mappa.
+class CampioneDirezione extends StatelessWidget {
+  const CampioneDirezione({super.key, required this.colore});
+
+  final Color colore;
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+    width: 28,
+    height: 16,
+    child: Stack(
+      alignment: Alignment.center,
+      children: [
+        Container(
+          height: 5,
+          decoration: BoxDecoration(
+            color: colore,
+            borderRadius: BorderRadius.circular(2),
+          ),
+        ),
+        SizedBox.square(
+          dimension: 16,
+          child: CustomPaint(
+            painter: SegnoFermata(colore: colore, gradi: 90),
+          ),
+        ),
+      ],
+    ),
+  );
 }

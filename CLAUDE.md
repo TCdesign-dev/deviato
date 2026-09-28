@@ -102,7 +102,7 @@ Non sono stime. Se li rimetti in discussione, rimisurali.
 | `active_period.start` negli alert | **161 su 161 nel passato** | idem |
 | Variazioni pubblicate da **entrambe** le fonti | **31 coppie** su 189 avvisi | `check_merge_offline.dart` |
 | Di queste, quelle in cui la data d'inizio cambia | **17** (fino a 3 mesi) | idem |
-| Test | **315** | `flutter test` |
+| Test | **320** | `flutter test` |
 | Somiglianza fra le vie nominate: coppie vere | **0,67 – 1,00** e ≥3 vie | idem |
 | Idem, coppie false | **0,67 con 2 vie**, o 3 vie a **0,38** | idem |
 | Data d'inizio estraibile a regex dal testo | **40%** — troppo poco | idem |
@@ -479,7 +479,12 @@ anziane, e l'app deve funzionare per loro senza spiegazioni.
 - **Nessun gesto senza alternativa visibile**: il pannello che si trascina
   si apre anche toccando «Più dettagli».
 - **Le linee sulla mappa si vedono senza cercarle**: spesse 5,5 punti,
-  quasi piene.
+  piene, blu e verde (il grigio-azzurro di prima sembrava una strada).
+- **Ogni fermata dice da che parte si va**: bordo del colore della sua
+  direzione e una freccia dentro, presa dal percorso (`VersoFermate`, 25 m
+  prima e dopo il palo, cercando ogni fermata a valle della precedente).
+  Sulla via percorsa nei due sensi le banchine opposte si distinguono senza
+  toccarle. Un palo usato da tutte e due le direzioni resta senza freccia.
 
 ### Come si scrivono i testi dell'app
 
@@ -538,7 +543,7 @@ Per non fraintendere quello che c'è in `config.dart`:
 ## 8. Come si lavora
 
 ```bash
-cd app && flutter test          # 315 test, devono passare tutti
+cd app && flutter test          # 320 test, devono passare tutti
 cd app && flutter analyze       # deve essere pulito
 ```
 
@@ -609,4 +614,4 @@ facendo gli screenshot troppo presto.
 
 ---
 
-*Ultimo aggiornamento: 27 settembre 2026. 315 test.*
+*Ultimo aggiornamento: 28 settembre 2026. 320 test.*

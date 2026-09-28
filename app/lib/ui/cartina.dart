@@ -44,25 +44,30 @@ class Cartina {
   // I segni. Sulla cartina chiara quelli di sempre; su quella scura toni
   // piu' chiari, o le due direzioni sparirebbero nel grigio delle strade.
 
-  /// Le due direzioni: la linea del percorso normale.
+  /// Le due direzioni: la linea del percorso normale, e il bordo e la
+  /// freccia delle sue fermate.
   ///
-  /// Quasi piene: semitrasparenti al 55% si confondevano con le strade,
-  /// e chi le guarda non deve cercarle.
+  /// Blu e verde, pieni. Il grigio-azzurro di prima sulla cartina grigia
+  /// sembrava una strada, e col verde acqua accanto si distingueva poco.
+  /// Tutti e due lontani dal rosso della deviazione e dal viola del
+  /// percorso visto sui mezzi; dove i colori non bastano (chi non
+  /// distingue bene il rosso dal verde) c'e' la freccia nelle fermate.
   Color direzione(int i) => scura
-      ? (i == 0 ? Colors.blueGrey.shade200 : Colors.teal.shade300)
-          .withValues(alpha: 0.95)
-      : (i == 0 ? Colors.blueGrey : Colors.teal).withValues(alpha: 0.9);
+      ? (i == 0 ? const Color(0xFF82A7FF) : const Color(0xFF4FD1A5))
+      : (i == 0 ? const Color(0xFF2A5BD7) : const Color(0xFF0B9470));
 
   /// Spessore della linea del percorso normale, e di quelle che devono
   /// spiccarci sopra: la deviazione e il percorso visto sui mezzi.
   static const spessorePercorso = 5.5;
   static const spessoreDeviazione = 7.0;
 
-  /// Il mezzo che fa quella direzione: pieno, col bordo bianco.
+  /// Il mezzo che fa quella direzione: pieno, col bordo bianco. Gli
+  /// stessi colori delle linee, piu' scuri sotto l'icona bianca; grigio se
+  /// la direzione non si capisce.
   Color mezzo(int? direzione) => switch (direzione) {
-        0 => Colors.blueGrey.shade700,
-        1 => Colors.teal.shade700,
-        _ => Colors.blue.shade700,
+        0 => const Color(0xFF1F47AD),
+        1 => const Color(0xFF087558),
+        _ => Colors.blueGrey.shade700,
       };
 
   Color get deviazione => scura ? Colors.red.shade400 : Colors.red.shade700;
@@ -76,6 +81,8 @@ class Cartina {
   Color get selezione =>
       scura ? const Color(0xFFF9D400) : const Color(0xFF1E1E1E);
 
+  /// Il bordo di una fermata senza un verso solo: un palo usato da tutte
+  /// e due le direzioni, o che non si riesce a mettere sul percorso.
   Color get bordoFermata =>
       scura ? Colors.blueGrey.shade300 : Colors.blueGrey.shade600;
 

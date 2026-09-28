@@ -373,7 +373,9 @@ class _LinesHeader extends StatelessWidget {
     return switch (giorni) {
       0 => 'Aggiornate alle $h',
       1 => 'Aggiornate ieri alle $h',
-      _ => 'Aggiornate il ${t.day}/${t.month}',
+      // Anche qui l'ora: senza, un test scritto il 26 falliva dal 28, e
+      // «il 26/9» da solo non dice se sono dati del mattino o della sera.
+      _ => 'Aggiornate il ${t.day}/${t.month} alle $h',
     };
   }
 }
