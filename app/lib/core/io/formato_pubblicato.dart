@@ -228,6 +228,9 @@ class FormatoPubblicato {
         'affidabilita': r.confidence.name,
         if (r.whyIncomplete != null) 'perche': r.whyIncomplete,
         if (r.retryable) 'ritentare': true,
+        // Solo se non e' il primo: cosi' i file del primo restano identici
+        // a com'erano, e passare al secondo non li riscrive tutti a vuoto.
+        if (r.algoritmo != 1) 'algoritmo': r.algoritmo,
         'avviso': _avviso(r.notice),
         if (r.deviatedGeometry != null)
           'geometria': PolylineCodec.encode(r.deviatedGeometry!,
@@ -253,6 +256,7 @@ class FormatoPubblicato {
           Confidence.soloTesto,
       whyIncomplete: j['perche'] as String?,
       retryable: j['ritentare'] as bool? ?? false,
+      algoritmo: j['algoritmo'] as int? ?? 1,
       deviatedGeometry: j['geometria'] == null
           ? null
           : PolylineCodec.decode(j['geometria'] as String,

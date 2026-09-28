@@ -9,7 +9,9 @@
 #     GTT scrive col numero; gli altri avvisi restano «in lettura».
 #   - Facoltative, nella scheda Variables: LLM_MODELLO,
 #     LLM_MAX_RICHIESTE, USA_TABELLA_VARIAZIONI (spenta finché GTT non
-#     autorizza l'uso della tabella del suo sito).
+#     autorizza l'uso della tabella del suo sito), ALGORITMO_PERCORSI («1»,
+#     il predefinito, o «2»: per tornare al primo basta rimetterla a 1 o
+#     cancellarla).
 name: Pubblica i dati
 
 on:
@@ -83,6 +85,7 @@ jobs:
           LLM_MODELLO: ${{ vars.LLM_MODELLO }}
           LLM_MAX_RICHIESTE: ${{ vars.LLM_MAX_RICHIESTE }}
           USA_TABELLA_VARIAZIONI: ${{ vars.USA_TABELLA_VARIAZIONI }}
+          ALGORITMO_PERCORSI: ${{ vars.ALGORITMO_PERCORSI }}
         run: dart run tool/pubblica.dart --uscita ../sito/v1 --gtfs ../.gtfs
 
       # Il sito dell'app (web/) sta accanto ai dati: la pagina principale

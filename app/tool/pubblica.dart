@@ -12,6 +12,11 @@
 //   LLM_MAX_RICHIESTE       tetto di letture per giro (predefinito 40).
 //   MINUTI_MAX              dopo quanti minuti non si iniziano altre letture
 //                           (predefinito 12): il job deve poter pubblicare.
+//   ALGORITMO_PERCORSI      "1" (predefinito) o "2": quale algoritmo
+//                           ricostruisce i percorsi deviati. Il primo e'
+//                           quello in servizio fino al 28/09/2026, il
+//                           secondo la sua copia da migliorare. Cambiando
+//                           valore gli avvisi si rianalizzano.
 //   USA_TABELLA_VARIAZIONI  "true" per usare anche la tabella del sito GTT.
 //                           Spenta di proposito: i dati aperti con licenza
 //                           sono il GTFS e il GTFS-RT; la tabella sta sul
@@ -34,6 +39,7 @@ import 'package:gtt_deviazioni/core/llm/openai_compatible_client.dart';
 import 'package:gtt_deviazioni/core/models/notice.dart';
 import 'package:gtt_deviazioni/core/models/transit.dart';
 import 'package:gtt_deviazioni/core/publish/pubblicatore.dart';
+import 'package:gtt_deviazioni/core/ricostruzione/ricostruzione.dart';
 import 'package:gtt_deviazioni/core/sources/alerts_source.dart';
 import 'package:gtt_deviazioni/core/sources/variazioni_source.dart';
 
@@ -90,9 +96,11 @@ Future<void> main(List<String> args) async {
     scadenza: inizio.add(
         Duration(minutes: int.tryParse(env['MINUTI_MAX'] ?? '') ?? 12)),
   );
+  final algoritmo = AlgoritmoPercorsi.daTesto(env['ALGORITMO_PERCORSI']);
+  _log('algoritmo dei percorsi: ${algoritmo.numero}');
   final giro = await Pubblicatore(
     index: index,
-    service: DeviationService(index: index, llm: llm),
+    service: DeviationService(index: index, llm: llm, algoritmo: algoritmo),
   ).calcola(avvisi: avvisi, precedenti: precedenti, log: _log);
 
   // 5. I file.

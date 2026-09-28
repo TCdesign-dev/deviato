@@ -79,6 +79,17 @@ OpenRouter: li chiama solo il job.
 Resta sul telefono l'**osservazione dei mezzi**, che legge il feed di GTT
 direttamente.
 
+**Due algoritmi per i percorsi, dal 28/09/2026.** Da avviso letto a
+percorso deviato ci sono `ricostruzione/ricostruzione_1.dart`, quello in
+servizio fino ad allora, copiato riga per riga e **da non toccare**, e
+`ricostruzione_2.dart`, nato come sua copia e dove vanno le correzioni. Il
+job sceglie con la variabile di GitHub `ALGORITMO_PERCORSI` («1»
+predefinito, «2»): tornare indietro è cambiare una variabile. Ogni esito
+ricorda l'algoritmo (`algoritmo` nel file, scritto solo se è 2), e
+cambiando valore gli avvisi si rianalizzano — oggi rileggendo il testo
+col modello, quindi dentro la quota. La tag git `percorsi-algoritmo-1`
+fotografa il codice prima della separazione.
+
 ## 3. I fatti misurati (31/07/2026)
 
 Non sono stime. Se li rimetti in discussione, rimisurali.
@@ -102,7 +113,7 @@ Non sono stime. Se li rimetti in discussione, rimisurali.
 | `active_period.start` negli alert | **161 su 161 nel passato** | idem |
 | Variazioni pubblicate da **entrambe** le fonti | **31 coppie** su 189 avvisi | `check_merge_offline.dart` |
 | Di queste, quelle in cui la data d'inizio cambia | **17** (fino a 3 mesi) | idem |
-| Test | **320** | `flutter test` |
+| Test | **323** | `flutter test` |
 | Somiglianza fra le vie nominate: coppie vere | **0,67 – 1,00** e ≥3 vie | idem |
 | Idem, coppie false | **0,67 con 2 vie**, o 3 vie a **0,38** | idem |
 | Data d'inizio estraibile a regex dal testo | **40%** — troppo poco | idem |
@@ -543,7 +554,7 @@ Per non fraintendere quello che c'è in `config.dart`:
 ## 8. Come si lavora
 
 ```bash
-cd app && flutter test          # 320 test, devono passare tutti
+cd app && flutter test          # 323 test, devono passare tutti
 cd app && flutter analyze       # deve essere pulito
 ```
 
@@ -614,4 +625,4 @@ facendo gli screenshot troppo presto.
 
 ---
 
-*Ultimo aggiornamento: 28 settembre 2026. 320 test.*
+*Ultimo aggiornamento: 28 settembre 2026. 323 test.*

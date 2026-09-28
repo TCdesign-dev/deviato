@@ -6,6 +6,7 @@ import 'package:gtt_deviazioni/core/models/transit.dart';
 import 'package:gtt_deviazioni/core/llm/llm_client.dart';
 import 'package:gtt_deviazioni/core/pipeline/extractor.dart';
 import 'package:gtt_deviazioni/core/pipeline/stop_impact.dart';
+import 'package:gtt_deviazioni/core/ricostruzione/ricostruzione.dart';
 
 /// Un LLM che non risponde mai: quota finita, rete assente, servizio giu'.
 /// Conta anche le richieste, che sono la risorsa scarsa: 50 al giorno.
@@ -538,6 +539,30 @@ void main() {
           allNotices: [avviso(testo: 'Linea T deviata in via Po.')],
           previous: precedente(retryable: false));
       expect(llm.richieste, equals(1));
+    });
+
+    test('cambiando algoritmo gli esiti dell\'altro non si tengono',
+        () async {
+      // Tornare al primo algoritmo deve ridisegnare tutto, non solo gli
+      // avvisi nuovi: gli esiti del secondo si rifanno.
+      final llm = _LlmSpento();
+      final prima = precedente(retryable: false);
+      final status = await DeviationService(
+        index: index,
+        llm: llm,
+        algoritmo: AlgoritmoPercorsi.secondo,
+      ).statusOf(linea, allNotices: [avviso()], previous: prima);
+      expect(llm.richieste, equals(1));
+      expect(status.reports.every((r) => r.algoritmo == 2), isTrue);
+    });
+
+    test('l\'algoritmo si sceglie con 1 o 2, e nel dubbio e\' il primo', () {
+      expect(AlgoritmoPercorsi.daTesto('2'), AlgoritmoPercorsi.secondo);
+      expect(AlgoritmoPercorsi.daTesto(' 2 '), AlgoritmoPercorsi.secondo);
+      expect(AlgoritmoPercorsi.daTesto('1'), AlgoritmoPercorsi.primo);
+      expect(AlgoritmoPercorsi.daTesto(''), AlgoritmoPercorsi.primo);
+      expect(AlgoritmoPercorsi.daTesto(null), AlgoritmoPercorsi.primo);
+      expect(AlgoritmoPercorsi.daTesto('due'), AlgoritmoPercorsi.primo);
     });
 
     test('un errore del modello e da ritentare, e al giro dopo si ritenta',

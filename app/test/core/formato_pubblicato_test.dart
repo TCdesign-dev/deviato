@@ -158,6 +158,44 @@ void main() {
     expect(r!.reports, isEmpty);
   });
 
+  test('l\'algoritmo si scrive solo se non e\' il primo, e si rilegge', () {
+    final index = GtfsIndex(
+      feedVersion: 'f', builtAt: DateTime(2026),
+      lines: {'15U': linea}, shapes: {'15U': [andata]}, stops: const {},
+    );
+    Map<String, dynamic> conAlgoritmo(int n) =>
+        viaJson(FormatoPubblicato.stato(LineStatus(
+          line: linea,
+          shape: andata,
+          checkedAt: DateTime(2026),
+          reports: [
+            DeviationReport(
+              notice: const RawNotice(
+                  id: 'a', source: NoticeSource.gtfsRtAlert, text: 't',
+                  sourceUrl: ''),
+              shape: andata,
+              confidence: Confidence.soloTesto,
+              algoritmo: n,
+            ),
+          ],
+        )));
+
+    // I file del primo restano com'erano: niente campo nuovo.
+    final primo = conAlgoritmo(1);
+    expect((primo['avvisi'] as List).first, isNot(contains('algoritmo')));
+    expect(
+        FormatoPubblicato.leggiStato(primo, index, controllata: DateTime(2026))!
+            .reports.single.algoritmo,
+        1);
+
+    final secondo = conAlgoritmo(2);
+    expect(
+        FormatoPubblicato.leggiStato(secondo, index,
+                controllata: DateTime(2026))!
+            .reports.single.algoritmo,
+        2);
+  });
+
   test('il nome del file non esce dalla cartella', () {
     expect(FormatoPubblicato.nomeFile('10NU'), '10NU.json');
     expect(FormatoPubblicato.nomeFile('../x'), '___x.json');

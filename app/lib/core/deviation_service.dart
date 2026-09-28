@@ -10,6 +10,9 @@ import 'pipeline/notice_merge.dart';
 import 'pipeline/rejoin_inference.dart';
 import 'pipeline/route_builder.dart';
 import 'pipeline/stop_impact.dart';
+import 'ricostruzione/ricostruzione.dart';
+import 'ricostruzione/ricostruzione_1.dart';
+import 'ricostruzione/ricostruzione_2.dart';
 import 'sources/alerts_source.dart';
 import 'sources/variazioni_source.dart';
 
@@ -39,6 +42,7 @@ class DeviationReport {
     this.whyIncomplete,
     this.rejoin,
     this.retryable = false,
+    this.algoritmo = 1,
   });
 
   final RawNotice notice;
@@ -72,10 +76,24 @@ class DeviationReport {
   /// non si spende un'altra delle cinquanta richieste giornaliere.
   final bool retryable;
 
+  /// Quale algoritmo l'ha calcolato ([AlgoritmoPercorsi.numero]). Cambiando
+  /// algoritmo nel job, gli esiti dell'altro non si tengono.
+  final int algoritmo;
+
   bool get hasMap => deviatedGeometry != null && deviatedGeometry!.length > 1;
   List<StopImpact> get skippedStops => impact?.skipped ?? const [];
 
-  DeviationReport withImpact(StopImpactResult? impact) => DeviationReport(
+  DeviationReport withImpact(StopImpactResult? impact) =>
+      _copia(impact: impact, algoritmo: algoritmo);
+
+  DeviationReport conAlgoritmo(int algoritmo) =>
+      _copia(impact: impact, algoritmo: algoritmo);
+
+  DeviationReport _copia({
+    required StopImpactResult? impact,
+    required int algoritmo,
+  }) =>
+      DeviationReport(
         notice: notice,
         confidence: confidence,
         shape: shape,
@@ -85,6 +103,7 @@ class DeviationReport {
         whyIncomplete: whyIncomplete,
         rejoin: rejoin,
         retryable: retryable,
+        algoritmo: algoritmo,
       );
 
   /// Le alternative di ogni avviso, tolte le fermate chiuse dagli ALTRI.
@@ -188,22 +207,32 @@ class DeviationService {
     RouteBuilder? router,
     AlertsSource? alerts,
     VariazioniSource? variazioni,
+    this.algoritmo = AlgoritmoPercorsi.primo,
   })  : _extractor = NoticeExtractor(llm: llm),
-        _geocoder = geocoder ?? Geocoder(),
-        _router = router ?? RouteBuilder(),
         _alerts = alerts ?? AlertsSource(),
         _variazioni = variazioni ?? VariazioniSource(),
         _resolver = LineResolver(index),
-        _impact = StopImpactAnalyzer(index: index);
+        _impact = StopImpactAnalyzer(index: index) {
+    final g = geocoder ?? Geocoder();
+    final r = router ?? RouteBuilder();
+    _ricostruzione = switch (algoritmo) {
+      AlgoritmoPercorsi.primo =>
+        Ricostruzione1(geocoder: g, router: r, impact: _impact),
+      AlgoritmoPercorsi.secondo =>
+        Ricostruzione2(geocoder: g, router: r, impact: _impact),
+    };
+  }
 
   final GtfsIndex index;
+
+  /// Quale algoritmo calcola i percorsi deviati: vedi [AlgoritmoPercorsi].
+  final AlgoritmoPercorsi algoritmo;
   final NoticeExtractor _extractor;
-  final Geocoder _geocoder;
-  final RouteBuilder _router;
   final AlertsSource _alerts;
   final VariazioniSource _variazioni;
   final LineResolver _resolver;
   final StopImpactAnalyzer _impact;
+  late final Ricostruzione _ricostruzione;
 
   /// Le letture gia' fatte in questa istanza, per avviso e testo.
   ///
@@ -310,7 +339,7 @@ class DeviationService {
       // saltate sono quelle dell'altro senso di marcia.
       final direzioni = shapesConcernedBy(notice, andata, ritorno);
 
-      final gia = _giaLetto(notice, direzioni, previous);
+      final gia = _giaLetto(notice, direzioni, previous, algoritmo.numero);
       if (gia != null) {
         onProgress?.call('$quale · già letto');
         reports.addAll(gia);
@@ -332,8 +361,9 @@ class DeviationService {
         }
       }
       for (final s in direzioni) {
-        reports.add(await _analyze(notice, s, extraction,
-            onProgress: (p) => onProgress?.call('$quale · $p')));
+        final r = await _ricostruzione.analizza(notice, s, extraction,
+            onProgress: (p) => onProgress?.call('$quale · $p'));
+        reports.add(r.conAlgoritmo(algoritmo.numero));
       }
     }
 
@@ -360,15 +390,20 @@ class DeviationService {
   /// deviazioni calcolate nel pomeriggio (15, 55, 68) con «non letto».
   /// Con questo le rilegge solo se sono cambiate, e quelle non cambiate
   /// restano.
+  ///
+  /// Si rifanno anche quando li ha calcolati l'altro algoritmo: tornare al
+  /// primo deve ridisegnare tutto, non solo gli avvisi nuovi.
   static List<DeviationReport>? _giaLetto(
     RawNotice notice,
     List<RouteShape> direzioni,
     LineStatus? previous,
+    int algoritmo,
   ) {
     if (previous == null) return null;
     final prima =
         previous.reports.where((r) => r.notice.id == notice.id).toList();
     if (prima.isEmpty || prima.any((r) => r.retryable)) return null;
+    if (prima.any((r) => r.algoritmo != algoritmo)) return null;
     final n = prima.first.notice;
     final uguale = n.text == notice.text &&
         n.headline == notice.headline &&
@@ -433,7 +468,7 @@ class DeviationService {
   /// Non basta dire "errore": alcune cause sono azionabili — la quota
   /// giornaliera si azzera, una chiave sbagliata si corregge — e altre no.
   /// Chi legge deve capire se puo' fare qualcosa o solo aspettare.
-  static String _lowerFirst(String s) =>
+  static String lowerFirst(String s) =>
       s.isEmpty ? s : s[0].toLowerCase() + s.substring(1);
 
   static String explainExtractionFailure(ExtractionResult r) {
@@ -480,225 +515,5 @@ class DeviationService {
     final t = utcOrLocal.toLocal();
     return '${t.hour.toString().padLeft(2, "0")}:'
         '${t.minute.toString().padLeft(2, "0")}';
-  }
-
-  Future<DeviationReport> _analyze(
-    RawNotice notice,
-    RouteShape shape,
-    ExtractionResult extraction, {
-    void Function(String phase)? onProgress,
-  }) async {
-    // 1. Testo -> struttura: gia' fatto, una volta per avviso.
-    //
-    // Un errore del modello (quota, rete, chiave) passa; un testo che non
-    // descrive un percorso no.
-    final estrazioneDaRitentare = extraction.status == ExtractionStatus.error;
-    if (!extraction.isUsable) {
-      // L'LLM non ha risposto — quota finita, rete, servizio giu'. Ma se
-      // GTT ha scritto un numero di fermata, quel numero sta nel testo e
-      // lo prende una regex: non serve nessun modello per leggerlo.
-      // Sarebbe assurdo perdere il dato piu' certo che abbiamo proprio
-      // quando tutto il resto non funziona.
-      final impact = _impact.declaredOnly(
-          officialRoute: shape,
-          declaredCodes: notice.suspendedStopCodes.toSet());
-      if (impact.hasImpact) {
-        return DeviationReport(
-          notice: notice,
-          shape: shape,
-          impact: impact,
-          // Non "confermata": senza estrazione non sappiamo se l'avviso
-          // dica anche altro, per esempio un cambio di percorso che non
-          // abbiamo ricostruito.
-          confidence: Confidence.probabile,
-          whyIncomplete: 'La fermata sospesa è indicata da GTT. Il resto '
-              'dell\'avviso non è stato letto: '
-              '${_lowerFirst(explainExtractionFailure(extraction))}',
-          retryable: estrazioneDaRitentare,
-        );
-      }
-      return DeviationReport(
-        notice: notice,
-        shape: shape,
-        confidence: Confidence.soloTesto,
-        whyIncomplete: explainExtractionFailure(extraction),
-        retryable: estrazioneDaRitentare,
-      );
-    }
-    final parsed = extraction.deviations.first;
-
-    // Una sostituzione di mezzo non cambia il percorso: mostrarla come
-    // deviazione sarebbe un allarme falso (§10.10).
-    if (parsed.type == DeviationType.sostituzioneModale) {
-      return DeviationReport(
-        notice: notice,
-        shape: shape,
-        parsed: parsed,
-        confidence: Confidence.confermata,
-        whyIncomplete: 'Stesso percorso, cambia solo il tipo di mezzo.',
-      );
-    }
-
-    // 1-bis. Fermate sospese senza cambio di percorso.
-    //
-    // MISURATO: 14 avvisi su 198 dicono soltanto "Fermata 3447 Sabotino
-    // sospesa". Il codice sta nel testo, non in informed_entity, e si
-    // estrae con una regex. Prima finivano nel ramo "non nomina abbastanza
-    // vie" e l'informazione si perdeva, pur essendo la piu' certa che il
-    // sistema abbia: nessuna geometria da ricostruire, solo un codice da
-    // cercare nel GTFS.
-    final declaredCodes = <String>{
-      ...notice.suspendedStopCodes,
-      ...parsed.suspendedStopCodes,
-    };
-    if (declaredCodes.isNotEmpty && parsed.viaSequence.isEmpty) {
-      final impact = _impact.declaredOnly(
-          officialRoute: shape, declaredCodes: declaredCodes);
-      return DeviationReport(
-        notice: notice,
-        shape: shape,
-        parsed: parsed,
-        impact: impact,
-        confidence: Confidence.confermata,
-        whyIncomplete: impact.hasImpact
-            ? null
-            : declaredCodes.length == 1
-                ? 'La fermata ${declaredCodes.first} indicata da GTT non è '
-                    'su questo percorso.'
-                : 'Le fermate ${declaredCodes.join(", ")} indicate da GTT '
-                    'non sono su questo percorso.',
-      );
-    }
-
-    // 2. Toponimi -> coordinate, vincolate al percorso di questa linea.
-    final toponyms = parsed.allToponyms;
-    if (toponyms.length < 2) {
-      return DeviationReport(
-        notice: notice,
-        shape: shape,
-        parsed: parsed,
-        confidence: Confidence.soloTesto,
-        whyIncomplete: 'L\'avviso non indica abbastanza vie per disegnare '
-            'il percorso.',
-      );
-    }
-
-    final points = <GeoPoint>[];
-    final unresolved = <String>[];
-    // Photon non raggiungibile non e' «via non trovata»: si ritenta.
-    var geocodingInErrore = false;
-    for (var i = 0; i < toponyms.length; i++) {
-      final t = toponyms[i];
-      // Il geocoding e' il passaggio piu' lento: una chiamata per via,
-      // con le pause di cortesia verso Photon. Vale la pena dire a che
-      // punto e', e quale via si sta cercando.
-      onProgress?.call('ricerca di «$t»');
-      final r = await _geocoder.locate(t,
-          near: shape, municipality: parsed.municipality);
-      if (r.isUsable) {
-        points.add(r.point!);
-      } else {
-        unresolved.add(t);
-        if (r.status == GeocodeStatus.error) geocodingInErrore = true;
-      }
-    }
-    if (points.length < 2) {
-      return DeviationReport(
-        notice: notice,
-        shape: shape,
-        parsed: parsed,
-        confidence: Confidence.soloTesto,
-        whyIncomplete: 'Vie non trovate sulla mappa: ${unresolved.join(", ")}.',
-        retryable: geocodingInErrore,
-      );
-    }
-
-    // 2-bis. Dove rientra.
-    //
-    // MISURATO: 24 avvisi su 28 non nominano la via di rientro, dicono solo
-    // "percorso normale". Senza dedurlo il percorso deviato si ferma
-    // all'ultima via nominata, il tratto di linea interessato resta
-    // troncato, e le fermate fra li' e il rientro vero non vengono valutate.
-    final RejoinPoint rejoin;
-    if (parsed.rejoinStreet != null) {
-      // GTT l'ha detto: il punto e' gia' fra quelli geocodificati.
-      rejoin = RejoinPoint(
-        source: RejoinSource.dichiarato,
-        point: points.last,
-      );
-    } else {
-      rejoin = RejoinInference.infer(
-        officialRoute: shape,
-        detachPoint: points.first,
-        lastVia: points.last,
-      );
-    }
-
-    // Il punto dedotto diventa l'ultimo waypoint: cosi' il percorso
-    // calcolato arriva fino al rientro invece di fermarsi prima.
-    final waypoints = [
-      ...points,
-      if (rejoin.source == RejoinSource.dedotto) rejoin.point!,
-    ];
-
-    // 3. Punti -> percorso vero, con le cinque prove.
-    onProgress?.call('calcolo del percorso');
-    final route = await _router.build(
-      waypoints: waypoints,
-      officialRoute: shape,
-      // Le vie da attraversare restano quelle NOMINATE: il rientro dedotto
-      // e' una nostra inferenza, non una promessa di GTT, e pretendere che
-      // il percorso ci passi vicino sarebbe verificare noi stessi.
-      requiredVias: points.sublist(1),
-    );
-    if (route.geometry == null) {
-      return DeviationReport(
-        notice: notice,
-        shape: shape,
-        parsed: parsed,
-        rejoin: rejoin,
-        confidence: Confidence.soloTesto,
-        whyIncomplete: 'Non è stato possibile calcolare il percorso deviato.',
-        retryable: geocodingInErrore || route.status == RouteBuildStatus.error,
-      );
-    }
-
-    // 4. Quali fermate saltano.
-    final impact = _impact.analyze(
-      officialRoute: shape,
-      deviatedRoute: route.geometry!,
-      declaredSuspendedCodes: {
-        ...notice.suspendedStopCodes,
-        ...parsed.suspendedStopCodes,
-      },
-    );
-
-    return DeviationReport(
-      notice: notice,
-      shape: shape,
-      parsed: parsed,
-      rejoin: rejoin,
-      deviatedGeometry: route.geometry,
-      impact: impact,
-      confidence: route.isUsable && unresolved.isEmpty
-          ? Confidence.confermata
-          : Confidence.probabile,
-      whyIncomplete: route.isUsable && unresolved.isEmpty
-          ? null
-          // Frasi per chi legge, non l'elenco delle prove fallite: «lungo
-          // 4,1 km per sostituire 1,2 km (3,4x, max 3x)» e' utile a chi
-          // tara le soglie (lo stampano gli strumenti in tool/), non a chi
-          // aspetta il bus.
-          : [
-              if (unresolved.isNotEmpty)
-                'Vie non trovate sulla mappa: ${unresolved.join(", ")}.',
-              if (!rejoin.isUsable) 'Il punto di rientro è incerto.',
-              if (route.failures.isNotEmpty)
-                'Il percorso calcolato non corrisponde del tutto all\'avviso.',
-            ].join(' '),
-      // Una via non trovata perche' Photon non rispondeva potrebbe
-      // completare il percorso al prossimo giro.
-      retryable: geocodingInErrore,
-    );
   }
 }
