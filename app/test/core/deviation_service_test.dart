@@ -541,21 +541,6 @@ void main() {
       expect(llm.richieste, equals(1));
     });
 
-    test('cambiando algoritmo gli esiti dell\'altro non si tengono',
-        () async {
-      // Tornare al primo algoritmo deve ridisegnare tutto, non solo gli
-      // avvisi nuovi: gli esiti del secondo si rifanno.
-      final llm = _LlmSpento();
-      final prima = precedente(retryable: false);
-      final status = await DeviationService(
-        index: index,
-        llm: llm,
-        algoritmo: AlgoritmoPercorsi.secondo,
-      ).statusOf(linea, allNotices: [avviso()], previous: prima);
-      expect(llm.richieste, equals(1));
-      expect(status.reports.every((r) => r.algoritmo == 2), isTrue);
-    });
-
     // Una lettura che non porta in rete: una sostituzione di mezzo non ha
     // percorso da calcolare. Basta a vedere che il modello non si chiama.
     const letta = ParsedDeviation(
@@ -595,6 +580,22 @@ void main() {
           allNotices: [avviso()], previous: precedente(retryable: false));
       expect(llm.richieste, isZero);
       expect(status.reports.every((r) => r.algoritmo == 1), isTrue);
+    });
+
+    test('se la rilettura per cambiare algoritmo non riesce, resta il vecchio',
+        () async {
+      // Il modello non risponde (quota finita): l'avviso non deve perdere
+      // il disegno che aveva per restare col solo testo di GTT.
+      final llm = _LlmSpento();
+      final status = await DeviationService(
+        index: index,
+        llm: llm,
+        algoritmo: AlgoritmoPercorsi.secondo,
+      ).statusOf(linea,
+          allNotices: [avviso()], previous: precedente(retryable: false));
+      expect(llm.richieste, equals(1));
+      expect(status.reports.every((r) => r.algoritmo == 1), isTrue);
+      expect(status.reports.every((r) => !r.retryable), isTrue);
     });
 
     test('cambiando algoritmo la lettura salvata si riusa, senza modello',

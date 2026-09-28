@@ -402,6 +402,15 @@ class DeviationService {
           _letture[chiave] = extraction;
         }
       }
+      // Riletto solo per passare all'altro algoritmo, ma il modello non ha
+      // risposto (quota finita): meglio l'esito vecchio che il solo testo.
+      if (altroAlgoritmo &&
+          extraction.status == ExtractionStatus.error &&
+          prima.isNotEmpty &&
+          !prima.any((r) => r.retryable)) {
+        reports.addAll(prima);
+        continue;
+      }
       // Il secondo algoritmo guarda la lettura per capire quali direzioni
       // riguarda l'avviso: «nella sola direzione via Biscaretti» non
       // nomina nessun capolinea degli orari, e le parole bastavano a
