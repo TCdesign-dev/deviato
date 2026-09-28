@@ -556,6 +556,63 @@ void main() {
       expect(status.reports.every((r) => r.algoritmo == 2), isTrue);
     });
 
+    // Una lettura che non porta in rete: una sostituzione di mezzo non ha
+    // percorso da calcolare. Basta a vedere che il modello non si chiama.
+    const letta = ParsedDeviation(
+      type: DeviationType.sostituzioneModale,
+      viaSequence: ['via Roma'],
+    );
+    LineStatus conLettura({int algoritmo = 1, bool retryable = false}) =>
+        LineStatus(
+          line: linea,
+          shape: andata,
+          shapeReturn: ritorno,
+          checkedAt: DateTime(2026, 9, 26),
+          reports: [
+            for (final s in [andata, ritorno])
+              DeviationReport(
+                notice: avviso(),
+                shape: s,
+                confidence: Confidence.probabile,
+                retryable: retryable,
+                algoritmo: algoritmo,
+                letture: const [letta],
+              ),
+          ],
+        );
+
+    test('cambiando algoritmo la lettura salvata si riusa, senza modello',
+        () async {
+      final llm = _LlmSpento();
+      final status = await DeviationService(
+        index: index,
+        llm: llm,
+        algoritmo: AlgoritmoPercorsi.secondo,
+      ).statusOf(linea, allNotices: [avviso()], previous: conLettura());
+      expect(llm.richieste, isZero);
+      expect(status.reports.every((r) => r.algoritmo == 2), isTrue);
+      expect(status.reports.first.letture.single.type,
+          DeviationType.sostituzioneModale);
+      expect(status.reports.first.confidence, Confidence.confermata);
+    });
+
+    test('dopo un errore di rete si rifa l\'analisi, non la lettura',
+        () async {
+      final llm = _LlmSpento();
+      await DeviationService(index: index, llm: llm).statusOf(linea,
+          allNotices: [avviso()], previous: conLettura(retryable: true));
+      expect(llm.richieste, isZero);
+    });
+
+    test('se GTT cambia il testo la lettura salvata non vale piu\'',
+        () async {
+      final llm = _LlmSpento();
+      await DeviationService(index: index, llm: llm).statusOf(linea,
+          allNotices: [avviso(testo: 'Linea T deviata in via Po.')],
+          previous: conLettura(algoritmo: 2));
+      expect(llm.richieste, equals(1));
+    });
+
     test('l\'algoritmo si sceglie con 1 o 2, e nel dubbio e\' il primo', () {
       expect(AlgoritmoPercorsi.daTesto('2'), AlgoritmoPercorsi.secondo);
       expect(AlgoritmoPercorsi.daTesto(' 2 '), AlgoritmoPercorsi.secondo);

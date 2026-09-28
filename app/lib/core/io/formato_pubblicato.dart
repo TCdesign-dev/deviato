@@ -3,6 +3,7 @@ import '../geo/polyline.dart';
 import '../geo/projection.dart';
 import '../models/notice.dart';
 import '../models/transit.dart';
+import '../pipeline/extractor.dart';
 import '../pipeline/stop_impact.dart';
 
 /// Il formato dei file che il job su GitHub pubblica e che l'app legge.
@@ -236,6 +237,8 @@ class FormatoPubblicato {
           'geometria': PolylineCodec.encode(r.deviatedGeometry!,
               precision: _precisione),
         if (r.impact != null) 'impatto': _impatto(r.impact!),
+        if (r.letture.isNotEmpty)
+          'lettura': [for (final d in r.letture) d.toJson()],
       };
 
   static DeviationReport? _leggiRapporto(
@@ -257,6 +260,11 @@ class FormatoPubblicato {
       whyIncomplete: j['perche'] as String?,
       retryable: j['ritentare'] as bool? ?? false,
       algoritmo: j['algoritmo'] as int? ?? 1,
+      letture: [
+        for (final d
+            in (j['lettura'] as List? ?? const []).cast<Map<String, dynamic>>())
+          ParsedDeviation.fromJson(d),
+      ],
       deviatedGeometry: j['geometria'] == null
           ? null
           : PolylineCodec.decode(j['geometria'] as String,

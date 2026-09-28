@@ -86,9 +86,15 @@ servizio fino ad allora, copiato riga per riga e **da non toccare**, e
 job sceglie con la variabile di GitHub `ALGORITMO_PERCORSI` («1»
 predefinito, «2»): tornare indietro è cambiare una variabile. Ogni esito
 ricorda l'algoritmo (`algoritmo` nel file, scritto solo se è 2), e
-cambiando valore gli avvisi si rianalizzano — oggi rileggendo il testo
-col modello, quindi dentro la quota. La tag git `percorsi-algoritmo-1`
-fotografa il codice prima della separazione.
+cambiando valore gli avvisi si rianalizzano. La tag git
+`percorsi-algoritmo-1` fotografa il codice prima della separazione.
+
+**La lettura del modello si pubblica** (`lettura` in ogni esito, dal
+28/09/2026): tutte le deviazioni che il modello ha trovato nel testo,
+nel formato in cui le scrive. Se il testo non cambia, rianalizzare un
+avviso — con l'altro algoritmo, o dopo un servizio che non rispondeva —
+riusa quella e non spende letture. Gli esiti di prima non ce l'hanno:
+la prendono alla prima rilettura.
 
 ## 3. I fatti misurati (31/07/2026)
 
@@ -113,7 +119,7 @@ Non sono stime. Se li rimetti in discussione, rimisurali.
 | `active_period.start` negli alert | **161 su 161 nel passato** | idem |
 | Variazioni pubblicate da **entrambe** le fonti | **31 coppie** su 189 avvisi | `check_merge_offline.dart` |
 | Di queste, quelle in cui la data d'inizio cambia | **17** (fino a 3 mesi) | idem |
-| Test | **323** | `flutter test` |
+| Test | **327** | `flutter test` |
 | Somiglianza fra le vie nominate: coppie vere | **0,67 – 1,00** e ≥3 vie | idem |
 | Idem, coppie false | **0,67 con 2 vie**, o 3 vie a **0,38** | idem |
 | Data d'inizio estraibile a regex dal testo | **40%** — troppo poco | idem |
@@ -554,7 +560,7 @@ Per non fraintendere quello che c'è in `config.dart`:
 ## 8. Come si lavora
 
 ```bash
-cd app && flutter test          # 323 test, devono passare tutti
+cd app && flutter test          # 327 test, devono passare tutti
 cd app && flutter analyze       # deve essere pulito
 ```
 
@@ -625,4 +631,4 @@ facendo gli screenshot troppo presto.
 
 ---
 
-*Ultimo aggiornamento: 28 settembre 2026. 323 test.*
+*Ultimo aggiornamento: 28 settembre 2026. 327 test.*

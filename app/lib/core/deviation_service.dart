@@ -43,6 +43,7 @@ class DeviationReport {
     this.rejoin,
     this.retryable = false,
     this.algoritmo = 1,
+    this.letture = const [],
   });
 
   final RawNotice notice;
@@ -80,18 +81,33 @@ class DeviationReport {
   /// algoritmo nel job, gli esiti dell'altro non si tengono.
   final int algoritmo;
 
+  /// Cosa il modello ha letto nel testo dell'avviso: tutte le deviazioni
+  /// che ci ha trovato, non solo quella usata per questa direzione. Vuoto
+  /// se la lettura non e' riuscita.
+  ///
+  /// Si pubblica insieme all'esito. Serve a due cose: capire dove sbaglia
+  /// un percorso (la lettura, la ricerca delle vie o il calcolo), e
+  /// rifare l'analisi — con l'altro algoritmo, o dopo un errore di rete —
+  /// senza spendere un'altra delle cinquanta letture giornaliere.
+  final List<ParsedDeviation> letture;
+
   bool get hasMap => deviatedGeometry != null && deviatedGeometry!.length > 1;
   List<StopImpact> get skippedStops => impact?.skipped ?? const [];
 
   DeviationReport withImpact(StopImpactResult? impact) =>
-      _copia(impact: impact, algoritmo: algoritmo);
+      _copia(impact: impact, algoritmo: algoritmo, letture: letture);
 
-  DeviationReport conAlgoritmo(int algoritmo) =>
-      _copia(impact: impact, algoritmo: algoritmo);
+  /// Con l'algoritmo che l'ha calcolato e la lettura da cui e' partito.
+  DeviationReport completato({
+    required int algoritmo,
+    required List<ParsedDeviation> letture,
+  }) =>
+      _copia(impact: impact, algoritmo: algoritmo, letture: letture);
 
   DeviationReport _copia({
     required StopImpactResult? impact,
     required int algoritmo,
+    required List<ParsedDeviation> letture,
   }) =>
       DeviationReport(
         notice: notice,
@@ -104,6 +120,7 @@ class DeviationReport {
         rejoin: rejoin,
         retryable: retryable,
         algoritmo: algoritmo,
+        letture: letture,
       );
 
   /// Le alternative di ogni avviso, tolte le fermate chiuse dagli ALTRI.
@@ -352,7 +369,7 @@ class DeviationService {
       // avvisi ne consumava trentadue delle cinquanta giornaliere.
       onProgress?.call('$quale · lettura');
       final chiave = '${notice.id}\u0000${notice.fullText}';
-      var extraction = _letture[chiave];
+      var extraction = _letture[chiave] ?? _letturaSalvata(notice, previous);
       if (extraction == null) {
         letture++;
         extraction = await _extractor.extract(notice);
@@ -363,7 +380,10 @@ class DeviationService {
       for (final s in direzioni) {
         final r = await _ricostruzione.analizza(notice, s, extraction,
             onProgress: (p) => onProgress?.call('$quale · $p'));
-        reports.add(r.conAlgoritmo(algoritmo.numero));
+        reports.add(r.completato(
+          algoritmo: algoritmo.numero,
+          letture: extraction.isUsable ? extraction.deviations : const [],
+        ));
       }
     }
 
@@ -416,6 +436,31 @@ class DeviationService {
       return null;
     }
     return prima;
+  }
+
+  /// La lettura di [notice] salvata dal controllo precedente, se il testo
+  /// e' lo stesso.
+  ///
+  /// La lettura dipende solo dal testo: se l'esito va rifatto per un altro
+  /// motivo — l'altro algoritmo, un servizio che non rispondeva, una
+  /// direzione in piu' — rileggerlo col modello costerebbe una richiesta
+  /// per avere la stessa risposta.
+  static ExtractionResult? _letturaSalvata(
+    RawNotice notice,
+    LineStatus? previous,
+  ) {
+    if (previous == null) return null;
+    for (final r in previous.reports) {
+      if (r.notice.id == notice.id &&
+          r.notice.fullText == notice.fullText &&
+          r.letture.isNotEmpty) {
+        return ExtractionResult(
+          status: ExtractionStatus.ok,
+          deviations: r.letture,
+        );
+      }
+    }
+    return null;
   }
 
   /// Quali direzioni riguarda un avviso.

@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:gtt_deviazioni/core/deviation_service.dart';
 import 'package:gtt_deviazioni/core/geo/projection.dart';
 import 'package:gtt_deviazioni/core/io/formato_pubblicato.dart';
+import 'package:gtt_deviazioni/core/pipeline/extractor.dart';
 import 'package:gtt_deviazioni/core/models/notice.dart';
 import 'package:gtt_deviazioni/core/models/transit.dart';
 import 'package:gtt_deviazioni/core/pipeline/stop_impact.dart';
@@ -194,6 +195,47 @@ void main() {
                 controllata: DateTime(2026))!
             .reports.single.algoritmo,
         2);
+  });
+
+  test('la lettura del modello si pubblica e si rilegge uguale', () {
+    final index = GtfsIndex(
+      feedVersion: 'f', builtAt: DateTime(2026),
+      lines: {'15U': linea}, shapes: {'15U': [andata]}, stops: const {},
+    );
+    const letta = ParsedDeviation(
+      type: DeviationType.deviazione,
+      lines: ['15'],
+      directionDesc: 'direzione piazza Stampalia',
+      municipality: 'Torino',
+      detachStreet: 'corso Vittorio Emanuele II',
+      detachCrossStreet: 'corso Vinzaglio',
+      viaSequence: ['corso Vinzaglio', 'via Cernaia'],
+      rejoinStreet: 'corso Tassoni',
+      suspendedStopCodes: ['1234'],
+      ambiguities: ['carreggiata centrale'],
+    );
+    final j = viaJson(FormatoPubblicato.stato(LineStatus(
+      line: linea,
+      shape: andata,
+      checkedAt: DateTime(2026),
+      reports: [
+        DeviationReport(
+          notice: const RawNotice(
+              id: 'a', source: NoticeSource.gtfsRtAlert, text: 't',
+              sourceUrl: ''),
+          shape: andata,
+          confidence: Confidence.confermata,
+          letture: const [letta],
+        ),
+      ],
+    )));
+    final r = FormatoPubblicato.leggiStato(j, index,
+            controllata: DateTime(2026))!
+        .reports
+        .single;
+    expect(r.letture.single.toJson(), equals(letta.toJson()));
+    expect(r.letture.single.detachCrossStreet, 'corso Vinzaglio');
+    expect(r.letture.single.viaSequence, ['corso Vinzaglio', 'via Cernaia']);
   });
 
   test('il nome del file non esce dalla cartella', () {

@@ -20,6 +20,13 @@ enum DeviationType {
         'sospensione_fermate' => sospensioneFermate,
         _ => altro,
       };
+
+  /// Il nome come lo scrive il modello: l'inverso di [parse].
+  String get json => switch (this) {
+        sostituzioneModale => 'sostituzione_modale',
+        sospensioneFermate => 'sospensione_fermate',
+        _ => name,
+      };
 }
 
 class ParsedDeviation {
@@ -98,6 +105,39 @@ class ParsedDeviation {
       ambiguities: strings(j['ambiguities']),
     );
   }
+
+  /// La lettura nello stesso formato in cui la scrive il modello, cosi'
+  /// [fromJson] la rilegge. Senza i campi vuoti: finisce nei file pubblicati.
+  ///
+  /// Serve a non rileggere col modello un testo gia' letto: le letture
+  /// sono cinquanta al giorno, e cambiare algoritmo dei percorsi non deve
+  /// costarne nessuna.
+  Map<String, Object?> toJson() => {
+        'deviation_type': type.json,
+        if (lines.isNotEmpty) 'lines': lines,
+        if (directionDesc != null) 'direction_desc': directionDesc,
+        if (municipality != null) 'municipality': municipality,
+        if (detachStreet != null || detachCrossStreet != null)
+          'detach_point': {
+            if (detachStreet != null) 'street': detachStreet,
+            if (detachCrossStreet != null) 'cross_street': detachCrossStreet,
+          },
+        'via_sequence': [
+          for (final v in viaSequence) {'street': v},
+        ],
+        if (rejoinStreet != null) 'rejoin_point': {'street': rejoinStreet},
+        if (suspendedStopCodes.isNotEmpty)
+          'suspended_stop_codes': suspendedStopCodes,
+        if (temporaryTerminusStreet != null ||
+            temporaryTerminusStopCode != null)
+          'temporary_terminus': {
+            if (temporaryTerminusStreet != null)
+              'street': temporaryTerminusStreet,
+            if (temporaryTerminusStopCode != null)
+              'stop_code': temporaryTerminusStopCode,
+          },
+        if (ambiguities.isNotEmpty) 'ambiguities': ambiguities,
+      };
 
   @override
   String toString() => '${type.name} '
