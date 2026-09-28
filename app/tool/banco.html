@@ -42,7 +42,7 @@
 <header>
   <h1>Banco di prova</h1>
   <span class="stato" id="stato">…</span>
-  <label class="filtro"><input type="checkbox" id="soloInCorso" checked> solo in corso</label>
+  <label class="filtro"><input type="checkbox" id="soloInCorso" checked> solo quelle nel loro periodo</label>
   <button id="ricalcola">Ricalcola</button>
 </header>
 <main>
@@ -65,6 +65,9 @@ const chiave = c => c.avviso + '|' + c.percorso;
 const km = m => (m / 1000).toFixed(1) + ' km';
 const pct = x => x == null ? '–' : Math.round(x * 100) + '%';
 const affid = a => ({confermata: 'Verificato', probabile: 'Da confermare', soloTesto: 'Solo testo'})[a] || a;
+const statiNomi = {inCorso: 'in corso', fuoriOrario: 'ora fuori orario', inProgramma: 'in programma', finito: 'finita', sconosciuto: 'date sconosciute'};
+const statiColori = {inCorso: '#1b7f3b', fuoriOrario: '#b26a00', inProgramma: '#2a5bd7', finito: '#777', sconosciuto: '#777'};
+const etichettaStato = c => `<span class="etichetta" style="background:${statiColori[c.stato] || '#777'}">${statiNomi[c.stato] || c.stato || '?'}</span>`;
 
 function problemi(m) {
   const p = [];
@@ -99,7 +102,7 @@ function disegnaLista() {
     const d = document.createElement('div');
     d.className = 'riga' + (chiave(c) === scelta ? ' sel' : '');
     const segue = dati.seguite.includes(c.id) ? ' <span class="etichetta">mezzi</span>' : '';
-    d.innerHTML = `<div class="titolo">${c.linea} verso ${c.direzione}${segue}</div>
+    d.innerHTML = `<div class="titolo">${etichettaStato(c)}${c.linea} verso ${c.direzione}${segue}</div>
       <div class="alg">1: ${affid(c.a1.affidabilita)} · ${km(c.a1.metri)} <span class="male">${problemi(c.a1)}</span></div>
       <div class="alg">2: ${affid(c.a2.affidabilita)} · ${km(c.a2.metri)} <span class="male">${problemi(c.a2)}</span></div>`;
     d.onclick = () => scegli(c);
@@ -119,6 +122,7 @@ function freccette(punti, colore, strato) {
 
 function scegli(c) {
   scelta = chiave(c);
+  history.replaceState(null, '', '#linea=' + c.id + '&dir=' + c.dir);
   mezzi = null;
   disegnaLista();
   disegnaPercorsi(c, true);
@@ -152,6 +156,7 @@ function disegnaLato(c) {
       ${m.perche ? `<br><span class="nota">${m.perche}</span>` : ''}</td></tr>`;
   el.innerHTML = `
     <h2>${c.linea} verso ${c.direzione}</h2>
+    <p>${etichettaStato(c)} ${c.periodo || ''}</p>
     <div class="legenda"><span><i style="background:#2a5bd7"></i>normale</span><span><i style="background:#ff8a80"></i>algoritmo 1</span><span><i style="background:#b71c1c"></i>algoritmo 2</span><span><i style="background:#7b1fa2"></i>mezzi</span></div>
     <table>${alg('1', c.a1)}${alg('2', c.a2)}</table>
     <h3>Mezzi in tempo reale</h3>
@@ -216,7 +221,12 @@ document.getElementById('ricalcola').onclick = async () => {
 };
 document.getElementById('soloInCorso').onchange = disegnaLista;
 
-aggiornaStato();
+aggiornaStato().then(() => {
+  // #linea=9U&dir=0 apre direttamente quella deviazione.
+  const q = new URLSearchParams(location.hash.slice(1));
+  const c = dati.confronti.find(x => x.id === q.get('linea') && String(x.dir) === (q.get('dir') || '0'));
+  if (c) scegli(c);
+});
 setInterval(() => { if (dati.calcolando) aggiornaStato(); }, 5000);
 setInterval(aggiornaMezzi, 10000);
 </script>

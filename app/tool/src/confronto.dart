@@ -163,7 +163,9 @@ class Confronto {
             'avviso': notice.id,
             'direzione': shape.headsign,
             'testo': notice.fullText,
-            'inCorso': !notice.startsAfter(DateTime.now()),
+            'solotesto': notice.text,
+            'pubblicato': notice.validFrom?.toIso8601String(),
+            'scade': notice.validUntil?.toIso8601String(),
             'normale': coppie(shape.points),
             for (final e in esiti.entries) 'a${e.key}': misura(e.value, shape),
           };

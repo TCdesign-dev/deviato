@@ -24,6 +24,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:gtt_deviazioni/core/sources/vehicles_source.dart';
+import 'package:gtt_deviazioni/core/text/periodo_avviso.dart';
 
 import 'src/confronto.dart';
 import 'src/mezzi.dart';
@@ -192,7 +193,7 @@ class Banco {
           'totale': totale,
           'calcolato': calcolatoIl?.toIso8601String(),
           'seguite': seguite.keys.toList(),
-          'confronti': confronti,
+          'confronti': [for (final c in confronti) {...c, ..._periodo(c)}],
         });
       } else if (percorso == '/api/ricalcola' && req.method == 'POST') {
         unawaited(ricalcola());
@@ -222,6 +223,44 @@ class Banco {
       r.write('$e');
     }
     await r.close();
+  }
+
+  /// Se la deviazione vale adesso, letto dal testo dell'avviso: il feed
+  /// data gli avvisi con l'ora di pubblicazione. Si rifa' a ogni richiesta,
+  /// cosi' «fuori orario» diventa «in corso» quando arriva l'ora.
+  static Map<String, Object?> _periodo(Map<String, Object?> c) {
+    final ora = DateTime.now();
+    final pubblicato = DateTime.tryParse(c['pubblicato'] as String? ?? '');
+    final p = PeriodoAvviso.leggi(
+      c['solotesto'] as String? ?? c['testo'] as String? ?? '',
+      pubblicato: pubblicato?.toLocal(),
+    );
+    var stato = p.stato(ora);
+    var descrizione = p.descrizione;
+    var daDove = 'testo';
+    if (stato == StatoPeriodo.sconosciuto) {
+      // Il testo non dice quando: si guardano le date del feed, che per
+      // gli avvisi brevi («non transita dalla fermata 1763») sono giuste.
+      final scade = DateTime.tryParse(c['scade'] as String? ?? '');
+      if (pubblicato != null) {
+        daDove = 'feed';
+        stato = ora.isBefore(pubblicato)
+            ? StatoPeriodo.inProgramma
+            : scade != null && ora.isAfter(scade)
+            ? StatoPeriodo.finito
+            : StatoPeriodo.inCorso;
+        String g(DateTime d) => '${d.toLocal().day}/${d.toLocal().month}';
+        descrizione = 'dal ${g(pubblicato)}'
+            '${scade == null ? '' : ' al ${g(scade)}'} (date del feed)';
+      }
+    }
+    return {
+      'stato': stato.name,
+      'periodo': descrizione,
+      'periodoDa': daDove,
+      'inCorso':
+          stato == StatoPeriodo.inCorso || stato == StatoPeriodo.fuoriOrario,
+    };
   }
 
   static void _json(HttpResponse r, Object dati) {

@@ -122,7 +122,19 @@ in deviazione è lontano dal percorso e l'ultima posizione non basta. Le
 tracce si salvano in `build/banco/mezzi/`: sono la verità con cui misurare
 gli algoritmi. I confronti si tengono in `build/banco/confronti.json`
 («Ricalcola» li rifà, una ventina di minuti). Il calcolo è in
-`tool/src/confronto.dart`, condiviso con lo strumento qui sotto.
+`tool/src/confronto.dart`, condiviso con lo strumento qui sotto. Ogni
+deviazione dice se è nel suo periodo — in corso, ora fuori orario, in
+programma, finita — letto dal testo con `core/text/periodo_avviso.dart`
+(68 testi su 101 il 28/09; gli altri sono quasi tutti «non transita dalla
+fermata N», dove valgono le date del feed). L'app per ora non lo usa.
+
+**Cosa hanno detto i mezzi il 28/09** (15:10–15:30, prima misura vera):
+la 9 ha la deviazione **già negli orari** — i tram seguono la linea blu,
+che è proprio il giro dell'avviso — e i due algoritmi danno per non servite
+fermate da cui passano; sulla 46 l'algoritmo 1 spiega l'88% dei punti
+fuori percorso e il 2 lo 0%, perché il 2 mette il rientro dove via Cigna
+*incrocia* la linea invece che dove ci si *riunisce*; la 9 è un tram, e
+Valhalla con `costing: bus` non segue i binari.
 
 **Confrontare i due algoritmi**: `dart run tool/confronta_algoritmi.dart`
 scarica i dati pubblicati, rifà l'analisi con l'1 e col 2 sulle letture
@@ -159,7 +171,7 @@ Non sono stime. Se li rimetti in discussione, rimisurali.
 | `active_period.start` negli alert | **161 su 161 nel passato** | idem |
 | Variazioni pubblicate da **entrambe** le fonti | **31 coppie** su 189 avvisi | `check_merge_offline.dart` |
 | Di queste, quelle in cui la data d'inizio cambia | **17** (fino a 3 mesi) | idem |
-| Test | **358** | `flutter test` |
+| Test | **374** | `flutter test` |
 | Somiglianza fra le vie nominate: coppie vere | **0,67 – 1,00** e ≥3 vie | idem |
 | Idem, coppie false | **0,67 con 2 vie**, o 3 vie a **0,38** | idem |
 | Data d'inizio estraibile a regex dal testo | **40%** — troppo poco | idem |
@@ -623,7 +635,7 @@ Per non fraintendere quello che c'è in `config.dart`:
 ## 8. Come si lavora
 
 ```bash
-cd app && flutter test          # 358 test, devono passare tutti
+cd app && flutter test          # 374 test, devono passare tutti
 cd app && flutter analyze       # deve essere pulito
 ```
 
@@ -694,4 +706,4 @@ facendo gli screenshot troppo presto.
 
 ---
 
-*Ultimo aggiornamento: 28 settembre 2026. 358 test.*
+*Ultimo aggiornamento: 28 settembre 2026. 374 test.*
