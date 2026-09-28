@@ -19,159 +19,20 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:gtt_deviazioni/core/deviation_service.dart';
-import 'package:gtt_deviazioni/core/geo/geometry.dart';
-import 'package:gtt_deviazioni/core/geo/projection.dart';
-import 'package:gtt_deviazioni/core/io/formato_pubblicato.dart';
-import 'package:gtt_deviazioni/core/models/transit.dart';
-import 'package:gtt_deviazioni/core/pipeline/extractor.dart';
-import 'package:gtt_deviazioni/core/pipeline/geocoder.dart';
-import 'package:gtt_deviazioni/core/pipeline/route_builder.dart';
-import 'package:gtt_deviazioni/core/pipeline/stop_impact.dart';
-import 'package:gtt_deviazioni/core/pipeline/vie_osm.dart';
-import 'package:gtt_deviazioni/core/ricostruzione/rifinitura.dart';
-import 'package:gtt_deviazioni/core/ricostruzione/ricostruzione.dart';
-import 'package:gtt_deviazioni/core/ricostruzione/ricostruzione_1.dart';
-import 'package:gtt_deviazioni/core/ricostruzione/ricostruzione_2.dart';
+import 'src/confronto.dart';
 
 Future<void> main(List<String> args) async {
-  final sito = _arg(args, '--sito') ?? 'https://deviato.it/v1';
   final uscita = Directory(_arg(args, '--uscita') ?? 'build/confronto');
-  final soloLinee = _arg(args, '--linee')?.split(',').toSet();
   final fileLetture = _arg(args, '--letture');
-  final diProva = <String, List<ParsedDeviation>>{};
-  if (fileLetture != null) {
-    final j = jsonDecode(File(fileLetture).readAsStringSync()) as Map;
-    for (final e in j.entries) {
-      if (e.value is! List) continue;
-      diProva[e.key as String] = [
-        for (final d in (e.value as List).cast<Map<String, dynamic>>())
-          ParsedDeviation.fromJson(d),
-      ];
-    }
-  }
-
-  final http = HttpClient()..userAgent = 'DeviaTo-confronto';
-  Future<Map<String, dynamic>?> scarica(String percorso) async {
-    final req = await http.getUrl(Uri.parse('$sito/$percorso'));
-    final res = await req.close();
-    if (res.statusCode != 200) {
-      await res.drain<void>();
-      return null;
-    }
-    return jsonDecode(await res.transform(utf8.decoder).join())
-        as Map<String, dynamic>;
-  }
-
-  final indice = FormatoPubblicato.leggiIndice((await scarica('indice.json'))!);
-  final geocoder = Geocoder();
-  final router = RouteBuilder();
-  final righe = <Map<String, Object?>>[];
-
-  for (final linea in indice.linee) {
-    if (soloLinee != null && !soloLinee.contains(linea.routeId)) continue;
-    final nome = FormatoPubblicato.nomeFile(linea.routeId);
-    final stato = await scarica('stato/$nome');
-    if (stato == null) continue;
-    final avvisi = (stato['avvisi'] as List).cast<Map<String, dynamic>>();
-    // Si scarica il resto solo se c'e' qualcosa da confrontare.
-    final conLettura = avvisi.any(
-      (a) =>
-          a['lettura'] != null ||
-          diProva.containsKey((a['avviso'] as Map)['id']),
-    );
-    if (!conLettura) continue;
-    final percorsi = await scarica('percorsi/$nome');
-    if (percorsi == null) continue;
-    final shapes = FormatoPubblicato.leggiPercorsi(percorsi).shapes;
-    final index = GtfsIndex(
-      feedVersion: indice.feed,
-      builtAt: DateTime.now(),
-      lines: {linea.routeId: linea},
-      shapes: {linea.routeId: shapes},
-      stops: {
-        for (final s in shapes)
-          for (final f in s.stops) f.id: f,
-      },
-    );
-    final letto = FormatoPubblicato.leggiStato(
-      stato,
-      index,
-      controllata: DateTime.now(),
-    );
-    if (letto == null) continue;
-    final impatto = StopImpactAnalyzer(index: index);
-    // Un collegamento a Overpass per avviso: nel job, se non risponde,
-    // si smette di chiamarlo per tutto il giro; qui un errore passeggero
-    // spegnerebbe gli incroci per tutti i confronti.
-    Map<int, Ricostruzione> algoritmi() => {
-      1: Ricostruzione1(geocoder: geocoder, router: router, impact: impatto),
-      2: Ricostruzione2(
-        geocoder: geocoder,
-        router: router,
-        impact: impatto,
-        vie: ViePerNome(),
-      ),
-    };
-    final andata = index.mainShape(linea.routeId, 0);
-    final ritorno = index.mainShape(linea.routeId, 1);
-
-    final visti = <String>{};
-    for (final r in letto.reports) {
-      final notice = r.notice;
-      if (!visti.add(notice.id)) continue;
-      final letture =
-          diProva[notice.id] ?? (r.letture.isNotEmpty ? r.letture : null);
-      if (letture == null) continue;
-      final lettura = ExtractionResult(
-        status: ExtractionStatus.ok,
-        deviations: letture,
-      );
-      final perAvviso = algoritmi();
-      final candidate = DeviationService.shapesConcernedBy(
-        notice,
-        andata,
-        ritorno,
-      );
-      // Come nel job: il secondo algoritmo scarta le direzioni che la
-      // lettura esclude.
-      final perIlSecondo = {
-        for (final s in await (perAvviso[2]! as FiltroDirezioni).direzioniDi(
-          notice,
-          candidate,
-          lettura,
-        ))
-          s.shapeId,
-      };
-      for (final shape in candidate) {
-        final esiti = <int, DeviationReport>{};
-        for (final e in perAvviso.entries) {
-          esiti[e.key] = e.key == 2 && !perIlSecondo.contains(shape.shapeId)
-              ? DeviationReport(
-                  notice: notice,
-                  shape: shape,
-                  confidence: Confidence.confermata,
-                  whyIncomplete:
-                      'Non riguarda questa direzione: '
-                      'il secondo algoritmo non la analizza.',
-                )
-              : await e.value.analizza(notice, shape, lettura);
-        }
-        final riga = <String, Object?>{
-          'linea': linea.shortName,
-          'id': linea.routeId,
-          'avviso': notice.id,
-          'direzione': shape.headsign,
-          'testo': notice.fullText,
-          'normale': _coppie(shape.points),
-          for (final e in esiti.entries) 'a${e.key}': _misura(e.value, shape),
-        };
-        righe.add(riga);
-        stdout.writeln(_rigaTabella(riga));
-      }
-    }
-  }
-  http.close();
+  final confronto = Confronto(
+    sito: _arg(args, '--sito') ?? 'https://deviato.it/v1',
+    letture: fileLetture == null ? const {} : Confronto.leggiLetture(fileLetture),
+  );
+  final righe = await confronto.calcola(
+    soloLinee: _arg(args, '--linee')?.split(',').toSet(),
+    ogni: (r) => stdout.writeln(_rigaTabella(r)),
+  );
+  confronto.chiudi();
 
   stdout.writeln();
   stdout.writeln('${righe.length} confronti');
@@ -205,65 +66,17 @@ Future<void> main(List<String> args) async {
   stdout.writeln('pagina: ${uscita.path}/index.html');
 }
 
-/// Le misure di un esito, piu' la geometria per la pagina.
-Map<String, Object?> _misura(DeviationReport r, RouteShape shape) {
-  final g = r.deviatedGeometry ?? const <GeoPoint>[];
-  final linea = shape.meters;
-  var inizio = 0, fine = 0, sopraInTesta = 0, sopraInCoda = 0;
-  var contrario = false;
-  if (g.length > 1) {
-    final a = Geometry.projectOnPolyline(g.first.meters, linea);
-    final b = Geometry.projectOnPolyline(g.last.meters, linea);
-    inizio = a.distance.round();
-    fine = b.distance.round();
-    contrario = b.alongMeters < a.alongMeters - Rifinitura.indietroMassimo;
-    final fitto = Geometry.densify([for (final p in g) p.meters], 10);
-    bool sopra(Point q) =>
-        Geometry.pointToPolyline(q, linea) <= Rifinitura.sopraLaLinea;
-    var i = 0;
-    while (i < fitto.length && sopra(fitto[i])) {
-      i++;
-    }
-    sopraInTesta = (i * 10).clamp(0, 1 << 30);
-    var j = fitto.length - 1;
-    while (j >= 0 && sopra(fitto[j])) {
-      j--;
-    }
-    sopraInCoda = ((fitto.length - 1 - j) * 10).clamp(0, 1 << 30);
-  }
-  return {
-    'affidabilita': r.confidence.name,
-    'perche': r.whyIncomplete,
-    'metri': g.length > 1
-        ? Geometry.length([for (final p in g) p.meters]).round()
-        : 0,
-    'ripercorso': Rifinitura.ripercorso(g).round(),
-    'inizio': inizio,
-    'fine': fine,
-    'sopraInTesta': sopraInTesta,
-    'sopraInCoda': sopraInCoda,
-    'contrario': contrario,
-    'nonServite': r.impact?.skipped.length ?? 0,
-    'lettura': r.parsed?.toString(),
-    'geometria': _coppie(g),
-  };
-}
-
 String _rigaTabella(Map<String, Object?> r) {
   String m(String a) {
     final x = r[a] as Map<String, Object?>;
     return '${x['affidabilita']} ${x['metri']} m, va e torna ${x['ripercorso']}, '
         'inizio ${x['inizio']}, fine ${x['fine']}, sopra ${x['sopraInTesta']}/'
         '${x['sopraInCoda']}${x['contrario'] == true ? ', AL CONTRARIO' : ''}, '
-        '${x['nonServite']} non servite';
+        '${(x['nonServite'] as List).length} non servite';
   }
 
   return '${r['linea']} verso ${r['direzione']}\n  1: ${m('a1')}\n  2: ${m('a2')}';
 }
-
-List<List<double>> _coppie(List<GeoPoint> g) => [
-  for (final p in g) [(p.lat * 1e5).round() / 1e5, (p.lon * 1e5).round() / 1e5],
-];
 
 String? _arg(List<String> args, String nome) {
   final i = args.indexOf(nome);

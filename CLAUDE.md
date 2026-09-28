@@ -109,6 +109,21 @@ avviso — con l'altro algoritmo, o dopo un servizio che non rispondeva —
 riusa quella e non spende letture. Gli esiti di prima non ce l'hanno:
 la prendono alla prima rilettura.
 
+**Il banco di prova** (`cd app && dart run tool/banco.dart`, poi
+http://localhost:8768; nel browser integrato è il server «deviato-banco»):
+una pagina solo per lo sviluppo, staccata da app e job. Mostra per ogni
+deviazione in corso il percorso normale, il rosso dell'1 e quello del 2,
+e con «Segui i mezzi» legge ogni 20 s le posizioni di GTT della linea e
+misura i due rossi contro i mezzi veri: *punti fuori sul rosso* (delle
+posizioni fuori dal percorso normale, quante cadono a meno di 40 m dal
+rosso) e *rosso percorso dai mezzi* (del rosso fuori dalla linea, quanto è
+stato percorso). La direzione di un mezzo si vota lungo tutta la traccia:
+in deviazione è lontano dal percorso e l'ultima posizione non basta. Le
+tracce si salvano in `build/banco/mezzi/`: sono la verità con cui misurare
+gli algoritmi. I confronti si tengono in `build/banco/confronti.json`
+(«Ricalcola» li rifà, una ventina di minuti). Il calcolo è in
+`tool/src/confronto.dart`, condiviso con lo strumento qui sotto.
+
 **Confrontare i due algoritmi**: `dart run tool/confronta_algoritmi.dart`
 scarica i dati pubblicati, rifà l'analisi con l'1 e col 2 sulle letture
 salvate (o su quelle di `--letture`, per esempio

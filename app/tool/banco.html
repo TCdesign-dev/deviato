@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<title>Banco di prova · DeviaTo</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+  :root { --grafite: #1e1e1e; --giallo: #f9d400; --tenue: #666; --filo: #e3e3e3; --rosso: #b71c1c; --rosa: #ff8a80; --blu: #2a5bd7; --viola: #7b1fa2; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 13px/1.4 system-ui, sans-serif; color: var(--grafite); display: grid; grid-template-rows: auto 1fr; height: 100vh; }
+  header { display: flex; align-items: center; gap: 12px; padding: 8px 12px; border-bottom: 1px solid var(--filo); }
+  header h1 { font-size: 15px; margin: 0; }
+  header .stato { color: var(--tenue); flex: 1; }
+  button { font: inherit; font-weight: 600; padding: 7px 12px; border-radius: 999px; border: 1px solid var(--grafite); background: #fff; cursor: pointer; }
+  button.pieno { background: var(--giallo); border-color: var(--giallo); }
+  button:disabled { opacity: .5; cursor: default; }
+  label.filtro { display: flex; gap: 4px; align-items: center; color: var(--tenue); }
+  main { display: grid; grid-template-columns: 330px 1fr 360px; min-height: 0; }
+  #lista { overflow: auto; border-right: 1px solid var(--filo); }
+  #lista .riga { padding: 7px 10px; border-bottom: 1px solid var(--filo); cursor: pointer; }
+  #lista .riga.sel { background: #fff7c2; }
+  #lista .titolo { font-weight: 700; }
+  #lista .alg { color: var(--tenue); }
+  .male { color: var(--rosso); }
+  .bene { color: #1b7f3b; }
+  .etichetta { display: inline-block; padding: 0 6px; border-radius: 4px; background: var(--grafite); color: #fff; font-size: 11px; font-weight: 700; margin-right: 4px; }
+  #mappa { min-height: 0; }
+  #lato { overflow: auto; border-left: 1px solid var(--filo); padding: 10px 12px; }
+  #lato h2 { font-size: 15px; margin: 0 0 4px; }
+  #lato h3 { font-size: 13px; margin: 14px 0 4px; }
+  #lato .testo { white-space: pre-wrap; color: var(--tenue); font-size: 12px; }
+  table { border-collapse: collapse; width: 100%; margin-top: 4px; }
+  td, th { text-align: left; padding: 3px 4px; border-bottom: 1px solid var(--filo); }
+  th { color: var(--tenue); font-weight: 500; }
+  .legenda span { display: inline-flex; align-items: center; gap: 4px; margin-right: 10px; }
+  .legenda i { display: inline-block; width: 18px; height: 5px; border-radius: 2px; }
+  .nota { color: var(--tenue); font-size: 12px; margin-top: 6px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Banco di prova</h1>
+  <span class="stato" id="stato">…</span>
+  <label class="filtro"><input type="checkbox" id="soloInCorso" checked> solo in corso</label>
+  <button id="ricalcola">Ricalcola</button>
+</header>
+<main>
+  <div id="lista"></div>
+  <div id="mappa"></div>
+  <div id="lato"><p class="nota">Scegli una deviazione a sinistra.</p></div>
+</main>
+<script>
+const mappa = L.map('mappa').setView([45.07, 7.68], 13);
+L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom: 19, attribution: '© OpenStreetMap'}).addTo(mappa);
+const stratoPercorsi = L.layerGroup().addTo(mappa);
+const stratoMezzi = L.layerGroup().addTo(mappa);
+
+let dati = {confronti: [], seguite: []};
+let scelta = null;          // chiave "avviso|percorso"
+let mezzi = null;           // ultima risposta di /api/mezzi per la linea scelta
+let inquadrata = null;
+
+const chiave = c => c.avviso + '|' + c.percorso;
+const km = m => (m / 1000).toFixed(1) + ' km';
+const pct = x => x == null ? '–' : Math.round(x * 100) + '%';
+const affid = a => ({confermata: 'Verificato', probabile: 'Da confermare', soloTesto: 'Solo testo'})[a] || a;
+
+function problemi(m) {
+  const p = [];
+  if (m.contrario) p.push('al contrario');
+  if (m.inizio > 50) p.push('inizio a ' + m.inizio + ' m');
+  if (m.fine > 50) p.push('fine a ' + m.fine + ' m');
+  if (m.ripercorso >= 100) p.push('va e torna ' + m.ripercorso + ' m');
+  if (m.sopraInTesta >= 300 || m.sopraInCoda >= 300) p.push('rosso sulla linea');
+  return p.join(' · ');
+}
+
+async function aggiornaStato() {
+  dati = await (await fetch('/api/stato')).json();
+  const s = document.getElementById('stato');
+  if (dati.calcolando) {
+    s.textContent = `Calcolo in corso: linea ${dati.fatte} di ${dati.totale} · ${dati.confronti.length} confronti finora`;
+  } else {
+    const quando = dati.calcolato ? new Date(dati.calcolato).toLocaleString('it-IT') : 'mai';
+    s.textContent = `${dati.confronti.length} confronti · calcolati ${quando}` +
+      (dati.seguite.length ? ` · mezzi seguiti: ${dati.seguite.join(', ')}` : '');
+  }
+  document.getElementById('ricalcola').disabled = dati.calcolando;
+  disegnaLista();
+}
+
+function disegnaLista() {
+  const solo = document.getElementById('soloInCorso').checked;
+  const el = document.getElementById('lista');
+  el.innerHTML = '';
+  for (const c of dati.confronti) {
+    if (solo && !c.inCorso) continue;
+    const d = document.createElement('div');
+    d.className = 'riga' + (chiave(c) === scelta ? ' sel' : '');
+    const segue = dati.seguite.includes(c.id) ? ' <span class="etichetta">mezzi</span>' : '';
+    d.innerHTML = `<div class="titolo">${c.linea} verso ${c.direzione}${segue}</div>
+      <div class="alg">1: ${affid(c.a1.affidabilita)} · ${km(c.a1.metri)} <span class="male">${problemi(c.a1)}</span></div>
+      <div class="alg">2: ${affid(c.a2.affidabilita)} · ${km(c.a2.metri)} <span class="male">${problemi(c.a2)}</span></div>`;
+    d.onclick = () => scegli(c);
+    el.appendChild(d);
+  }
+}
+
+function freccette(punti, colore, strato) {
+  for (let i = 1; i < punti.length - 1; i += Math.max(1, Math.floor(punti.length / 10))) {
+    const [a, b] = [punti[i], punti[i + 1]];
+    const ang = Math.atan2(b[1] - a[1], b[0] - a[0]) * 180 / Math.PI;
+    L.marker(a, {interactive: false, icon: L.divIcon({className: '', html:
+      `<div style="transform: rotate(${90 - ang}deg); color:${colore}; font-size:15px; line-height:15px; width:15px; text-align:center">➤</div>`,
+      iconSize: [15, 15], iconAnchor: [7, 7]})}).addTo(strato);
+  }
+}
+
+function scegli(c) {
+  scelta = chiave(c);
+  mezzi = null;
+  disegnaLista();
+  disegnaPercorsi(c, true);
+  disegnaLato(c);
+  if (dati.seguite.includes(c.id)) aggiornaMezzi();
+  else stratoMezzi.clearLayers();
+}
+
+function disegnaPercorsi(c, inquadra) {
+  stratoPercorsi.clearLayers();
+  const blu = L.polyline(c.normale, {color: '#2a5bd7', weight: 5, opacity: .7}).addTo(stratoPercorsi);
+  freccette(c.normale, '#2a5bd7', stratoPercorsi);
+  if (c.a1.geometria.length > 1) L.polyline(c.a1.geometria, {color: '#ff8a80', weight: 10, opacity: .55}).bindTooltip('algoritmo 1').addTo(stratoPercorsi);
+  const g = c.a2.geometria;
+  if (g.length > 1) {
+    L.polyline(g, {color: '#b71c1c', weight: 4}).bindTooltip('algoritmo 2').addTo(stratoPercorsi);
+    freccette(g, '#4a0000', stratoPercorsi);
+  }
+  if (inquadra) {
+    const tutti = [...c.a1.geometria, ...g];
+    mappa.fitBounds(tutti.length > 1 ? L.polyline(tutti).getBounds().pad(0.35) : blu.getBounds());
+  }
+}
+
+function disegnaLato(c) {
+  const seguita = dati.seguite.includes(c.id);
+  const el = document.getElementById('lato');
+  const alg = (n, m) => `<tr><th>${n}</th><td>${affid(m.affidabilita)} · ${km(m.metri)}<br>
+      <span class="male">${problemi(m) || ''}</span>
+      ${m.nonServite.length ? `<br>${m.nonServite.length} non servite: ${m.nonServite.join(', ')}` : '<br>nessuna fermata non servita'}
+      ${m.perche ? `<br><span class="nota">${m.perche}</span>` : ''}</td></tr>`;
+  el.innerHTML = `
+    <h2>${c.linea} verso ${c.direzione}</h2>
+    <div class="legenda"><span><i style="background:#2a5bd7"></i>normale</span><span><i style="background:#ff8a80"></i>algoritmo 1</span><span><i style="background:#b71c1c"></i>algoritmo 2</span><span><i style="background:#7b1fa2"></i>mezzi</span></div>
+    <table>${alg('1', c.a1)}${alg('2', c.a2)}</table>
+    <h3>Mezzi in tempo reale</h3>
+    <button id="segui" class="${seguita ? '' : 'pieno'}">${seguita ? 'Interrompi' : 'Segui i mezzi della ' + c.linea}</button>
+    <div id="mezzi">${seguita ? '<p class="nota">In attesa del primo campione…</p>' :
+      '<p class="nota">Legge le posizioni dei mezzi della linea ogni 20 secondi, finché non interrompi (al massimo due ore). Le tracce si salvano in build/banco/mezzi.</p>'}</div>
+    <h3>Avviso</h3>
+    <div class="testo">${c.testo}</div>
+    <h3>Lettura</h3>
+    <div class="testo">1: ${c.a1.lettura || '–'}\n2: ${c.a2.lettura || '–'}</div>`;
+  document.getElementById('segui').onclick = async () => {
+    await fetch((seguita ? '/api/ferma' : '/api/segui') + '?linea=' + encodeURIComponent(c.id));
+    await aggiornaStato();
+    const ora = dati.confronti.find(x => chiave(x) === scelta);
+    if (ora) scegli(ora);
+  };
+}
+
+async function aggiornaMezzi() {
+  const c = dati.confronti.find(x => chiave(x) === scelta);
+  if (!c || !dati.seguite.includes(c.id)) return;
+  mezzi = await (await fetch('/api/mezzi?linea=' + encodeURIComponent(c.id))).json();
+  stratoMezzi.clearLayers();
+  if (!mezzi.attivo) return;
+  for (const m of mezzi.mezzi) {
+    const suo = m.dir === c.percorso;
+    const colore = suo ? '#7b1fa2' : '#9e9e9e';
+    const p = m.punti.map(x => [x[0], x[1]]);
+    if (p.length > 1) L.polyline(p, {color: colore, weight: 3, opacity: suo ? .9 : .4, dashArray: suo ? null : '4 6'}).addTo(stratoMezzi);
+    for (const x of m.punti) if (x[2]) L.circleMarker([x[0], x[1]], {radius: 3, color: '#e65100', weight: 1, fillOpacity: .9}).addTo(stratoMezzi);
+    const u = p[p.length - 1];
+    L.circleMarker(u, {radius: 7, color: '#fff', weight: 2, fillColor: colore, fillOpacity: 1})
+      .bindTooltip(`mezzo ${m.id}${suo ? '' : ' (altra direzione o non chiara)'}`).addTo(stratoMezzi);
+  }
+  const mio = mezzi.confronti.find(x => x.avviso === c.avviso && x.percorso === c.percorso);
+  if (mio) {
+    for (const u of mio.uscite) L.marker(u, {icon: L.divIcon({className: '', html: '<div style="font-size:18px">⤴</div>', iconSize: [18, 18]})}).bindTooltip('un mezzo esce qui').addTo(stratoMezzi);
+    for (const r of mio.rientri) L.marker(r, {icon: L.divIcon({className: '', html: '<div style="font-size:18px">⤵</div>', iconSize: [18, 18]})}).bindTooltip('e rientra qui').addTo(stratoMezzi);
+  }
+  const el = document.getElementById('mezzi');
+  if (!el) return;
+  const agg = mezzi.ultimo ? new Date(mezzi.ultimo).toLocaleTimeString('it-IT') : '–';
+  let h = `<p class="nota">${mezzi.campioni} campioni · ultimo alle ${agg}${mezzi.feedSpento ? ' · <span class="male">il feed dei mezzi è spento</span>' : ''}</p>`;
+  if (mio) {
+    const fuoriMa = mio.punti > 20 && mio.fuori === 0;
+    h += `<table>
+      <tr><th></th><th>algoritmo 1</th><th>algoritmo 2</th></tr>
+      <tr><td>punti fuori sul rosso</td><td>${pct(mio.a1.spiegati)}</td><td>${pct(mio.a2.spiegati)}</td></tr>
+      <tr><td>rosso percorso dai mezzi</td><td>${pct(mio.a1.confermato)}</td><td>${pct(mio.a2.confermato)}</td></tr>
+    </table>
+    <p class="nota">${mio.mezzi} mezzi in questa direzione · ${mio.punti} posizioni · ${mio.fuori} fuori dal percorso normale
+    ${fuoriMa ? '<br><span class="male">Nessun mezzo esce dal percorso: la deviazione potrebbe essere finita, o non essere ancora cominciata.</span>' : ''}</p>
+    <p class="nota"><b>Punti fuori sul rosso</b>: delle posizioni in cui i mezzi stanno fuori dal percorso normale, quante cadono a meno di 40 m dal rosso. Basso vuol dire che i mezzi passano altrove.<br>
+    <b>Rosso percorso dai mezzi</b>: del rosso fuori dalla linea normale, quanto è stato percorso da un mezzo. Basso vuol dire che il rosso passa dove nessuno va; vale solo quando i mezzi hanno fatto tutta la deviazione.</p>`;
+  }
+  el.innerHTML = h;
+}
+
+document.getElementById('ricalcola').onclick = async () => {
+  await fetch('/api/ricalcola', {method: 'POST'});
+  aggiornaStato();
+};
+document.getElementById('soloInCorso').onchange = disegnaLista;
+
+aggiornaStato();
+setInterval(() => { if (dati.calcolando) aggiornaStato(); }, 5000);
+setInterval(aggiornaMezzi, 10000);
+</script>
+</body>
+</html>
