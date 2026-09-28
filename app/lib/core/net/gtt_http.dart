@@ -23,14 +23,15 @@ class GttHttp {
     return r.bodyBytes;
   }
 
-  Future<String> getText(String url) async {
-    final r = await _get(url);
+  Future<String> getText(String url, {Duration? timeout}) async {
+    final r = await _get(url, timeout: timeout);
     return r.body;
   }
 
   /// Come [getText], ma rispetta una pausa minima fra una chiamata e
   /// l'altra. Da usare per Photon e Valhalla, che sono servizi di cortesia.
-  Future<String> getTextPolite(String url) async {
+  /// [timeout] per chi ha bisogno di piu' tempo del solito (Overpass).
+  Future<String> getTextPolite(String url, {Duration? timeout}) async {
     final last = _lastPublicCall;
     if (last != null) {
       final elapsed = DateTime.now().difference(last);
@@ -39,7 +40,7 @@ class GttHttp {
       }
     }
     _lastPublicCall = DateTime.now();
-    return getText(url);
+    return getText(url, timeout: timeout);
   }
 
   /// POST con corpo JSON, per Valhalla. Rispetta la stessa pausa di
@@ -78,12 +79,12 @@ class GttHttp {
     return r.body;
   }
 
-  Future<http.Response> _get(String url) async {
+  Future<http.Response> _get(String url, {Duration? timeout}) async {
     final http.Response r;
     try {
       r = await _client
           .get(Uri.parse(url), headers: {'User-Agent': GttConfig.userAgent})
-          .timeout(GttConfig.httpTimeout);
+          .timeout(timeout ?? GttConfig.httpTimeout);
     } on Object catch (e) {
       throw GttHttpException(url, null, 'rete non raggiungibile: $e');
     }
@@ -110,6 +111,5 @@ class GttHttpException implements Exception {
   final String detail;
 
   @override
-  String toString() =>
-      'GttHttpException(${statusCode ?? "-"}) $url: $detail';
+  String toString() => 'GttHttpException(${statusCode ?? "-"}) $url: $detail';
 }

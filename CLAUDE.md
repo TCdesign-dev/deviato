@@ -86,8 +86,21 @@ servizio fino ad allora, copiato riga per riga e **da non toccare**, e
 job sceglie con la variabile di GitHub `ALGORITMO_PERCORSI` («1»
 predefinito, «2»): tornare indietro è cambiare una variabile. Ogni esito
 ricorda l'algoritmo (`algoritmo` nel file, scritto solo se è 2), e
-cambiando valore gli avvisi si rianalizzano. La tag git
+cambiando valore gli avvisi si rianalizzano: subito e gratis quelli con la
+lettura salvata, gli altri al massimo `RILETTURE_CAMBIO_ALGORITMO` per giro
+(predefinito 5) — intanto tengono l'esito vecchio, invece di restare col
+solo testo finché la quota non basta a rileggerli. La tag git
 `percorsi-algoritmo-1` fotografa il codice prima della separazione.
+
+Cosa fa il secondo in più del primo: ogni direzione col suo elenco di vie,
+e un avviso «nella sola direzione X» che non tocca l'altra (dal nome del
+capolinea o, se non basta, da dove finisce la direzione sulla mappa);
+stacco e rientro sulla linea; le tappe sono **gli incroci fra una via e la
+successiva**, calcolati sulla forma intera delle vie presa da OpenStreetMap
+con Overpass (`pipeline/vie_osm.dart`, `ricostruzione/incroci.dart`), e se
+una via manca si torna ai punti di Photon; il rosso perde i pezzi sopra la
+linea normale; tre controlli in più (inizio o fine lontani, verso
+contrario, andare e tornare) rendono il percorso «Da confermare».
 
 **La lettura del modello si pubblica** (`lettura` in ogni esito, dal
 28/09/2026): tutte le deviazioni che il modello ha trovato nel testo,
@@ -102,10 +115,11 @@ salvate (o su quelle di `--letture`, per esempio
 `tool/letture_di_prova.json`: 16 avvisi del 28/09 letti a mano da
 Claude, non dal modello del job) e scrive `build/confronto/index.html`
 con i due rossi sovrapposti. Nessuna richiesta al modello. Sulle letture
-di prova il 28/09: verso contrario 10 → 0, inizio lontano dalla linea
-10 → 0, rosso sulla linea normale 5+5 → 0, avvisi applicati a una
-direzione che GTT non tocca 4 → 0; andare e tornare 16 → 13 (li toglie
-solo il passo sugli incroci).
+di prova il 28/09, 26 direzioni: verso contrario 10 → 0, inizio lontano
+dalla linea 10 → 0, fine lontana 6 → 1, rosso sulla linea normale 5+5 →
+0, avvisi applicati a una direzione che GTT non tocca 4 → 0, andare e
+tornare 16 → 9, «Verificato» 17 → 14. I numeri del secondo cambiano un po'
+da una prova all'altra: dipendono da quanto risponde Overpass.
 
 ## 3. I fatti misurati (31/07/2026)
 
@@ -130,7 +144,7 @@ Non sono stime. Se li rimetti in discussione, rimisurali.
 | `active_period.start` negli alert | **161 su 161 nel passato** | idem |
 | Variazioni pubblicate da **entrambe** le fonti | **31 coppie** su 189 avvisi | `check_merge_offline.dart` |
 | Di queste, quelle in cui la data d'inizio cambia | **17** (fino a 3 mesi) | idem |
-| Test | **345** | `flutter test` |
+| Test | **358** | `flutter test` |
 | Somiglianza fra le vie nominate: coppie vere | **0,67 – 1,00** e ≥3 vie | idem |
 | Idem, coppie false | **0,67 con 2 vie**, o 3 vie a **0,38** | idem |
 | Data d'inizio estraibile a regex dal testo | **40%** — troppo poco | idem |
@@ -461,6 +475,29 @@ Ognuna di queste è costata tempo. Sono tutte silenziose: non danno errore.
   perché lo usano tutte e due. Il pulsante con le quattro frecce che
   inquadrava il percorso sembrava «ingrandisci»: nel dettaglio ora
   ingrandisce davvero, e l'inquadratura è rimasta a tutto schermo.
+- **In OpenStreetMap le vie non si chiamano come negli avvisi.** «via XX
+  Settembre» è «Via Venti Settembre», «via Cibrario» è «Via Luigi
+  Cibrario», corso Tassoni è quasi tutto «Corso Alessandro Tassoni», e le
+  strade attorno a piazza XVIII Dicembre si chiamano «XVIII Dicembre»,
+  senza «piazza». `ViePerNome.scomponi` mette i numeri in cifre (romani e
+  in lettere) e `abbina` accetta anche i nomi che *finiscono* con quello di
+  GTT, mai quelli che continuano dopo («via Roma» non è «via Roma Nuova»).
+- **Overpass va chiesto poco e in piccolo.** Il 28/09 dava 504 col
+  riquadro della linea intera (la S4 attraversa la città) e con più
+  richieste insieme dallo stesso indirizzo, e un'altra istanza pubblica
+  non rispondeva affatto. Ora il riquadro è la zona dei punti di Photon
+  (quelli entro 3 km dal loro centro, più un chilometro), il tempo massimo
+  60 s, c'è la riserva di VK Maps (lenta: 30 s), e se nessuno risponde per
+  il resto del giro non lo si chiama più: il job deve pubblicare. L'esito
+  resta da rifare, e la lettura salvata rende il nuovo tentativo gratuito.
+- **Il rientro non è il primo punto in cui l'ultima via tocca la linea.**
+  Via Sacchi continua in via XX Settembre: per la S4 l'ultima via deviata
+  *è* la linea normale per un lungo tratto, e il primo contatto stava a
+  trenta metri dallo stacco. Il rientro è il contatto più vicino
+  all'ultima svolta (`Incroci.contatto` con `vicino`).
+- **`dart format` su tutta `lib/` riscrive quaranta file.** Il progetto
+  non è formattato in modo uniforme: si formatta solo il file nuovo, o una
+  modifica di tre righe diventa un diff di centinaia.
 - **Gli orari programmati di GitHub sono una promessa debole.** Nelle
   prime dodici ore, coi minuti 5/25/45, sono partiti **3 giri su 27**:
   nessun errore, nessun giro annullato, semplicemente non lanciati.
@@ -571,7 +608,7 @@ Per non fraintendere quello che c'è in `config.dart`:
 ## 8. Come si lavora
 
 ```bash
-cd app && flutter test          # 345 test, devono passare tutti
+cd app && flutter test          # 358 test, devono passare tutti
 cd app && flutter analyze       # deve essere pulito
 ```
 
@@ -642,4 +679,4 @@ facendo gli screenshot troppo presto.
 
 ---
 
-*Ultimo aggiornamento: 28 settembre 2026. 345 test.*
+*Ultimo aggiornamento: 28 settembre 2026. 358 test.*

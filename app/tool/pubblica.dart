@@ -16,7 +16,11 @@
 //                           ricostruisce i percorsi deviati. Il primo e'
 //                           quello in servizio fino al 28/09/2026, il
 //                           secondo la sua copia da migliorare. Cambiando
-//                           valore gli avvisi si rianalizzano.
+//                           valore gli avvisi si rianalizzano: subito quelli
+//                           con la lettura salvata, gli altri pochi per giro.
+//   RILETTURE_CAMBIO_ALGORITMO  quanti avvisi dell'altro algoritmo senza
+//                           lettura salvata rileggere per giro (predefinito
+//                           5): gli altri tengono l'esito vecchio.
 //   USA_TABELLA_VARIAZIONI  "true" per usare anche la tabella del sito GTT.
 //                           Spenta di proposito: i dati aperti con licenza
 //                           sono il GTFS e il GTFS-RT; la tabella sta sul
@@ -100,7 +104,13 @@ Future<void> main(List<String> args) async {
   _log('algoritmo dei percorsi: ${algoritmo.numero}');
   final giro = await Pubblicatore(
     index: index,
-    service: DeviationService(index: index, llm: llm, algoritmo: algoritmo),
+    service: DeviationService(
+      index: index,
+      llm: llm,
+      algoritmo: algoritmo,
+      rilettureCambioAlgoritmo:
+          int.tryParse(env['RILETTURE_CAMBIO_ALGORITMO'] ?? '') ?? 5,
+    ),
   ).calcola(avvisi: avvisi, precedenti: precedenti, log: _log);
 
   // 5. I file.

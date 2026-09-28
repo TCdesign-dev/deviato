@@ -9,7 +9,7 @@ la mia fermata è ancora servita?**
 [![Licenza: MIT](https://img.shields.io/badge/licenza-MIT-blue.svg)](LICENSE)
 [![Piattaforme](https://img.shields.io/badge/piattaforme-iOS%20%7C%20Android-lightgrey.svg)](#-scaricala)
 [![Flutter](https://img.shields.io/badge/Flutter-Dart%203.12+-02569B.svg)](https://flutter.dev)
-[![Test](https://img.shields.io/badge/test-345-brightgreen.svg)](#-sviluppo)
+[![Test](https://img.shields.io/badge/test-358-brightgreen.svg)](#-sviluppo)
 [![Dati: CC-BY](https://img.shields.io/badge/dati%20GTT-CC--BY-orange.svg)](https://www.gtt.to.it/cms/openday/open-data)
 
 <img src="docs/img/linea-65.png" width="320"
@@ -265,6 +265,7 @@ fuori-rotta (50 m misurati contro 80 stimati) e il buffer del geocoding
 | `vehicle_position.aspx` | posizioni dei mezzi | si spegne di notte, il servizio no |
 | [Photon](https://photon.komoot.io/) | geocoding | nessuna chiave richiesta |
 | [Valhalla](https://valhalla1.openstreetmap.de/) (FOSSGIS) | routing `costing: bus` | polilinee a precisione 6 |
+| [Overpass](https://overpass-api.de/) (FOSSGIS, riserva VK Maps) | forma intera delle vie degli avvisi, per gli incroci (algoritmo 2) | nessuna chiave; può essere lento |
 | [OpenRouter](https://openrouter.ai) | estrazione dal testo | chiave del job, segreto di GitHub Actions |
 
 L'OTP di GTT — che il progetto originale indicava come fonte primaria — è
@@ -310,7 +311,7 @@ Il codice è lo stesso per iOS e Android: `lib/core/` è Dart puro e non sa
 su cosa sta girando.
 
 ```bash
-cd app && flutter test      # 345 test
+cd app && flutter test      # 358 test
 cd app && flutter analyze
 cd app && flutter run       # legge i dati pubblicati, nessuna chiave
 ```
@@ -403,8 +404,9 @@ progetto che credo valga di più.
 | 🗺️ Cartografia | **OpenStreetMap**, ODbL; immagini della cartina di **[CARTO](https://carto.com/attribution/)** (Positron e Dark Matter) |
 | 🧭 Routing | **Valhalla** ospitato da [FOSSGIS](https://valhalla1.openstreetmap.de/) |
 | 📍 Geocoding | **[Photon](https://photon.komoot.io/)** di Komoot |
+| 🛣️ Vie per nome | **Overpass**, istanze pubbliche di [FOSSGIS](https://overpass-api.de/) e VK Maps, sui dati OpenStreetMap |
 
-Photon e Valhalla sono servizi offerti gratuitamente alla comunità. Li
+Photon, Valhalla e Overpass sono servizi offerti gratuitamente alla comunità. Li
 chiama solo il job, per gli avvisi nuovi: qualche decina di richieste al
 giorno, con pause fra le chiamate, uno User-Agent riconoscibile e
 l'intestazione `X-Client-Id` che FOSSGIS chiede alle app pubblicate.

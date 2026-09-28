@@ -208,7 +208,7 @@ class _FakeHttp extends GttHttp {
   int calls = 0;
 
   @override
-  Future<String> getTextPolite(String url) async {
+  Future<String> getTextPolite(String url, {Duration? timeout}) async {
     calls++;
     return body;
   }
@@ -216,6 +216,6 @@ class _FakeHttp extends GttHttp {
 
 class _FailingHttp extends GttHttp {
   @override
-  Future<String> getTextPolite(String url) async =>
+  Future<String> getTextPolite(String url, {Duration? timeout}) async =>
       throw GttHttpException(url, 503, 'servizio non disponibile');
 }

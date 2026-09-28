@@ -28,6 +28,7 @@ import 'package:gtt_deviazioni/core/pipeline/extractor.dart';
 import 'package:gtt_deviazioni/core/pipeline/geocoder.dart';
 import 'package:gtt_deviazioni/core/pipeline/route_builder.dart';
 import 'package:gtt_deviazioni/core/pipeline/stop_impact.dart';
+import 'package:gtt_deviazioni/core/pipeline/vie_osm.dart';
 import 'package:gtt_deviazioni/core/ricostruzione/rifinitura.dart';
 import 'package:gtt_deviazioni/core/ricostruzione/ricostruzione.dart';
 import 'package:gtt_deviazioni/core/ricostruzione/ricostruzione_1.dart';
@@ -74,9 +75,11 @@ Future<void> main(List<String> args) async {
     if (stato == null) continue;
     final avvisi = (stato['avvisi'] as List).cast<Map<String, dynamic>>();
     // Si scarica il resto solo se c'e' qualcosa da confrontare.
-    final conLettura = avvisi.any((a) =>
-        a['lettura'] != null ||
-        diProva.containsKey((a['avviso'] as Map)['id']));
+    final conLettura = avvisi.any(
+      (a) =>
+          a['lettura'] != null ||
+          diProva.containsKey((a['avviso'] as Map)['id']),
+    );
     if (!conLettura) continue;
     final percorsi = await scarica('percorsi/$nome');
     if (percorsi == null) continue;
@@ -91,13 +94,24 @@ Future<void> main(List<String> args) async {
           for (final f in s.stops) f.id: f,
       },
     );
-    final letto = FormatoPubblicato.leggiStato(stato, index,
-        controllata: DateTime.now());
+    final letto = FormatoPubblicato.leggiStato(
+      stato,
+      index,
+      controllata: DateTime.now(),
+    );
     if (letto == null) continue;
     final impatto = StopImpactAnalyzer(index: index);
-    final algoritmi = <int, Ricostruzione>{
+    // Un collegamento a Overpass per avviso: nel job, se non risponde,
+    // si smette di chiamarlo per tutto il giro; qui un errore passeggero
+    // spegnerebbe gli incroci per tutti i confronti.
+    Map<int, Ricostruzione> algoritmi() => {
       1: Ricostruzione1(geocoder: geocoder, router: router, impact: impatto),
-      2: Ricostruzione2(geocoder: geocoder, router: router, impact: impatto),
+      2: Ricostruzione2(
+        geocoder: geocoder,
+        router: router,
+        impact: impatto,
+        vie: ViePerNome(),
+      ),
     };
     final andata = index.mainShape(linea.routeId, 0);
     final ritorno = index.mainShape(linea.routeId, 1);
@@ -106,29 +120,39 @@ Future<void> main(List<String> args) async {
     for (final r in letto.reports) {
       final notice = r.notice;
       if (!visti.add(notice.id)) continue;
-      final letture = diProva[notice.id] ??
-          (r.letture.isNotEmpty ? r.letture : null);
+      final letture =
+          diProva[notice.id] ?? (r.letture.isNotEmpty ? r.letture : null);
       if (letture == null) continue;
-      final lettura =
-          ExtractionResult(status: ExtractionStatus.ok, deviations: letture);
-      final candidate =
-          DeviationService.shapesConcernedBy(notice, andata, ritorno);
+      final lettura = ExtractionResult(
+        status: ExtractionStatus.ok,
+        deviations: letture,
+      );
+      final perAvviso = algoritmi();
+      final candidate = DeviationService.shapesConcernedBy(
+        notice,
+        andata,
+        ritorno,
+      );
       // Come nel job: il secondo algoritmo scarta le direzioni che la
       // lettura esclude.
       final perIlSecondo = {
-        for (final s in await (algoritmi[2]! as FiltroDirezioni)
-            .direzioniDi(notice, candidate, lettura))
+        for (final s in await (perAvviso[2]! as FiltroDirezioni).direzioniDi(
+          notice,
+          candidate,
+          lettura,
+        ))
           s.shapeId,
       };
       for (final shape in candidate) {
         final esiti = <int, DeviationReport>{};
-        for (final e in algoritmi.entries) {
+        for (final e in perAvviso.entries) {
           esiti[e.key] = e.key == 2 && !perIlSecondo.contains(shape.shapeId)
               ? DeviationReport(
                   notice: notice,
                   shape: shape,
                   confidence: Confidence.confermata,
-                  whyIncomplete: 'Non riguarda questa direzione: '
+                  whyIncomplete:
+                      'Non riguarda questa direzione: '
                       'il secondo algoritmo non la analizza.',
                 )
               : await e.value.analizza(notice, shape, lettura);
@@ -140,8 +164,7 @@ Future<void> main(List<String> args) async {
           'direzione': shape.headsign,
           'testo': notice.fullText,
           'normale': _coppie(shape.points),
-          for (final e in esiti.entries)
-            'a${e.key}': _misura(e.value, shape),
+          for (final e in esiti.entries) 'a${e.key}': _misura(e.value, shape),
         };
         righe.add(riga);
         stdout.writeln(_rigaTabella(riga));
@@ -157,22 +180,28 @@ Future<void> main(List<String> args) async {
     ('andare e tornare >= 100 m', (m) => (m['ripercorso'] as int) >= 100),
     ('inizio a oltre 50 m', (m) => (m['inizio'] as int) > 50),
     ('fine a oltre 50 m', (m) => (m['fine'] as int) > 50),
-    ('rosso sulla linea >= 300 m in testa',
-        (m) => (m['sopraInTesta'] as int) >= 300),
-    ('rosso sulla linea >= 300 m in coda',
-        (m) => (m['sopraInCoda'] as int) >= 300),
+    (
+      'rosso sulla linea >= 300 m in testa',
+      (m) => (m['sopraInTesta'] as int) >= 300,
+    ),
+    (
+      'rosso sulla linea >= 300 m in coda',
+      (m) => (m['sopraInCoda'] as int) >= 300,
+    ),
     ('verso contrario', (m) => m['contrario'] == true),
     ('Verificato', (m) => m['affidabilita'] == 'confermata'),
   ]) {
-    int conta(String a) => righe
-        .where((r) => prova(r[a] as Map<String, Object?>))
-        .length;
-    stdout.writeln('$nome: algoritmo 1 ${conta('a1')}, algoritmo 2 ${conta('a2')}');
+    int conta(String a) =>
+        righe.where((r) => prova(r[a] as Map<String, Object?>)).length;
+    stdout.writeln(
+      '$nome: algoritmo 1 ${conta('a1')}, algoritmo 2 ${conta('a2')}',
+    );
   }
 
   uscita.createSync(recursive: true);
-  File('${uscita.path}/index.html')
-      .writeAsStringSync(_pagina.replaceFirst('/*DATI*/', jsonEncode(righe)));
+  File(
+    '${uscita.path}/index.html',
+  ).writeAsStringSync(_pagina.replaceFirst('/*DATI*/', jsonEncode(righe)));
   stdout.writeln('pagina: ${uscita.path}/index.html');
 }
 
@@ -233,9 +262,8 @@ String _rigaTabella(Map<String, Object?> r) {
 }
 
 List<List<double>> _coppie(List<GeoPoint> g) => [
-      for (final p in g)
-        [(p.lat * 1e5).round() / 1e5, (p.lon * 1e5).round() / 1e5],
-    ];
+  for (final p in g) [(p.lat * 1e5).round() / 1e5, (p.lon * 1e5).round() / 1e5],
+];
 
 String? _arg(List<String> args, String nome) {
   final i = args.indexOf(nome);

@@ -581,6 +581,22 @@ void main() {
           ],
         );
 
+    test('cambiando algoritmo, senza lettura salvata e senza riletture '
+        'concesse, si tiene l\'esito vecchio', () async {
+      // Rileggere tutto insieme mangerebbe la quota e lascerebbe le linee
+      // col solo testo: l'avviso aspetta il suo turno.
+      final llm = _LlmSpento();
+      final status = await DeviationService(
+        index: index,
+        llm: llm,
+        algoritmo: AlgoritmoPercorsi.secondo,
+        rilettureCambioAlgoritmo: 0,
+      ).statusOf(linea,
+          allNotices: [avviso()], previous: precedente(retryable: false));
+      expect(llm.richieste, isZero);
+      expect(status.reports.every((r) => r.algoritmo == 1), isTrue);
+    });
+
     test('cambiando algoritmo la lettura salvata si riusa, senza modello',
         () async {
       final llm = _LlmSpento();

@@ -7,7 +7,10 @@ import '../pipeline/geocoder.dart';
 import '../pipeline/rejoin_inference.dart';
 import '../pipeline/route_builder.dart';
 import '../config.dart';
+import '../net/gtt_http.dart';
 import '../pipeline/stop_impact.dart';
+import '../pipeline/vie_osm.dart';
+import 'incroci.dart';
 import 'ricostruzione.dart';
 import 'rifinitura.dart';
 import 'scelta_direzione.dart';
@@ -29,6 +32,9 @@ import 'scelta_direzione.dart';
 /// - lo stacco e il rientro dichiarato si agganciano alla linea normale, e
 ///   il punto trovato per la via dello stacco non diventa una tappa: e' una
 ///   via lunga quanto la linea, e il suo punto cade dove capita;
+/// - le tappe sono gli incroci fra una via e la successiva, calcolati
+///   sulla forma intera delle vie presa da OpenStreetMap ([ViePerNome],
+///   [Incroci]); se una via manca, si torna ai punti di Photon;
 /// - il rosso perde i pezzi che corrono sopra la linea normale;
 /// - tre controlli in piu' ([Rifinitura.controlla]): inizio o fine lontani
 ///   dalla linea, verso contrario, andare e tornare sulla stessa via.
@@ -37,7 +43,10 @@ class Ricostruzione2 implements Ricostruzione, FiltroDirezioni {
     required this._geocoder,
     required this._router,
     required this._impact,
-  });
+    ViePerNome? vie,
+  }) : _vie = vie ?? ViePerNome();
+
+  final ViePerNome _vie;
 
   final Geocoder _geocoder;
   final RouteBuilder _router;
@@ -201,17 +210,46 @@ class Ricostruzione2 implements Ricostruzione, FiltroDirezioni {
 
     final cercate = await _cerca(parsed, shape, onProgress);
     var points = cercate.punti;
-    final unresolved = cercate.nonTrovate;
     // Photon non raggiungibile non e' «via non trovata»: si ritenta.
     final geocodingInErrore = cercate.inErrore;
-    if (points.length < 2) {
+
+    // 2-ter. Le vie intere, per gli incroci. Se Overpass non risponde si
+    // resta sui punti di Photon: e' un miglioramento, non un requisito.
+    var intere = const <String, List<List<GeoPoint>>>{};
+    var overpassGiu = false;
+    try {
+      onProgress?.call('forma delle vie');
+      intere = await _vie.cerca(
+        [
+          ?parsed.detachStreet,
+          ?parsed.detachCrossStreet,
+          ...parsed.viaSequence,
+          ?parsed.rejoinStreet,
+        ],
+        shape,
+        attorno: points,
+      );
+    } on GttHttpException {
+      // Si va avanti coi punti, e al prossimo giro si riprova: la lettura
+      // e' salvata, rifare l'analisi non costa richieste al modello.
+      overpassGiu = true;
+    }
+    bool intera(String t) => (intere[t] ?? const []).isNotEmpty;
+    // Una via che Photon non trova ma OpenStreetMap si': «corso Vittorio
+    // Emanuele II» per la 92, il 28/09.
+    final unresolved = [
+      for (final t in cercate.nonTrovate)
+        if (!intera(t)) t,
+    ];
+    final incroci = parsed.viaSequence.every(intera);
+    if (points.length < 2 && !incroci) {
       return DeviationReport(
         notice: notice,
         shape: shape,
         parsed: parsed,
         confidence: Confidence.soloTesto,
         whyIncomplete: 'Vie non trovate sulla mappa: ${unresolved.join(", ")}.',
-        retryable: geocodingInErrore,
+        retryable: geocodingInErrore || overpassGiu,
       );
     }
 
@@ -226,60 +264,48 @@ class Ricostruzione2 implements Ricostruzione, FiltroDirezioni {
     // del rientro, che sta sulla linea: il rientro si deduce.
     var girato = false;
     var rientroDichiarato = parsed.rejoinStreet != null;
-    if (!esplicita && _alContrario(points, shape)) {
+    if (!esplicita && points.length >= 2 && _alContrario(points, shape)) {
       points = points.reversed.toList();
       girato = true;
       rientroDichiarato = false;
     }
 
-    // Lo stacco sta sulla linea normale, per definizione: «da corso
-    // Vittorio» vuol dire dal punto in cui il bus lascia corso Vittorio.
-    // Il punto che Photon da' per una via lunga cade dove capita — la 9
-    // partiva 547 m piu' in la' — e si aggancia alla linea.
-    final stacco = Rifinitura.aggancia(points.first, shape);
-    final staccoSullaLinea = stacco.distanza <= GttConfig.geocodeBufferMeters;
-    final primo = staccoSullaLinea ? stacco.punto : points.first;
-
+    // Le tappe: prima dagli incroci, se OpenStreetMap ha tutte le vie in
+    // mezzo; altrimenti dai punti di Photon agganciati alla linea.
+    final dagliIncroci = incroci
+        ? _tappeDagliIncroci(parsed, shape, intere, girato: girato)
+        : null;
+    final List<GeoPoint> waypoints;
+    final List<GeoPoint> inMezzo;
     final RejoinPoint rejoin;
-    if (rientroDichiarato) {
-      // GTT l'ha detto. Anche qui si aggancia alla linea, a valle dello
-      // stacco: e' li' che il bus riprende il percorso normale.
-      final r = Rifinitura.aggancia(
-        points.last,
-        shape,
-        daMetri: staccoSullaLinea ? stacco.metri : 0,
-      );
+    if (dagliIncroci != null) {
+      waypoints = dagliIncroci.tappe;
+      inMezzo = waypoints.sublist(1, waypoints.length - 1);
       rejoin = RejoinPoint(
-        source: RejoinSource.dichiarato,
-        point: r.distanza <= GttConfig.geocodeBufferMeters
-            ? r.punto
-            : points.last,
-        alongMeters: r.metri,
-        metersFromRoute: r.distanza,
+        source: rientroDichiarato
+            ? RejoinSource.dichiarato
+            : RejoinSource.dedotto,
+        point: waypoints.last,
+        alongMeters: dagliIncroci.rientroMetri,
+        metersFromRoute: 0,
       );
     } else {
-      rejoin = RejoinInference.infer(
-        officialRoute: shape,
-        detachPoint: points.first,
-        lastVia: points.last,
-      );
+      if (points.length < 2) {
+        return DeviationReport(
+          notice: notice,
+          shape: shape,
+          parsed: parsed,
+          confidence: Confidence.soloTesto,
+          whyIncomplete:
+              'Vie non trovate sulla mappa: ${unresolved.join(", ")}.',
+          retryable: geocodingInErrore || overpassGiu,
+        );
+      }
+      final t = _tappeDaiPunti(points, shape, rientroDichiarato);
+      waypoints = t.tappe;
+      inMezzo = t.inMezzo;
+      rejoin = t.rientro;
     }
-
-    // Le tappe: lo stacco sulla linea, le vie in mezzo, il rientro. Le vie
-    // in mezzo restano punti di Photon: il passo che le sostituira' con gli
-    // incroci fra una via e l'altra deve ancora venire.
-    final inMezzo = points.sublist(
-      1,
-      rientroDichiarato ? points.length - 1 : points.length,
-    );
-    final waypoints = [
-      primo,
-      ...inMezzo,
-      if (rejoin.isUsable)
-        rejoin.point!
-      else if (rientroDichiarato)
-        points.last,
-    ];
 
     // 3. Punti -> percorso vero, con le cinque prove.
     onProgress?.call('calcolo del percorso');
@@ -299,7 +325,10 @@ class Ricostruzione2 implements Ricostruzione, FiltroDirezioni {
         rejoin: rejoin,
         confidence: Confidence.soloTesto,
         whyIncomplete: 'Non è stato possibile calcolare il percorso deviato.',
-        retryable: geocodingInErrore || route.status == RouteBuildStatus.error,
+        retryable:
+            geocodingInErrore ||
+            overpassGiu ||
+            route.status == RouteBuildStatus.error,
       );
     }
 
@@ -330,7 +359,7 @@ class Ricostruzione2 implements Ricostruzione, FiltroDirezioni {
             ? Confidence.probabile
             : Confidence.soloTesto,
         whyIncomplete: 'Non è stato possibile calcolare il percorso deviato.',
-        retryable: geocodingInErrore,
+        retryable: geocodingInErrore || overpassGiu,
       );
     }
     final problemi = Rifinitura.controlla(rifinita, shape);
@@ -373,7 +402,7 @@ class Ricostruzione2 implements Ricostruzione, FiltroDirezioni {
             ].join(' '),
       // Una via non trovata perche' Photon non rispondeva potrebbe
       // completare il percorso al prossimo giro.
-      retryable: geocodingInErrore,
+      retryable: geocodingInErrore || overpassGiu,
     );
   }
 
@@ -454,6 +483,148 @@ class Ricostruzione2 implements Ricostruzione, FiltroDirezioni {
   }
 
   static const _capolineaVicino = 3000.0;
+
+  /// Le tappe dai punti di Photon: lo stacco agganciato alla linea, le vie
+  /// in mezzo come punti, il rientro dichiarato agganciato o dedotto.
+  ({List<GeoPoint> tappe, List<GeoPoint> inMezzo, RejoinPoint rientro})
+  _tappeDaiPunti(
+    List<GeoPoint> points,
+    RouteShape shape,
+    bool rientroDichiarato,
+  ) {
+    // Lo stacco sta sulla linea normale, per definizione: «da corso
+    // Vittorio» vuol dire dal punto in cui il bus lascia corso Vittorio.
+    // Il punto che Photon da' per una via lunga cade dove capita — la 9
+    // partiva 547 m piu' in la' — e si aggancia alla linea.
+    final stacco = Rifinitura.aggancia(points.first, shape);
+    final staccoSullaLinea = stacco.distanza <= GttConfig.geocodeBufferMeters;
+    final primo = staccoSullaLinea ? stacco.punto : points.first;
+
+    final RejoinPoint rejoin;
+    if (rientroDichiarato) {
+      // GTT l'ha detto. Anche qui si aggancia alla linea, a valle dello
+      // stacco: e' li' che il bus riprende il percorso normale.
+      final r = Rifinitura.aggancia(
+        points.last,
+        shape,
+        daMetri: staccoSullaLinea ? stacco.metri : 0,
+      );
+      rejoin = RejoinPoint(
+        source: RejoinSource.dichiarato,
+        point: r.distanza <= GttConfig.geocodeBufferMeters
+            ? r.punto
+            : points.last,
+        alongMeters: r.metri,
+        metersFromRoute: r.distanza,
+      );
+    } else {
+      rejoin = RejoinInference.infer(
+        officialRoute: shape,
+        detachPoint: points.first,
+        lastVia: points.last,
+      );
+    }
+
+    // Le tappe: lo stacco sulla linea, le vie in mezzo, il rientro.
+    final inMezzo = points.sublist(
+      1,
+      rientroDichiarato ? points.length - 1 : points.length,
+    );
+    final waypoints = [
+      primo,
+      ...inMezzo,
+      if (rejoin.isUsable)
+        rejoin.point!
+      else if (rientroDichiarato)
+        points.last,
+    ];
+
+    return (tappe: waypoints, inMezzo: inMezzo, rientro: rejoin);
+  }
+
+  /// Le tappe dagli incroci: dove il bus lascia la linea, dove gira da una
+  /// via nella successiva, dove torna sulla linea. null se una svolta non
+  /// si trova: allora si usano i punti.
+  ({List<GeoPoint> tappe, double rientroMetri})? _tappeDagliIncroci(
+    ParsedDeviation parsed,
+    RouteShape shape,
+    Map<String, List<List<GeoPoint>>> intere, {
+    required bool girato,
+  }) {
+    List<List<GeoPoint>> g(String? n) =>
+        n == null ? const [] : intere[n] ?? const [];
+    final vie = girato
+        ? parsed.viaSequence.reversed.toList()
+        : parsed.viaSequence;
+    if (vie.isEmpty || vie.any((v) => g(v).isEmpty)) return null;
+
+    // Lo stacco: l'incrocio fra la via dello stacco e quella indicata con
+    // «angolo», o la prima deviata. «Da corso Vittorio Emanuele II angolo
+    // corso Vinzaglio». Deve stare sulla linea.
+    GeoPoint? stacco;
+    double? staccoMetri;
+    final dove = parsed.detachStreet;
+    final angolo = parsed.detachCrossStreet ?? vie.first;
+    if (!girato &&
+        dove != null &&
+        ViePerNome.scomponi(dove) != ViePerNome.scomponi(angolo)) {
+      final x = Incroci.incrocio(g(dove), g(angolo));
+      if (x != null) {
+        final a = Rifinitura.aggancia(x, shape);
+        if (a.distanza <= _staccoSullaLinea) {
+          stacco = a.punto;
+          staccoMetri = a.metri;
+        }
+      }
+    }
+    if (stacco == null) {
+      // Senza incrocio: dove la prima via deviata tocca la linea.
+      final c = Incroci.contatto(g(vie.first), shape);
+      if (c == null) return null;
+      stacco = c.punto;
+      staccoMetri = c.metri;
+    }
+
+    final tappe = [stacco];
+    var prima = stacco;
+    for (var i = 0; i < vie.length - 1; i++) {
+      final x =
+          Incroci.incrocio(g(vie[i]), g(vie[i + 1]), vicino: prima) ??
+          Incroci.piuVicino(g(vie[i + 1]), prima);
+      if (x == null) return null;
+      tappe.add(x);
+      prima = x;
+    }
+
+    // Il rientro: dove la via del rientro, o l'ultima deviata, torna sulla
+    // linea, a valle dello stacco.
+    final String ultima;
+    if (!girato &&
+        parsed.rejoinStreet != null &&
+        g(parsed.rejoinStreet).isNotEmpty) {
+      ultima = parsed.rejoinStreet!;
+    } else if (girato && dove != null && g(dove).isNotEmpty) {
+      ultima = dove;
+    } else {
+      ultima = vie.last;
+    }
+    final r = Incroci.contatto(
+      g(ultima),
+      shape,
+      daMetri: staccoMetri! + _avanti,
+      vicino: prima,
+    );
+    if (r == null) return null;
+    tappe.add(r.punto);
+    return (tappe: tappe, rientroMetri: r.metri);
+  }
+
+  /// Oltre questa distanza dalla linea l'incrocio dello stacco non e' dove
+  /// il bus la lascia.
+  static const _staccoSullaLinea = 80.0;
+
+  /// Il rientro sta almeno cosi' avanti allo stacco.
+  static const _avanti = 30.0;
 
   /// Le vie di [parsed] sulla mappa, nell'ordine dell'avviso.
   Future<({List<GeoPoint> punti, List<String> nonTrovate, bool inErrore})>

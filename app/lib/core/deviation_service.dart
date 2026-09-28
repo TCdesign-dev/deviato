@@ -225,7 +225,9 @@ class DeviationService {
     AlertsSource? alerts,
     VariazioniSource? variazioni,
     this.algoritmo = AlgoritmoPercorsi.primo,
-  })  : _extractor = NoticeExtractor(llm: llm),
+    int rilettureCambioAlgoritmo = 5,
+  })  : _rilettureConcesse = rilettureCambioAlgoritmo,
+        _extractor = NoticeExtractor(llm: llm),
         _alerts = alerts ?? AlertsSource(),
         _variazioni = variazioni ?? VariazioniSource(),
         _resolver = LineResolver(index),
@@ -244,6 +246,16 @@ class DeviationService {
 
   /// Quale algoritmo calcola i percorsi deviati: vedi [AlgoritmoPercorsi].
   final AlgoritmoPercorsi algoritmo;
+
+  /// Quanti avvisi calcolati dall'altro algoritmo, e senza la lettura
+  /// salvata, si possono ancora rileggere col modello in questo giro.
+  ///
+  /// Cambiare algoritmo non deve mangiarsi la quota: con cinquanta letture
+  /// al giorno e centocinquanta avvisi in corso, rileggerli tutti insieme
+  /// lascerebbe per giorni le linee col solo testo di GTT. Gli avvisi con
+  /// la lettura salvata si rifanno subito e gratis; gli altri tengono
+  /// l'esito vecchio e passano al nuovo algoritmo pochi alla volta.
+  int _rilettureConcesse;
   final NoticeExtractor _extractor;
   final AlertsSource _alerts;
   final VariazioniSource _variazioni;
@@ -356,8 +368,20 @@ class DeviationService {
       // saltate sono quelle dell'altro senso di marcia.
       final direzioni = shapesConcernedBy(notice, andata, ritorno);
 
+      final prima = previous?.reports.where((r) => r.notice.id == notice.id);
+      final altroAlgoritmo =
+          prima != null && prima.any((r) => r.algoritmo != algoritmo.numero);
+      var tieniAltroAlgoritmo = false;
+      if (altroAlgoritmo && _letturaSalvata(notice, previous) == null) {
+        if (_rilettureConcesse > 0) {
+          _rilettureConcesse--;
+        } else {
+          tieniAltroAlgoritmo = true;
+        }
+      }
       final gia = _giaLetto(notice, direzioni, previous, algoritmo.numero,
-          bastaUnaParte: _ricostruzione is FiltroDirezioni);
+          bastaUnaParte: _ricostruzione is FiltroDirezioni,
+          anchePerAltroAlgoritmo: tieniAltroAlgoritmo);
       if (gia != null) {
         onProgress?.call('$quale · già letto');
         reports.addAll(gia);
@@ -432,12 +456,16 @@ class DeviationService {
     LineStatus? previous,
     int algoritmo, {
     bool bastaUnaParte = false,
+    bool anchePerAltroAlgoritmo = false,
   }) {
     if (previous == null) return null;
     final prima =
         previous.reports.where((r) => r.notice.id == notice.id).toList();
     if (prima.isEmpty || prima.any((r) => r.retryable)) return null;
-    if (prima.any((r) => r.algoritmo != algoritmo)) return null;
+    if (!anchePerAltroAlgoritmo &&
+        prima.any((r) => r.algoritmo != algoritmo)) {
+      return null;
+    }
     final n = prima.first.notice;
     final uguale = n.text == notice.text &&
         n.headline == notice.headline &&

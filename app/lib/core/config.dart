@@ -29,6 +29,29 @@ class GttConfig {
   /// E' un servizio di cortesia: nessuna garanzia, serve sempre il ripiego.
   static const valhallaUrl = 'https://valhalla1.openstreetmap.de/route';
 
+  /// Overpass di FOSSGIS: i dati di OpenStreetMap interrogabili, gratuiti,
+  /// senza chiave ne' account. Le regole d'uso chiedono di restare sotto
+  /// le 10.000 richieste al giorno; il job ne fa una per avviso nuovo.
+  /// Serve a prendere la forma intera delle vie nominate negli avvisi, non
+  /// un punto solo (vedi ViePerNome).
+  static const overpassUrl = 'https://overpass-api.de/api/interpreter';
+
+  /// Se il primo e' troppo carico (429, 504: visti il 28/09) si prova un
+  /// altro server Overpass pubblico e gratuito, con gli stessi dati: quello
+  /// di VK Maps, fra le istanze pubbliche elencate sul wiki di
+  /// OpenStreetMap. Il 28/09 rispondeva mentre gli altri no, ma in 30 s.
+  static const overpassRiserva =
+      'https://maps.mail.ru/osm/tools/overpass/api/interpreter';
+
+  /// Overpass puo' metterci piu' degli altri servizi: la ricerca per nome
+  /// scorre tutte le vie di un riquadro.
+  static const overpassTimeout = Duration(seconds: 60);
+
+  /// Attorno al percorso di una linea, quanto lontano si cercano le vie
+  /// di un avviso. Una deviazione si allontana dalla linea; oltre il
+  /// chilometro e mezzo si pescano vie omonime di altri quartieri.
+  static const vieOsmMargineMetri = 1000.0;
+
   /// Identificati verso GTT e i servizi pubblici: se vogliono contattarti
   /// devono poterlo fare. Il contatto e' il repository, non un indirizzo
   /// personale: il codice e' pubblico, e le richieste ora partono anche
