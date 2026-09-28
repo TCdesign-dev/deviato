@@ -1247,25 +1247,32 @@ class SegnoFermata extends CustomPainter {
     );
     final g = gradi;
     if (g == null) return;
-    // Sullo schermo y cresce verso il basso: il nord e' -y. Una punta di
-    // freccia piena, con la coda incavata: si legge anche a 17 punti.
-    final a = g * math.pi / 180;
-    final l = r - spessore - 1;
-    Offset verso(double angolo, double d) =>
-        c + Offset(math.sin(angolo), -math.cos(angolo)) * d;
-    final cima = verso(a, l);
-    final destra = verso(a + 2.45, l);
-    final sinistra = verso(a - 2.45, l);
-    final coda = verso(a + math.pi, l * 0.35);
+    // Una freccia vera, asta e punta, come quelle dei cartelli: la punta
+    // da sola, col retro incavato, sembrava una punta di lancia. Si
+    // disegna verso l'alto (il nord, perche' sullo schermo y cresce verso
+    // il basso) e si gira della rotta.
+    final l = r - spessore - 1.2;
+    canvas
+      ..save()
+      ..translate(c.dx, c.dy)
+      ..rotate(g * math.pi / 180);
+    canvas.drawLine(
+      Offset(0, l * 0.9),
+      Offset(0, -l * 0.15),
+      Paint()
+        ..color = colore
+        ..strokeWidth = math.max(1.6, r * 0.2)
+        ..strokeCap = StrokeCap.round,
+    );
     canvas.drawPath(
       ui.Path()
-        ..moveTo(cima.dx, cima.dy)
-        ..lineTo(destra.dx, destra.dy)
-        ..lineTo(coda.dx, coda.dy)
-        ..lineTo(sinistra.dx, sinistra.dy)
+        ..moveTo(0, -l)
+        ..lineTo(l * 0.62, -l * 0.08)
+        ..lineTo(-l * 0.62, -l * 0.08)
         ..close(),
       Paint()..color = colore,
     );
+    canvas.restore();
   }
 
   @override
