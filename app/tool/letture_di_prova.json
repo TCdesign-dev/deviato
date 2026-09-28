@@ -1,0 +1,110 @@
+{
+  "_nota": "Letture di 16 avvisi veri del 28/09/2026, scritte a mano da Claude nel formato del modello (NoticeExtractor.responseSchema) seguendo le sue regole, per confrontare i due algoritmi prima che il job abbia salvato letture sue. Non sono del modello del job: vanno prese come prova, non come verita'.",
+  "alert-6aa2a2bc22bb480c377bee29": [
+    {"deviation_type": "deviazione", "lines": ["9"], "direction_desc": "Direzione piazza Stampalia",
+     "detach_point": {"street": "corso Vittorio Emanuele II", "cross_street": "corso Vinzaglio"},
+     "via_sequence": [{"street": "corso Vinzaglio"}, {"street": "via Cernaia"}, {"street": "piazza XVIII Dicembre"}, {"street": "corso San Martino"}, {"street": "piazza Statuto"}, {"street": "via Cibrario"}, {"street": "corso Tassoni"}]},
+    {"deviation_type": "deviazione", "lines": ["9"], "direction_desc": "Direzione corso Massimo D’Azeglio",
+     "detach_point": {"street": "corso Tassoni", "cross_street": "via Cibrario"},
+     "via_sequence": [{"street": "via Cibrario"}, {"street": "piazza Statuto"}, {"street": "corso San Martino"}, {"street": "piazza XVIII Dicembre"}, {"street": "via Cernaia"}, {"street": "corso Vinzaglio"}, {"street": "corso Vittorio Emanuele II"}]}
+  ],
+  "alert-6a7eb90022bb480c377b2988": [
+    {"deviation_type": "deviazione", "lines": ["S4"], "direction_desc": "direzione piazza Vittorio Veneto",
+     "detach_point": {"street": "via Sacchi", "cross_street": "corso Vittorio Emanuele II"},
+     "via_sequence": [{"street": "corso Vittorio Emanuele II"}, {"street": "corso Re Umberto"}, {"street": "corso Matteotti"}, {"street": "via XX Settembre"}],
+     "ambiguities": ["carreggiata centrale"]}
+  ],
+  "alert-6a7eba3022bb480c377b298c": [
+    {"deviation_type": "deviazione", "lines": ["92"], "direction_desc": "direzione Ospedale Giovanni Bosco",
+     "detach_point": {"street": "via Sacchi"},
+     "via_sequence": [{"street": "corso Vittorio Emanuele II"}, {"street": "corso Re Umberto"}, {"street": "corso Matteotti"}, {"street": "via XX Settembre"}]}
+  ],
+  "alert-69206e383864840d4a324ccf": [
+    {"deviation_type": "deviazione", "lines": ["99"], "direction_desc": "direzione piazza Carducci (Santena)",
+     "detach_point": {"street": "via Onorato Vigliani"},
+     "via_sequence": [{"street": "piazza Bengasi"}, {"street": "corso Roma"}], "municipality": null}
+  ],
+  "alert-69206d6e3864840d4a320f8b": [
+    {"deviation_type": "deviazione", "lines": ["84"], "direction_desc": "direzione strada Carpice",
+     "detach_point": {"street": "via Corradino", "cross_street": "via Nizza"},
+     "via_sequence": [{"street": "piazza Bengasi"}, {"street": "corso Roma"}]}
+  ],
+  "alert-69206ca03864840d4a31cbe3": [
+    {"deviation_type": "deviazione", "lines": ["43"], "direction_desc": "Direzione via Goito (Moncalieri)",
+     "detach_point": {"street": "via Onorato Vigliani", "cross_street": "piazza Bengasi"},
+     "via_sequence": [{"street": "via Sestriere"}, {"street": "corso Roma"}]},
+    {"deviation_type": "deviazione", "lines": ["43"], "direction_desc": "Direzione via Gorizia (Rivalta)",
+     "detach_point": {"street": "corso Roma"},
+     "via_sequence": [{"street": "via Tiepolo"}, {"street": "via Genova"}, {"street": "via Corradino"}, {"street": "via Onorato Vigliani"}]}
+  ],
+  "alert-6a9ff92222bb480c377bc1b4": [
+    {"deviation_type": "deviazione", "lines": ["68"], "direction_desc": "Direzione via Cafasso",
+     "detach_point": {"street": "via Rossini", "cross_street": "corso Regina Margherita"},
+     "via_sequence": [{"street": "corso Regina Margherita"}, {"street": "Rondò Rivella"}, {"street": "corso Regio Parco"}, {"street": "largo Dora Firenze"}]},
+    {"deviation_type": "deviazione", "lines": ["68"], "direction_desc": "Direzione via Frejus",
+     "detach_point": {"street": "largo Dora Firenze", "cross_street": "Ponte Rossini"},
+     "via_sequence": [{"street": "largo Dora Firenze"}, {"street": "corso Regio Parco"}, {"street": "Rondò Rivella"}, {"street": "corso Regina Margherita"}, {"street": "via Rossini"}]}
+  ],
+  "alert-6a9ff5ce22bb480c377bc064": [
+    {"deviation_type": "deviazione", "lines": ["6"], "direction_desc": "direzione piazza Carlo Felice",
+     "detach_point": {"street": "largo Dora Firenze", "cross_street": "ponte Rossini"},
+     "via_sequence": [{"street": "largo Dora Firenze"}, {"street": "corso Regio Parco"}, {"street": "Rondò Rivella"}, {"street": "corso Regina Margherita"}, {"street": "via Rossini"}],
+     "ambiguities": ["segue percorso attuale"]}
+  ],
+  "alert-6a154e2622bb480c3777926c": [
+    {"deviation_type": "deviazione", "lines": ["46"], "direction_desc": "Direzione corso Bolzano",
+     "detach_point": {"street": "via Cigna", "cross_street": "corso Vigevano"},
+     "via_sequence": [{"street": "via Cigna"}, {"street": "Rondò Forca"}, {"street": "corso Principe Eugenio"}]},
+    {"deviation_type": "deviazione", "lines": ["46"], "direction_desc": "Direzione via Lombardore (Leinì)",
+     "detach_point": {"street": "corso San Martino", "cross_street": "piazza Statuto"},
+     "via_sequence": [{"street": "corso Beccaria"}, {"street": "corso Principe Eugenio"}, {"street": "Rondò Forca"}, {"street": "via Cigna"}]}
+  ],
+  "alert-6a6221db22bb480c377a9fcb": [
+    {"deviation_type": "deviazione", "lines": ["94"], "direction_desc": "direzione via Biscaretti",
+     "detach_point": {"street": "via Falcone", "cross_street": "corso Vittorio Emanuele II"},
+     "via_sequence": [{"street": "corso Vittorio Emanuele II"}, {"street": "corso Ferrucci"}, {"street": "via Monginevro"}],
+     "suspended_stop_codes": ["3286"]}
+  ],
+  "alert-6a5e261122bb480c377a80b8": [
+    {"deviation_type": "deviazione", "lines": ["94"], "direction_desc": "direzione piazza Statuto",
+     "detach_point": {"street": "via Monginevro", "cross_street": "corso Ferrucci"},
+     "via_sequence": [{"street": "corso Ferrucci"}, {"street": "piazza Bernini"}, {"street": "via Duchessa Jolanda"}]}
+  ],
+  "alert-6a6317b022bb480c377aa385": [
+    {"deviation_type": "deviazione", "lines": ["11"], "direction_desc": "Direzione corso Stati Uniti",
+     "detach_point": {"street": "via Stradella", "cross_street": "largo Giachino"},
+     "via_sequence": [{"street": "via Orvieto"}, {"street": "corso Mortara"}, {"street": "piazza Baldissera"}, {"street": "via Cecchi"}, {"street": "corso Emilia"}, {"street": "corso Giulio Cesare"}]},
+    {"deviation_type": "deviazione", "lines": ["11"], "direction_desc": "Direzione via Leopardi (Venaria Reale)",
+     "detach_point": {"street": "piazza Baldissera", "cross_street": "via Stradella"},
+     "via_sequence": [{"street": "corso Mortara"}, {"street": "via Orvieto"}, {"street": "via Stradella"}]}
+  ],
+  "alert-6a14310422bb480c377784e7": [
+    {"deviation_type": "deviazione", "lines": ["1"], "direction_desc": "direzione via Rocchette - Scolastico Istituto Quarini", "municipality": "Chieri",
+     "detach_point": {"street": "strada Cambiano", "cross_street": "via Roma"},
+     "via_sequence": [{"street": "via Diaz"}, {"street": "via Cesare Battisti"}, {"street": "piazza Europa"}]}
+  ],
+  "alert-69d66d2cb43365096998b647": [
+    {"deviation_type": "deviazione", "lines": ["1087"], "direction_desc": "Direzione Avigliana, Ferriera", "municipality": "Rosta",
+     "detach_point": {"street": "via Rivoli", "cross_street": "via Stazione"},
+     "via_sequence": [{"street": "via Stazione"}, {"street": "via Buttigliera Alta"}],
+     "suspended_stop_codes": ["13952", "23952"]},
+    {"deviation_type": "deviazione", "lines": ["1087"], "direction_desc": "Direzione Rivoli", "municipality": "Rosta",
+     "detach_point": {"street": "via Buttigliera Alta", "cross_street": "via Stazione"},
+     "via_sequence": [{"street": "via Stazione"}, {"street": "via Rivoli"}],
+     "suspended_stop_codes": ["13952", "23952"]}
+  ],
+  "alert-69f0f10fffd3df7184bea741": [
+    {"deviation_type": "deviazione", "lines": ["27", "27F"], "direction_desc": "direzione XX Settembre",
+     "detach_point": {"street": "via Gottardo", "cross_street": "via Monte Rosa"},
+     "via_sequence": [{"street": "via Gottardo"}, {"street": "corso Giulio Cesare"}],
+     "rejoin_point": {"street": "via Cherubini"}}
+  ],
+  "alert-6ab1595822bb480c377c4e27": [
+    {"deviation_type": "deviazione", "lines": ["Star 1"], "direction_desc": "direzione corso Farini",
+     "detach_point": {"street": "via XX Settembre", "cross_street": "via Santa Teresa"},
+     "via_sequence": [{"street": "via XX Settembre"}, {"street": "corso Regina Margherita"}, {"street": "Rondò Rivella"}, {"street": "corso San Maurizio"}, {"street": "via Rossini"}]},
+    {"deviation_type": "deviazione", "lines": ["Star 1"], "direction_desc": "Direzione via Bixio",
+     "detach_point": {"street": "via Accademia Albertina", "cross_street": "via Dei Mille"},
+     "via_sequence": [{"street": "via Accademia Albertina"}, {"street": "corso Vittorio Emanuele II"}, {"street": "via XX Settembre"}, {"street": "corso Matteotti"}]}
+  ]
+}

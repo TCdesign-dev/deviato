@@ -238,28 +238,79 @@ void main() {
 
   group('SceltaDirezione', () {
     test('riconosce il capolinea anche con l\'apostrofo e abbreviato', () {
-      final s = RouteShape(
-        shapeId: 'X',
-        routeId: 'X',
-        directionId: 1,
-        headsign: "C.SO M. D'AZEGLIO",
-        points: const [],
+      expect(SceltaDirezione.parole("C.SO M. D'AZEGLIO"), contains('azeglio'));
+      expect(
+        SceltaDirezione.parole('Direzione corso Massimo D\u2019Azeglio'),
+        contains('azeglio'),
       );
-      const giusta = ParsedDeviation(
-        type: DeviationType.deviazione,
-        directionDesc: "Direzione corso Massimo D’Azeglio",
-      );
-      const altra = ParsedDeviation(
-        type: DeviationType.deviazione,
-        directionDesc: 'Direzione piazza Stampalia',
-      );
-      final scelta = SceltaDirezione.per(const [altra, giusta], s);
-      expect(scelta.deviazione, same(giusta));
-      expect(scelta.esplicita, isTrue);
     });
 
     test('«in entrambe le direzioni» non nomina nessun capolinea', () {
       expect(SceltaDirezione.parole('in entrambe le direzioni'), isEmpty);
+      expect(SceltaDirezione.luogo('in entrambe le direzioni'), isNull);
+    });
+
+    test('il luogo di una direzione, da cercare sulla mappa', () {
+      expect(SceltaDirezione.luogo('Nella sola direzione via Biscaretti'),
+          'via Biscaretti');
+      expect(SceltaDirezione.luogo('Direzione via Goito (Moncalieri)'),
+          'via Goito, Moncalieri');
+      expect(SceltaDirezione.luogo('in direzione XX Settembre'),
+          'XX Settembre');
+    });
+  });
+
+  group('una direzione sola, col capolinea chiamato in un altro modo', () {
+    // La 94 il 28/09: «nella sola direzione via Biscaretti», e negli orari
+    // il capolinea si chiama «MIRAFIORI, VIA FACCIOLI (FCA)». Qui via
+    // Lontana sta vicino alla fine dell'andata.
+    final conLontana = _Geocoder({
+      ...vie.punti,
+      'via Lontana': const GeoPoint(lat + 0.0030, 7.7010),
+    });
+    const soloAndata = ParsedDeviation(
+      type: DeviationType.deviazione,
+      directionDesc: 'nella sola direzione via Lontana',
+      detachStreet: 'corso Linea',
+      viaSequence: ['via Nord', 'via Alta', 'via Rientro'],
+    );
+    Ricostruzione2 algoritmoLontana() => Ricostruzione2(
+          geocoder: conLontana,
+          router: _Router(),
+          impact: StopImpactAnalyzer(index: index),
+        );
+
+    test('l\'avviso non si applica all\'altra direzione', () async {
+      final d = await algoritmoLontana()
+          .direzioniDi(avviso, [andata, ritorno], letto(const [soloAndata]));
+      expect(d.map((s) => s.shapeId), ['T:0']);
+    });
+
+    test('e sulla sua il percorso e\' quello dell\'avviso, non girato',
+        () async {
+      final a = await algoritmoLontana()
+          .analizza(avviso, andata, letto(const [soloAndata]));
+      expect(a.parsed, same(soloAndata));
+      expect(a.whyIncomplete ?? '', isNot(contains('al contrario')));
+    });
+
+    test('se ci si arriva lo stesso, l\'altra direzione non ha fermate',
+        () async {
+      final r = await algoritmoLontana()
+          .analizza(avviso, ritorno, letto(const [soloAndata]));
+      expect(r.deviatedGeometry, isNull);
+      expect(r.impact!.skipped, isEmpty);
+      expect(r.whyIncomplete, contains('altra direzione'));
+    });
+
+    test('senza nome ne\' luogo riconoscibile valgono tutte e due', () async {
+      const qualunque = ParsedDeviation(
+        type: DeviationType.deviazione,
+        viaSequence: ['via Nord'],
+      );
+      final d = await algoritmoLontana()
+          .direzioniDi(avviso, [andata, ritorno], letto(const [qualunque]));
+      expect(d.length, 2);
     });
   });
 

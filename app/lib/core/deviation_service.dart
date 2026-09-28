@@ -356,7 +356,8 @@ class DeviationService {
       // saltate sono quelle dell'altro senso di marcia.
       final direzioni = shapesConcernedBy(notice, andata, ritorno);
 
-      final gia = _giaLetto(notice, direzioni, previous, algoritmo.numero);
+      final gia = _giaLetto(notice, direzioni, previous, algoritmo.numero,
+          bastaUnaParte: _ricostruzione is FiltroDirezioni);
       if (gia != null) {
         onProgress?.call('$quale · già letto');
         reports.addAll(gia);
@@ -377,7 +378,16 @@ class DeviationService {
           _letture[chiave] = extraction;
         }
       }
-      for (final s in direzioni) {
+      // Il secondo algoritmo guarda la lettura per capire quali direzioni
+      // riguarda l'avviso: «nella sola direzione via Biscaretti» non
+      // nomina nessun capolinea degli orari, e le parole bastavano a
+      // tenerle tutte e due.
+      var perDirezione = direzioni;
+      if (_ricostruzione case final FiltroDirezioni filtro
+          when extraction.isUsable) {
+        perDirezione = await filtro.direzioniDi(notice, direzioni, extraction);
+      }
+      for (final s in perDirezione) {
         final r = await _ricostruzione.analizza(notice, s, extraction,
             onProgress: (p) => onProgress?.call('$quale · $p'));
         reports.add(r.completato(
@@ -413,12 +423,16 @@ class DeviationService {
   ///
   /// Si rifanno anche quando li ha calcolati l'altro algoritmo: tornare al
   /// primo deve ridisegnare tutto, non solo gli avvisi nuovi.
+  ///
+  /// Con [bastaUnaParte] gli esiti possono riguardare solo alcune delle
+  /// [direzioni]: il secondo algoritmo scarta quelle che la lettura esclude.
   static List<DeviationReport>? _giaLetto(
     RawNotice notice,
     List<RouteShape> direzioni,
     LineStatus? previous,
-    int algoritmo,
-  ) {
+    int algoritmo, {
+    bool bastaUnaParte = false,
+  }) {
     if (previous == null) return null;
     final prima =
         previous.reports.where((r) => r.notice.id == notice.id).toList();
@@ -432,7 +446,9 @@ class DeviationService {
     if (!uguale) return null;
     final idPrima = {for (final r in prima) r.shape.shapeId};
     final idOra = {for (final s in direzioni) s.shapeId};
-    if (idPrima.length != idOra.length || !idPrima.containsAll(idOra)) {
+    if (bastaUnaParte) {
+      if (!idOra.containsAll(idPrima)) return null;
+    } else if (idPrima.length != idOra.length || !idPrima.containsAll(idOra)) {
       return null;
     }
     return prima;

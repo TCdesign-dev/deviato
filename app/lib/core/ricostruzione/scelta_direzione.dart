@@ -1,7 +1,5 @@
-import '../models/transit.dart';
-import '../pipeline/extractor.dart';
-
-/// Quale delle deviazioni lette in un avviso vale per una direzione.
+/// Le parole con cui un avviso nomina una direzione, per capire a quale
+/// delle due si riferisce una deviazione letta.
 ///
 /// Quando GTT descrive le due direzioni con due elenchi di vie — la 9 il
 /// 28/09: «Direzione piazza Stampalia: … corso Vinzaglio, via Cernaia…» e
@@ -10,54 +8,30 @@ import '../pipeline/extractor.dart';
 /// Il primo algoritmo usava sempre la prima per tutte e due: il tram verso
 /// D'Azeglio veniva disegnato col percorso di quello verso Stampalia, al
 /// contrario. MISURATO il 28/09: 21 deviazioni disegnate su 66 andavano
-/// nel verso opposto alla loro direzione.
+/// nel verso opposto alla loro direzione. La scelta la fa
+/// [Ricostruzione2], con queste parole e, se non bastano, con la mappa.
 class SceltaDirezione {
   const SceltaDirezione._();
 
-  /// La deviazione di [letture] per [shape].
-  ///
-  /// [esplicita] vale quando la deviazione nomina il capolinea di questa
-  /// direzione: allora il suo ordine di vie e' quello giusto. Altrimenti e'
-  /// una deviazione senza direzione (vale per tutte e due, e il verso va
-  /// controllato sulla mappa) o, in mancanza d'altro, la prima.
-  static ({ParsedDeviation deviazione, bool esplicita}) per(
-    List<ParsedDeviation> letture,
-    RouteShape shape,
-  ) {
-    final capolinea = parole(shape.headsign);
-    final nominano = [
-      for (final d in letture)
-        if (parole(d.directionDesc ?? '').any(capolinea.contains)) d,
-    ];
-    if (nominano.length == 1) {
-      return (deviazione: nominano.first, esplicita: true);
-    }
-    // Una deviazione che non nomina nessun capolinea vale per tutte e due.
-    // Una che ne nomina uno diverso dal nostro e' dell'altra direzione: si
-    // prende solo se non c'e' nient'altro.
-    final senzaDirezione = [
-      for (final d in letture)
-        if (parole(d.directionDesc ?? '').isEmpty) d,
-    ];
-    return (
-      deviazione: senzaDirezione.isNotEmpty
-          ? senzaDirezione.first
-          : letture.first,
-      esplicita: false,
-    );
-  }
-
-  /// Le deviazioni che non nominano il capolinea di [shape]: le candidate
-  /// quando nessuna lo nomina, da scegliere guardando il verso sulla mappa.
-  static List<ParsedDeviation> candidate(
-    List<ParsedDeviation> letture,
-    RouteShape shape,
-  ) {
-    final capolinea = parole(shape.headsign);
-    return [
-      for (final d in letture)
-        if (!parole(d.directionDesc ?? '').any(capolinea.contains)) d,
-    ];
+  /// Il luogo nominato da una direzione, da cercare sulla mappa:
+  /// «Nella sola direzione via Biscaretti» -> «via Biscaretti», «Direzione
+  /// via Goito (Moncalieri)» -> «via Goito, Moncalieri». null se non
+  /// nomina niente.
+  static String? luogo(String? direzione) {
+    if (direzione == null) return null;
+    var s = direzione
+        .replaceAll('\u2019', "'")
+        .replaceFirst(
+          RegExp(
+            r'^\s*(nella sola |solo in |sola |solo |in )?direzion[ei]\s+(di\s+|del\s+|della\s+)?',
+            caseSensitive: false,
+          ),
+          '',
+        )
+        .replaceAllMapped(RegExp(r'\s*\(([^)]*)\)'), (m) => ', ${m[1]}')
+        .trim();
+    if (s.endsWith('.')) s = s.substring(0, s.length - 1);
+    return parole(s).isEmpty ? null : s;
   }
 
   /// Le parole che distinguono un capolinea, per confrontarlo col testo.

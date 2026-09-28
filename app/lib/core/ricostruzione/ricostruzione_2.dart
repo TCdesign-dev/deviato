@@ -22,7 +22,8 @@ import 'scelta_direzione.dart';
 /// linea. Il primo resta com'era in [Ricostruzione1].
 ///
 /// Cosa cambia rispetto al primo, finora:
-/// - ogni direzione usa il suo elenco di vie ([SceltaDirezione]); un
+/// - ogni direzione usa il suo elenco di vie ([_direzioneDi]), e un avviso
+///   per una direzione sola non si applica all'altra ([direzioniDi]); un
 ///   elenco senza direzione vale per tutte e due, e dove sulla mappa va al
 ///   contrario si gira;
 /// - lo stacco e il rientro dichiarato si agganciano alla linea normale, e
@@ -31,7 +32,7 @@ import 'scelta_direzione.dart';
 /// - il rosso perde i pezzi che corrono sopra la linea normale;
 /// - tre controlli in piu' ([Rifinitura.controlla]): inizio o fine lontani
 ///   dalla linea, verso contrario, andare e tornare sulla stessa via.
-class Ricostruzione2 implements Ricostruzione {
+class Ricostruzione2 implements Ricostruzione, FiltroDirezioni {
   Ricostruzione2({
     required this._geocoder,
     required this._router,
@@ -89,14 +90,32 @@ class Ricostruzione2 implements Ricostruzione {
       );
     }
     // 1-ter. Quale elenco di vie vale per questa direzione.
-    final scelta = SceltaDirezione.per(extraction.deviations, shape);
-    var parsed = scelta.deviazione;
-    if (!scelta.esplicita) {
-      // Nessuna nomina il nostro capolinea. Se le candidate sono piu' d'una
-      // si prende quella che sulla mappa va nel nostro verso.
-      final candidate = SceltaDirezione.candidate(extraction.deviations, shape);
-      if (candidate.length > 1) {
-        for (final c in candidate) {
+    final altra = _impact.index.mainShape(
+      shape.routeId,
+      shape.directionId == 0 ? 1 : 0,
+    );
+    final assegnate = await _assegna(extraction.deviations, [
+      shape,
+      if (altra != null && altra.shapeId != shape.shapeId) altra,
+    ]);
+    final mie = [
+      for (final e in assegnate.entries)
+        if (e.value?.shapeId == shape.shapeId) e.key,
+    ];
+    final senzaDirezione = [
+      for (final e in assegnate.entries)
+        if (e.value == null) e.key,
+    ];
+    final esplicita = mie.isNotEmpty;
+    ParsedDeviation parsed;
+    if (esplicita) {
+      parsed = mie.first;
+    } else if (senzaDirezione.isNotEmpty) {
+      // Un elenco senza direzione vale per tutte e due. Se sono piu' d'uno
+      // si prende quello che sulla mappa va nel nostro verso.
+      parsed = senzaDirezione.first;
+      if (senzaDirezione.length > 1) {
+        for (final c in senzaDirezione) {
           final g = await _cerca(c, shape, onProgress);
           if (g.punti.length >= 2 && !_alContrario(g.punti, shape)) {
             parsed = c;
@@ -104,6 +123,21 @@ class Ricostruzione2 implements Ricostruzione {
           }
         }
       }
+    } else {
+      // Tutto quello che l'avviso descrive e' per l'altra direzione. Di
+      // solito qui non si arriva ([direzioniDi] la scarta prima).
+      return DeviationReport(
+        notice: notice,
+        shape: shape,
+        parsed: extraction.deviations.first,
+        confidence: Confidence.confermata,
+        impact: const StopImpactResult(
+          impacts: [],
+          affectedFromMeters: 0,
+          affectedToMeters: 0,
+        ),
+        whyIncomplete: 'Questo avviso riguarda l\'altra direzione.',
+      );
     }
 
     // Una sostituzione di mezzo non cambia il percorso: mostrarla come
@@ -192,7 +226,7 @@ class Ricostruzione2 implements Ricostruzione {
     // del rientro, che sta sulla linea: il rientro si deduce.
     var girato = false;
     var rientroDichiarato = parsed.rejoinStreet != null;
-    if (!scelta.esplicita && _alContrario(points, shape)) {
+    if (!esplicita && _alContrario(points, shape)) {
       points = points.reversed.toList();
       girato = true;
       rientroDichiarato = false;
@@ -342,6 +376,84 @@ class Ricostruzione2 implements Ricostruzione {
       retryable: geocodingInErrore,
     );
   }
+
+  @override
+  Future<List<RouteShape>> direzioniDi(
+    RawNotice notice,
+    List<RouteShape> candidate,
+    ExtractionResult extraction,
+  ) async {
+    if (candidate.length < 2) return candidate;
+    final assegnate = await _assegna(extraction.deviations, candidate);
+    // Una deviazione senza direzione vale per tutte e due; una di cui non
+    // si capisce la direzione anche, nel dubbio.
+    if (assegnate.values.any((s) => s == null)) return candidate;
+    final scelte = {for (final s in assegnate.values) s!.shapeId};
+    final out = [
+      for (final s in candidate)
+        if (scelte.contains(s.shapeId)) s,
+    ];
+    return out.isEmpty ? candidate : out;
+  }
+
+  /// A quale di [direzioni] appartiene ogni deviazione letta: null se non
+  /// nomina una direzione, o se non si capisce quale.
+  Future<Map<ParsedDeviation, RouteShape?>> _assegna(
+    List<ParsedDeviation> letture,
+    List<RouteShape> direzioni,
+  ) async => {for (final d in letture) d: await _direzioneDi(d, direzioni)};
+
+  /// La direzione di [d] fra [direzioni].
+  ///
+  /// Prima le parole del capolinea: «Direzione piazza Stampalia» contro
+  /// «BARRIERA LANZO, PIAZZA STAMPALIA». Se non bastano, la mappa: «nella
+  /// sola direzione via Biscaretti» (la 94) e' la direzione che finisce
+  /// vicino a via Biscaretti, anche se negli orari il suo capolinea si
+  /// chiama «MIRAFIORI, VIA FACCIOLI (FCA)». Con le sole parole l'avviso
+  /// finiva su tutte e due, e l'altra riceveva una deviazione mai
+  /// annunciata.
+  Future<RouteShape?> _direzioneDi(
+    ParsedDeviation d,
+    List<RouteShape> direzioni,
+  ) async {
+    final nominate = SceltaDirezione.parole(d.directionDesc ?? '');
+    if (nominate.isEmpty || direzioni.isEmpty) return null;
+    final perNome = [
+      for (final s in direzioni)
+        if (SceltaDirezione.parole(s.headsign).any(nominate.contains)) s,
+    ];
+    if (perNome.length == 1) return perNome.single;
+    if (direzioni.length < 2) return null;
+    final luogo = SceltaDirezione.luogo(d.directionDesc);
+    if (luogo == null) return null;
+    // Il punto serve anche fuori dal vincolo del percorso: il capolinea
+    // puo' stare oltre il chilometro dalla linea.
+    final p = (await _geocoder.locate(luogo, near: direzioni.first)).point;
+    if (p == null) return null;
+    final distanze = [
+      for (final s in direzioni)
+        s.points.isEmpty
+            ? double.infinity
+            : p.meters.distanceTo(s.points.last.meters),
+    ];
+    var migliore = 0;
+    for (var i = 1; i < distanze.length; i++) {
+      if (distanze[i] < distanze[migliore]) migliore = i;
+    }
+    final seconda = [
+      for (var i = 0; i < distanze.length; i++)
+        if (i != migliore) distanze[i],
+    ].reduce((a, b) => a < b ? a : b);
+    // Deciso solo se il capolinea e' vicino e l'altro nettamente piu'
+    // lontano: una direzione indicata a meta' linea non dice niente.
+    if (distanze[migliore] <= _capolineaVicino &&
+        seconda >= distanze[migliore] * 2) {
+      return direzioni[migliore];
+    }
+    return null;
+  }
+
+  static const _capolineaVicino = 3000.0;
 
   /// Le vie di [parsed] sulla mappa, nell'ordine dell'avviso.
   Future<({List<GeoPoint> punti, List<String> nonTrovate, bool inErrore})>

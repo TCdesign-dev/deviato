@@ -96,6 +96,17 @@ avviso — con l'altro algoritmo, o dopo un servizio che non rispondeva —
 riusa quella e non spende letture. Gli esiti di prima non ce l'hanno:
 la prendono alla prima rilettura.
 
+**Confrontare i due algoritmi**: `dart run tool/confronta_algoritmi.dart`
+scarica i dati pubblicati, rifà l'analisi con l'1 e col 2 sulle letture
+salvate (o su quelle di `--letture`, per esempio
+`tool/letture_di_prova.json`: 16 avvisi del 28/09 letti a mano da
+Claude, non dal modello del job) e scrive `build/confronto/index.html`
+con i due rossi sovrapposti. Nessuna richiesta al modello. Sulle letture
+di prova il 28/09: verso contrario 10 → 0, inizio lontano dalla linea
+10 → 0, rosso sulla linea normale 5+5 → 0, avvisi applicati a una
+direzione che GTT non tocca 4 → 0; andare e tornare 16 → 13 (li toglie
+solo il passo sugli incroci).
+
 ## 3. I fatti misurati (31/07/2026)
 
 Non sono stime. Se li rimetti in discussione, rimisurali.
@@ -119,7 +130,7 @@ Non sono stime. Se li rimetti in discussione, rimisurali.
 | `active_period.start` negli alert | **161 su 161 nel passato** | idem |
 | Variazioni pubblicate da **entrambe** le fonti | **31 coppie** su 189 avvisi | `check_merge_offline.dart` |
 | Di queste, quelle in cui la data d'inizio cambia | **17** (fino a 3 mesi) | idem |
-| Test | **339** | `flutter test` |
+| Test | **345** | `flutter test` |
 | Somiglianza fra le vie nominate: coppie vere | **0,67 – 1,00** e ≥3 vie | idem |
 | Idem, coppie false | **0,67 con 2 vie**, o 3 vie a **0,38** | idem |
 | Data d'inizio estraibile a regex dal testo | **40%** — troppo poco | idem |
@@ -560,7 +571,7 @@ Per non fraintendere quello che c'è in `config.dart`:
 ## 8. Come si lavora
 
 ```bash
-cd app && flutter test          # 339 test, devono passare tutti
+cd app && flutter test          # 345 test, devono passare tutti
 cd app && flutter analyze       # deve essere pulito
 ```
 
@@ -631,4 +642,4 @@ facendo gli screenshot troppo presto.
 
 ---
 
-*Ultimo aggiornamento: 28 settembre 2026. 339 test.*
+*Ultimo aggiornamento: 28 settembre 2026. 345 test.*

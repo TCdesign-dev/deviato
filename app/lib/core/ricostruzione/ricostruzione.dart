@@ -32,6 +32,19 @@ enum AlgoritmoPercorsi {
   static AlgoritmoPercorsi daNumero(int? n) => n == 2 ? secondo : primo;
 }
 
+/// Un algoritmo che sa dire, dalla lettura, quali direzioni riguarda un
+/// avviso. Il primo non lo fa: per lui decidono le parole del testo
+/// ([DeviationService.shapesConcernedBy]).
+abstract interface class FiltroDirezioni {
+  /// Le direzioni di [candidate] a cui si riferisce la lettura. Mai vuota:
+  /// nel dubbio, tutte.
+  Future<List<RouteShape>> direzioniDi(
+    RawNotice notice,
+    List<RouteShape> candidate,
+    ExtractionResult extraction,
+  );
+}
+
 /// Da un avviso letto al suo esito, per una direzione.
 abstract interface class Ricostruzione {
   Future<DeviationReport> analizza(

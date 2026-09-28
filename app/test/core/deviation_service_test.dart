@@ -613,6 +613,42 @@ void main() {
       expect(llm.richieste, equals(1));
     });
 
+    test('col secondo algoritmo una direzione sola resta sola', () async {
+      // Il testo non nomina nessun capolinea, la lettura si': «direzione
+      // piazza Alfa». Il primo analizza tutte e due le direzioni, il
+      // secondo solo quella giusta.
+      const soloAlfa = ParsedDeviation(
+        type: DeviationType.sostituzioneModale,
+        directionDesc: 'direzione piazza Alfa',
+        viaSequence: ['via Roma'],
+      );
+      LineStatus prima(int algoritmo) => LineStatus(
+            line: linea,
+            shape: andata,
+            shapeReturn: ritorno,
+            checkedAt: DateTime(2026, 9, 26),
+            reports: [
+              DeviationReport(
+                notice: avviso(),
+                shape: andata,
+                confidence: Confidence.probabile,
+                retryable: true,
+                algoritmo: algoritmo,
+                letture: const [soloAlfa],
+              ),
+            ],
+          );
+      final uno = await DeviationService(index: index, llm: _LlmSpento())
+          .statusOf(linea, allNotices: [avviso()], previous: prima(1));
+      final due = await DeviationService(
+        index: index,
+        llm: _LlmSpento(),
+        algoritmo: AlgoritmoPercorsi.secondo,
+      ).statusOf(linea, allNotices: [avviso()], previous: prima(2));
+      expect(uno.reports.length, 2);
+      expect(due.reports.map((r) => r.shape.shapeId), ['T:0']);
+    });
+
     test('l\'algoritmo si sceglie con 1 o 2, e nel dubbio e\' il primo', () {
       expect(AlgoritmoPercorsi.daTesto('2'), AlgoritmoPercorsi.secondo);
       expect(AlgoritmoPercorsi.daTesto(' 2 '), AlgoritmoPercorsi.secondo);
