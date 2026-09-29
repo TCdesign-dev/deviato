@@ -170,9 +170,15 @@ servite). Fermate non servite in tutto: 108 con l'1, 63 col 2. Overpass quella m
 secondo sul server principale, la riserva ci metteva 14 s o non
 rispondeva, e gli altri server pubblici provati (kumi.systems,
 private.coffee) non rispondevano affatto: ora si prova principale,
-riserva, di nuovo principale. Quando nessuno risponde l'esito torna ai
-punti di Photon e si segna da rifare: stessi dati, risultati diversi fra
-un giro e l'altro finché Overpass non risponde.
+riserva, di nuovo principale. Quando nessuno risponde, l'avviso resta
+col solo testo (o con le fermate sospese dichiarate) e si rifà al giro
+dopo, senza spendere letture: coi soli punti di Photon il percorso tornava
+quello del primo algoritmo, e la 9 riprendeva quattro fermate non servite
+da cui passava. Passando dal primo al secondo, invece, se Overpass non
+risponde resta l'esito del primo. Un avviso calcolato bene non si
+ricalcola: Overpass giù tocca solo gli avvisi nuovi. Se succede spesso,
+l'alternativa è una copia settimanale delle vie dall'estratto Geofabrik
+del Nord-Ovest (590 MB, ritagliato con osmium a pochi MB).
 
 **Confrontare i due algoritmi**: `dart run tool/confronta_algoritmi.dart`
 scarica i dati pubblicati, rifà l'analisi con l'1 e col 2 sulle letture
@@ -209,7 +215,7 @@ Non sono stime. Se li rimetti in discussione, rimisurali.
 | `active_period.start` negli alert | **161 su 161 nel passato** | idem |
 | Variazioni pubblicate da **entrambe** le fonti | **31 coppie** su 189 avvisi | `check_merge_offline.dart` |
 | Di queste, quelle in cui la data d'inizio cambia | **17** (fino a 3 mesi) | idem |
-| Test | **382** | `flutter test` |
+| Test | **384** | `flutter test` |
 | Somiglianza fra le vie nominate: coppie vere | **0,67 – 1,00** e ≥3 vie | idem |
 | Idem, coppie false | **0,67 con 2 vie**, o 3 vie a **0,38** | idem |
 | Data d'inizio estraibile a regex dal testo | **40%** — troppo poco | idem |
@@ -673,7 +679,7 @@ Per non fraintendere quello che c'è in `config.dart`:
 ## 8. Come si lavora
 
 ```bash
-cd app && flutter test          # 382 test, devono passare tutti
+cd app && flutter test          # 384 test, devono passare tutti
 cd app && flutter analyze       # deve essere pulito
 ```
 
@@ -744,4 +750,4 @@ facendo gli screenshot troppo presto.
 
 ---
 
-*Ultimo aggiornamento: 29 settembre 2026. 382 test.*
+*Ultimo aggiornamento: 29 settembre 2026. 384 test.*

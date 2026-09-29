@@ -4,8 +4,11 @@ import 'package:gtt_deviazioni/core/geo/projection.dart';
 import 'package:gtt_deviazioni/core/models/notice.dart';
 import 'package:gtt_deviazioni/core/models/transit.dart';
 import 'package:gtt_deviazioni/core/llm/llm_client.dart';
+import 'package:gtt_deviazioni/core/net/gtt_http.dart';
 import 'package:gtt_deviazioni/core/pipeline/extractor.dart';
+import 'package:gtt_deviazioni/core/pipeline/geocoder.dart';
 import 'package:gtt_deviazioni/core/pipeline/stop_impact.dart';
+import 'package:gtt_deviazioni/core/pipeline/vie_osm.dart';
 import 'package:gtt_deviazioni/core/ricostruzione/ricostruzione.dart';
 
 /// Un LLM che non risponde mai: quota finita, rete assente, servizio giu'.
@@ -22,6 +25,21 @@ class _LlmSpento implements LlmClient {
     return Future.error(LlmException(
         'spento', 'rete non raggiungibile: SocketException'));
   }
+}
+
+/// Photon che non trova niente, senza rete.
+class _GeocoderVuoto extends Geocoder {
+  @override
+  Future<GeocodeResult> locate(String toponym,
+          {required RouteShape near, String? municipality}) async =>
+      GeocodeResult.notFound(toponym);
+}
+
+/// Overpass giu': ogni chiamata risponde 504.
+class _OverpassGiu extends GttHttp {
+  @override
+  Future<String> getTextPolite(String url, {Duration? timeout}) async =>
+      throw GttHttpException(url, 504, 'tempo scaduto');
 }
 
 /// Quando qualcosa non funziona, chi usa l'app deve capire SE puo' fare
@@ -611,6 +629,59 @@ void main() {
       expect(status.reports.first.letture.single.type,
           DeviationType.sostituzioneModale);
       expect(status.reports.first.confidence, Confidence.confermata);
+    });
+
+    test('passando al secondo, se le vie non rispondono resta il vecchio',
+        () async {
+      // Il secondo ha bisogno delle vie di OpenStreetMap. Se Overpass non
+      // risponde proprio il giorno in cui si accende, gli avvisi non
+      // devono perdere il percorso del primo per restare col solo testo.
+      const deviata = ParsedDeviation(
+        type: DeviationType.deviazione,
+        detachStreet: 'via Roma',
+        viaSequence: ['via Po', 'via Garibaldi'],
+      );
+      LineStatus prima({required int algoritmo, required bool retryable}) =>
+          LineStatus(
+            line: linea,
+            shape: andata,
+            shapeReturn: ritorno,
+            checkedAt: DateTime(2026, 9, 26),
+            reports: [
+              for (final s in [andata, ritorno])
+                DeviationReport(
+                  notice: avviso(),
+                  shape: s,
+                  confidence: Confidence.probabile,
+                  retryable: retryable,
+                  algoritmo: algoritmo,
+                  letture: const [deviata],
+                ),
+            ],
+          );
+      DeviationService servizio(LlmClient llm) => DeviationService(
+            index: index,
+            llm: llm,
+            algoritmo: AlgoritmoPercorsi.secondo,
+            geocoder: _GeocoderVuoto(),
+            vie: ViePerNome(http: _OverpassGiu(), pausa: Duration.zero),
+          );
+      final llm = _LlmSpento();
+      final status = await servizio(llm).statusOf(linea,
+          allNotices: [avviso()],
+          previous: prima(algoritmo: 1, retryable: false));
+      expect(llm.richieste, isZero);
+      expect(status.reports, hasLength(2));
+      expect(status.reports.every((r) => r.algoritmo == 1), isTrue);
+
+      // Un avviso gia' del secondo, da rifare, aspetta col solo testo.
+      final ancora = await servizio(llm).statusOf(linea,
+          allNotices: [avviso()],
+          previous: prima(algoritmo: 2, retryable: true));
+      expect(
+          ancora.reports.every((r) => r.confidence == Confidence.soloTesto),
+          isTrue);
+      expect(ancora.reports.every((r) => r.retryable), isTrue);
     });
 
     test('dopo un errore di rete si rifa l\'analisi, non la lettura',

@@ -8,6 +8,7 @@ import 'pipeline/geocoder.dart';
 import 'pipeline/line_resolver.dart';
 import 'pipeline/notice_merge.dart';
 import 'pipeline/rejoin_inference.dart';
+import 'pipeline/vie_osm.dart';
 import 'pipeline/route_builder.dart';
 import 'pipeline/stop_impact.dart';
 import 'ricostruzione/ricostruzione.dart';
@@ -233,6 +234,7 @@ class DeviationService {
     VariazioniSource? variazioni,
     this.algoritmo = AlgoritmoPercorsi.primo,
     int rilettureCambioAlgoritmo = 5,
+    ViePerNome? vie,
   })  : _rilettureConcesse = rilettureCambioAlgoritmo,
         _extractor = NoticeExtractor(llm: llm),
         _alerts = alerts ?? AlertsSource(),
@@ -245,7 +247,7 @@ class DeviationService {
       AlgoritmoPercorsi.primo =>
         Ricostruzione1(geocoder: g, router: r, impact: _impact),
       AlgoritmoPercorsi.secondo =>
-        Ricostruzione2(geocoder: g, router: r, impact: _impact),
+        Ricostruzione2(geocoder: g, router: r, impact: _impact, vie: vie),
     };
   }
 
@@ -427,14 +429,27 @@ class DeviationService {
           when extraction.isUsable) {
         perDirezione = await filtro.direzioniDi(notice, direzioni, extraction);
       }
+      final nuovi = <DeviationReport>[];
       for (final s in perDirezione) {
         final r = await _ricostruzione.analizza(notice, s, extraction,
             onProgress: (p) => onProgress?.call('$quale · $p'));
-        reports.add(r.completato(
+        nuovi.add(r.completato(
           algoritmo: algoritmo.numero,
           letture: extraction.isUsable ? extraction.deviations : const [],
         ));
       }
+      // Passando all'altro algoritmo, un servizio che non risponde (le vie
+      // di OpenStreetMap, per il secondo) non deve lasciare il solo testo
+      // dove c'era un percorso: si tiene quello vecchio, e al prossimo giro
+      // si riprova.
+      if (altroAlgoritmo &&
+          nuovi.any((r) => r.retryable) &&
+          prima.isNotEmpty &&
+          !prima.any((r) => r.retryable)) {
+        reports.addAll(prima);
+        continue;
+      }
+      reports.addAll(nuovi);
     }
 
     final now = DateTime.now();

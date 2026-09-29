@@ -224,10 +224,9 @@ class Ricostruzione2 implements Ricostruzione, FiltroDirezioni {
     // Photon non raggiungibile non e' «via non trovata»: si ritenta.
     final geocodingInErrore = cercate.inErrore;
 
-    // 2-ter. Le vie intere, per gli incroci. Se Overpass non risponde si
-    // resta sui punti di Photon: e' un miglioramento, non un requisito.
-    var intere = const <String, List<List<GeoPoint>>>{};
-    var overpassGiu = false;
+    // 2-ter. Le vie intere, per gli incroci e per il cammino fra le
+    // svolte.
+    final Map<String, List<List<GeoPoint>>> intere;
     try {
       onProgress?.call('forma delle vie');
       intere = await _vie.cerca(
@@ -241,9 +240,15 @@ class Ricostruzione2 implements Ricostruzione, FiltroDirezioni {
         attorno: points,
       );
     } on GttHttpException {
-      // Si va avanti coi punti, e al prossimo giro si riprova: la lettura
-      // e' salvata, rifare l'analisi non costa richieste al modello.
-      overpassGiu = true;
+      // Overpass non risponde. Coi soli punti di Photon il percorso torna
+      // quello del primo algoritmo, coi suoi errori: il 29/09 la 9 cosi'
+      // dava quattro fermate non servite da cui il bus passava. Meglio il
+      // solo testo fino al prossimo giro, che rifa' l'analisi senza
+      // spendere letture: la lettura e' salvata.
+      return _senzaVie(notice, shape, parsed, {
+        ...notice.suspendedStopCodes,
+        ...parsed.suspendedStopCodes,
+      });
     }
     bool intera(String t) => (intere[t] ?? const []).isNotEmpty;
     // Una via che Photon non trova ma OpenStreetMap si': «corso Vittorio
@@ -260,7 +265,7 @@ class Ricostruzione2 implements Ricostruzione, FiltroDirezioni {
         parsed: parsed,
         confidence: Confidence.soloTesto,
         whyIncomplete: 'Vie non trovate sulla mappa: ${unresolved.join(", ")}.',
-        retryable: geocodingInErrore || overpassGiu,
+        retryable: geocodingInErrore,
       );
     }
 
@@ -309,7 +314,7 @@ class Ricostruzione2 implements Ricostruzione, FiltroDirezioni {
           confidence: Confidence.soloTesto,
           whyIncomplete:
               'Vie non trovate sulla mappa: ${unresolved.join(", ")}.',
-          retryable: geocodingInErrore || overpassGiu,
+          retryable: geocodingInErrore,
         );
       }
       final t = _tappeDaiPunti(points, shape, rientroDichiarato);
@@ -349,10 +354,7 @@ class Ricostruzione2 implements Ricostruzione, FiltroDirezioni {
         rejoin: rejoin,
         confidence: Confidence.soloTesto,
         whyIncomplete: 'Non è stato possibile calcolare il percorso deviato.',
-        retryable:
-            geocodingInErrore ||
-            overpassGiu ||
-            route.status == RouteBuildStatus.error,
+        retryable: geocodingInErrore || route.status == RouteBuildStatus.error,
       );
     }
 
@@ -414,7 +416,7 @@ class Ricostruzione2 implements Ricostruzione, FiltroDirezioni {
             ? Confidence.probabile
             : Confidence.soloTesto,
         whyIncomplete: 'Non è stato possibile calcolare il percorso deviato.',
-        retryable: geocodingInErrore || overpassGiu,
+        retryable: geocodingInErrore,
       );
     }
     final problemi = Rifinitura.controlla(rifinita, shape);
@@ -463,7 +465,36 @@ class Ricostruzione2 implements Ricostruzione, FiltroDirezioni {
             ].join(' '),
       // Una via non trovata perche' Photon non rispondeva potrebbe
       // completare il percorso al prossimo giro.
-      retryable: geocodingInErrore || overpassGiu,
+      retryable: geocodingInErrore,
+    );
+  }
+
+  /// Il percorso non si e' potuto calcolare adesso: il solo testo, o le
+  /// fermate sospese indicate da GTT se ce ne sono. Si rifa' al prossimo
+  /// giro.
+  DeviationReport _senzaVie(
+    RawNotice notice,
+    RouteShape shape,
+    ParsedDeviation parsed,
+    Set<String> dichiarate,
+  ) {
+    final impact = _impact.declaredOnly(
+      officialRoute: shape,
+      declaredCodes: dichiarate,
+    );
+    return DeviationReport(
+      notice: notice,
+      shape: shape,
+      parsed: parsed,
+      impact: impact.hasImpact ? impact : null,
+      confidence: impact.hasImpact
+          ? Confidence.probabile
+          : Confidence.soloTesto,
+      whyIncomplete: impact.hasImpact
+          ? 'La fermata sospesa è indicata da GTT. Il percorso sarà '
+                'calcolato a breve.'
+          : 'Percorso non ancora calcolato: sarà disponibile a breve.',
+      retryable: true,
     );
   }
 

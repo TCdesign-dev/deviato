@@ -169,6 +169,18 @@ class Confronto {
                         'il secondo algoritmo non la analizza.',
                   )
                 : await e.value.analizza(notice, shape, lettura);
+            // Col servizio delle vie giu' il secondo aspetta col solo
+            // testo, come nel job: qui si riprova una volta, con calma,
+            // per non confrontare un'attesa con un percorso.
+            if (e.key == 2 && esiti[2]!.retryable) {
+              await Future<void>.delayed(const Duration(seconds: 30));
+              esiti[2] = await Ricostruzione2(
+                geocoder: geocoder,
+                router: router,
+                impact: impatto,
+                vie: ViePerNome(),
+              ).analizza(notice, shape, lettura);
+            }
           }
           final riga = <String, Object?>{
             'linea': linea.shortName,

@@ -529,6 +529,27 @@ void main() {
       },
     );
 
+    test('se Overpass non risponde: solo testo, e si riprova', () async {
+      const giro = ParsedDeviation(
+        type: DeviationType.deviazione,
+        detachStreet: 'corso Linea',
+        viaSequence: ['via Nord', 'via Alta', 'via Rientro'],
+      );
+      final router = _Router();
+      final giu = ViePerNome(http: _OverpassGiu(), pausa: Duration.zero);
+      final r = await Ricostruzione2(
+        geocoder: vie,
+        router: router,
+        impact: StopImpactAnalyzer(index: index),
+        vie: giu,
+      ).analizza(avviso, andata, letto(const [giro]));
+      // Niente percorso coi soli punti di Photon: e' quello che sbagliava.
+      expect(router.tappe, isEmpty);
+      expect(r.confidence, Confidence.soloTesto);
+      expect(r.retryable, isTrue);
+      expect(r.hasMap, isFalse);
+    });
+
     ({String nome, List<GeoPoint> punti}) via(String nome) =>
         (nome: nome, punti: const [GeoPoint(lat, 7.66), GeoPoint(lat, 7.67)]);
 
