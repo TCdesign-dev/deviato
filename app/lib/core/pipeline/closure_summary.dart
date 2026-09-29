@@ -105,7 +105,7 @@ class ClosureSummary {
   static DateTime? commonEnd(Iterable<DeviationReport> reports) {
     DateTime? fine;
     for (final r in reports) {
-      final u = r.notice.validUntil;
+      final u = r.notice.endToShow;
       if (u == null) return null;
       final giorno = DateTime(u.year, u.month, u.day);
       if (fine != null && fine != giorno) return null;

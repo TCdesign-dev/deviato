@@ -95,6 +95,13 @@ class HomeScreen extends StatelessWidget {
       for (final s in repo.savedStops)
         if (byId.containsKey(s.routeId)) s,
     ];
+    // Una scheda per linea, nell'ordine in cui le fermate sono state
+    // salvate: la linea della prima viene prima.
+    final perLinea = <String, List<Widget>>{};
+    for (var i = 0; i < fermate.length; i++) {
+      final riga = _fermata(context, fermate[i], byId[fermate[i].routeId]!, i);
+      if (riga != null) (perLinea[fermate[i].routeId] ??= []).add(riga);
+    }
 
     return RefreshIndicator(
       onRefresh: repo.refreshAll,
@@ -106,8 +113,14 @@ class HomeScreen extends StatelessWidget {
 
           if (fermate.isNotEmpty) ...[
             const _SectionTitle('Le tue fermate'),
-            for (var i = 0; i < fermate.length; i++)
-              _fermata(context, fermate[i], byId[fermate[i].routeId]!, i),
+            for (final e in perLinea.entries)
+              SavedStopsGroup(
+                line: byId[e.key]!,
+                onOpenLine: repo.statusOf(e.key) == null
+                    ? () => repo.refreshLine(byId[e.key]!)
+                    : () => _apri(context, byId[e.key]!),
+                children: e.value,
+              ),
           ] else if (!repo.settings.stopsHintSeen)
             _StopsHint(onClose: repo.dismissStopsHint),
 
@@ -161,14 +174,14 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  Widget _fermata(
+  Widget? _fermata(
     BuildContext context,
     SavedStop s,
     TransitLine line,
     int posizione,
   ) {
     final risposta = repo.answerFor(s);
-    if (risposta == null) return const SizedBox.shrink();
+    if (risposta == null) return null;
     return Dismissible(
       key: ValueKey('fermata-$s'),
       direction: DismissDirection.endToStart,
@@ -181,7 +194,7 @@ class HomeScreen extends StatelessWidget {
           () => repo.restoreSavedStop(s, posizione),
         );
       },
-      child: SavedStopCard(
+      child: SavedStopRow(
         answer: risposta,
         line: line,
         checking: repo.isChecking(line.routeId),

@@ -109,6 +109,25 @@ class RawNotice {
   String get fullText =>
       headline == null || headline!.isEmpty ? text : '$headline $text';
 
+  /// La fine da dire a chi legge: [validUntil], se e' una fine vera.
+  ///
+  /// «Sino a nuove comunicazioni» nel feed diventa una data un anno dopo:
+  /// il 29/09/2026 la 68 risultava «non servita fino al 08/09», cioe' al
+  /// 08/09/2027, e sembrava una data gia' passata. Si scarta se il testo
+  /// dice che la fine non c'e', o se e' a piu' di 300 giorni dall'inizio.
+  DateTime? get endToShow {
+    final fine = validUntil;
+    if (fine == null || allTexts.any(_senzaFine.hasMatch)) return null;
+    final inizio = validFrom;
+    if (inizio != null && fine.difference(inizio).inDays > 300) return null;
+    return fine;
+  }
+
+  static final _senzaFine = RegExp(
+    r'(sino|fino) a (nuove comunicazioni|nuovo avviso|data da destinarsi)',
+    caseSensitive: false,
+  );
+
   /// L'avviso parla di una variazione di percorso?
   /// Serve a scartare gli avvisi su ascensori, sciopero, orari estivi.
   bool get mentionsRouteChange => allTexts.any(_routeChange.hasMatch);

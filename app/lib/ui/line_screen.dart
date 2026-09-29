@@ -881,11 +881,8 @@ class _OriginalTextState extends State<_OriginalText> {
               padding: const EdgeInsets.only(top: 6),
               child: Text('Motivo: $motivo', style: piccolo),
             ),
-          if (n.validUntil != null)
-            Text(
-              'Fino al ${_data(n.validUntil!)}/${n.validUntil!.year}',
-              style: piccolo,
-            )
+          if (n.endToShow case final fine?)
+            Text('Fino al ${_data(fine)}/${fine.year}', style: piccolo)
           else
             Text('Fine non indicata', style: piccolo),
         ],

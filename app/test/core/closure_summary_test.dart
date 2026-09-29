@@ -102,6 +102,36 @@ void main() {
         isNull);
   });
 
+  test('«sino a nuove comunicazioni»: la fine finta del feed non si dice',
+      () {
+    // La 68 il 29/09/2026: nel feed la fine era l'08/09/2027, e l'app
+    // diceva «non servita fino al 08/09», come una data gia' passata.
+    RawNotice n(String testo, DateTime da, DateTime al) => RawNotice(
+          id: 'x',
+          source: NoticeSource.gtfsRtAlert,
+          text: testo,
+          sourceUrl: '',
+          validFrom: da,
+          validUntil: al,
+        );
+    expect(
+        n('Dal 16 settembre e sino a nuove comunicazioni.',
+                DateTime(2026, 9, 15), DateTime(2027, 9, 8))
+            .endToShow,
+        isNull);
+    // Senza la frase, basta la distanza: un anno dopo non e' una fine.
+    expect(
+        n('Linea deviata.', DateTime(2026, 9, 15), DateTime(2027, 9, 15))
+            .endToShow,
+        isNull);
+    // Una fine vera resta.
+    expect(
+        n('Fino a lunedì 30 novembre.', DateTime(2026, 4, 13),
+                DateTime(2026, 11, 30))
+            .endToShow,
+        DateTime(2026, 11, 30));
+  });
+
   test('nessuna fermata chiusa, nessun tratto', () {
     expect(ClosureSummary.of(const []), isEmpty);
   });

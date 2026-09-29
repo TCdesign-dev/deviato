@@ -38,7 +38,7 @@ void main() {
   }) => tester.pumpWidget(
     MaterialApp(
       home: Scaffold(
-        body: SavedStopCard(
+        body: SavedStopRow(
           answer: a,
           line: line,
           checking: checking,
@@ -64,8 +64,14 @@ void main() {
       find.text('Largo Giachino Sud  422', findRichText: true),
       findsOneWidget,
     );
-    expect(find.text('verso piazza XVIII Dicembre'), findsOneWidget);
-    expect(find.text('Non servita fino al 29/09'), findsOneWidget);
+    // Lo stato e il verso sulla stessa riga.
+    expect(
+      find.text(
+        'Non servita fino al 29/09 · verso piazza XVIII Dicembre',
+        findRichText: true,
+      ),
+      findsOneWidget,
+    );
     expect(
       find.textContaining(
         'Sali a Vibò, 180 m o a Statuto Nord, 240 m',
@@ -90,7 +96,10 @@ void main() {
         shape: shape,
       ),
     );
-    expect(find.text('Tocca per aggiornare'), findsOneWidget);
+    expect(
+      find.textContaining('Tocca per aggiornare', findRichText: true),
+      findsOneWidget,
+    );
     expect(find.textContaining('Sali a', findRichText: true), findsNothing);
   });
 
@@ -108,7 +117,10 @@ void main() {
       ),
       checking: true,
     );
-    expect(find.text('Aggiornamento…'), findsOneWidget);
+    expect(
+      find.textContaining('Aggiornamento…', findRichText: true),
+      findsOneWidget,
+    );
     expect(find.textContaining('Non servita'), findsNothing);
   });
   testWidgets('la seconda fermata lontana non si dice', (tester) async {
@@ -128,5 +140,47 @@ void main() {
       findsOneWidget,
     );
     expect(find.textContaining('Statuto', findRichText: true), findsNothing);
+  });
+
+  testWidgets('le fermate della stessa linea stanno in una scheda sola', (
+    tester,
+  ) async {
+    StopAnswer servita(TransitStop f) => StopAnswer(
+      state: StopState.served,
+      saved: SavedStop(routeId: '10NU', directionId: 0, stopId: f.id),
+      stop: f,
+      shape: shape,
+    );
+    var aperta = false;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SavedStopsGroup(
+            line: line,
+            onOpenLine: () => aperta = true,
+            children: [
+              for (final f in [giachino, vibo, statuto])
+                SavedStopRow(
+                  answer: servita(f),
+                  line: line,
+                  checking: false,
+                  onTap: () {},
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+    // Il numero della linea una volta sola, le tre fermate tutte.
+    expect(find.text('10N'), findsOneWidget);
+    expect(find.byType(Card), findsOneWidget);
+    expect(find.textContaining('Vibò', findRichText: true), findsOneWidget);
+    expect(
+      find.textContaining('Servita · verso', findRichText: true),
+      findsNWidgets(3),
+    );
+    // La testa della scheda apre la linea.
+    await tester.tap(find.text('10N'));
+    expect(aperta, isTrue);
   });
 }

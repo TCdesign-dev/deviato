@@ -6,13 +6,85 @@ import '../core/text/display_names.dart';
 import 'line_badge.dart';
 import 'theme.dart';
 
+/// Le fermate salvate di una linea, in una scheda sola.
+///
+/// Una scheda per fermata, col numero della linea ripetuto in ognuna,
+/// con sei fermate spingeva le linee fuori dallo schermo (29/09). Qui la
+/// linea si dice una volta, in testa, e ogni fermata e' una riga: resta
+/// visibile, con la sua risposta, e si toglie scorrendola.
+class SavedStopsGroup extends StatelessWidget {
+  const SavedStopsGroup({
+    required this.line,
+    required this.onOpenLine,
+    required this.children,
+    super.key,
+  });
+
+  final TransitLine line;
+  final VoidCallback onOpenLine;
+
+  /// Le righe, di solito [SavedStopRow].
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final nome = line.longName;
+    return Card(
+      margin: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+      elevation: 0,
+      color: scheme.surfaceContainerLow,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          InkWell(
+            onTap: onOpenLine,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(14, 10, 14, 4),
+              child: Row(
+                children: [
+                  LineBadge(line: line, height: 24),
+                  if (nome != null) ...[
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        nome.replaceAll(' - ', ' – '),
+                        style: Theme.of(context).textTheme.bodySmall
+                            ?.copyWith(color: scheme.onSurfaceVariant),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+          for (var i = 0; i < children.length; i++) ...[
+            if (i > 0)
+              // A tutta larghezza: rientrato, fra due righe rosse lasciava
+              // un gradino chiaro a sinistra.
+              Divider(
+                height: 1,
+                color: scheme.outlineVariant.withValues(alpha: 0.5),
+              ),
+            children[i],
+          ],
+        ],
+      ),
+    );
+  }
+}
+
 /// Una fermata salvata, con la risposta: servita o no, e dove salire.
 ///
 /// E' la domanda per cui esiste l'app, detta per la fermata di chi guarda.
 /// «16 fermate non servite» sulla 10N e' vero ma non risponde: chi aspetta
 /// a Largo Giachino Sud vuole sapere di Largo Giachino Sud.
-class SavedStopCard extends StatelessWidget {
-  const SavedStopCard({
+class SavedStopRow extends StatelessWidget {
+  const SavedStopRow({
     required this.answer,
     required this.line,
     required this.checking,
@@ -80,27 +152,27 @@ class SavedStopCard extends StatelessWidget {
             longName: line.longName,
           );
 
-    return Card(
-      margin: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-      elevation: 0,
+    return Material(
       color: chiusa
           ? scheme.errorContainer.withValues(alpha: 0.45)
-          : scheme.surfaceContainerLow,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      clipBehavior: Clip.antiAlias,
+          : Colors.transparent,
       child: InkWell(
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-          child: Column(
+          padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
+          child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                children: [
-                  LineBadge(line: line, height: 26),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text.rich(
+              Padding(
+                padding: const EdgeInsets.only(top: 1),
+                child: Icon(icona, size: 20, color: colore),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text.rich(
                       TextSpan(
                         children: [
                           TextSpan(
@@ -121,46 +193,48 @@ class SavedStopCard extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
-                  ),
-                ],
-              ),
-              if (verso != null)
-                Padding(
-                  padding: const EdgeInsets.only(top: 2),
-                  child: Text(
-                    'verso $verso',
-                    style: testo.bodySmall?.copyWith(color: secondario),
-                  ),
-                ),
-              const SizedBox(height: 8),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Icon(icona, size: 18, color: colore),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: Text(
-                      stato,
-                      style: TextStyle(
-                        color: colore,
-                        fontWeight: FontWeight.w600,
+                    const SizedBox(height: 2),
+                    // Lo stato e il verso sulla stessa riga: e' la riga che
+                    // si legge, e va a capo solo se serve.
+                    Text.rich(
+                      TextSpan(
+                        children: [
+                          TextSpan(
+                            text: stato,
+                            style: TextStyle(
+                              color: colore,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          if (verso != null)
+                            TextSpan(
+                              text: ' · verso $verso',
+                              style: TextStyle(color: secondario),
+                            ),
+                        ],
                       ),
+                      style: testo.bodySmall?.copyWith(fontSize: 13),
                     ),
-                  ),
-                ],
-              ),
-              if (chiusa && answer.walkTo.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(top: 4),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Icon(Icons.directions_walk, size: 18),
-                      const SizedBox(width: 6),
-                      Expanded(child: _SaliA(walkTo: answer.walkTo)),
-                    ],
-                  ),
+                    if (chiusa && answer.walkTo.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Icon(Icons.directions_walk, size: 16),
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: DefaultTextStyle.merge(
+                                style: const TextStyle(fontSize: 13),
+                                child: _SaliA(walkTo: answer.walkTo),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
                 ),
+              ),
             ],
           ),
         ),
