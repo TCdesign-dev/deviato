@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Il simbolo dell'icona (assets/icona/icona.svg) per la schermata di
+     avvio di Android 12 e successivi, in vettoriale: l'immagine dell'icona
+     del telefono, ingrandita dal sistema, veniva sfocata. Il sistema lo
+     mette su un cerchio giallo (windowSplashScreenIconBackgroundColor) e
+     mostra solo quel cerchio, due terzi del riquadro: il simbolo e'
+     rimpicciolito perche' ci stia come sull'icona. Il tratteggio del
+     percorso normale e' scomposto nei suoi quattro trattini: i vettori di
+     Android non hanno stroke-dasharray. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="240dp"
+    android:height="240dp"
+    android:viewportWidth="1024"
+    android:viewportHeight="1024">
+    <group
+        android:pivotX="512"
+        android:pivotY="512"
+        android:scaleX="0.68"
+        android:scaleY="0.68">
+        <path
+            android:pathData="M150,640H260M764,640H874"
+            android:strokeColor="#1E1E1E"
+            android:strokeLineCap="round"
+            android:strokeWidth="64" />
+        <path
+            android:pathData="M385,640H421M465,640H501M545,640H581M625,640H661"
+            android:strokeAlpha="0.3"
+            android:strokeColor="#1E1E1E"
+            android:strokeWidth="44" />
+        <path
+            android:pathData="M318,582V420Q318,330 408,330H616Q706,330 706,420V582"
+            android:strokeColor="#1E1E1E"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round"
+            android:strokeWidth="72" />
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M260,640a58,58 0,1 0,116 0a58,58 0,1 0,-116 0"
+            android:strokeColor="#1E1E1E"
+            android:strokeWidth="30" />
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M648,640a58,58 0,1 0,116 0a58,58 0,1 0,-116 0"
+            android:strokeColor="#1E1E1E"
+            android:strokeWidth="30" />
+        <path
+            android:pathData="M472,600l80,80M552,600l-80,80"
+            android:strokeColor="#1E1E1E"
+            android:strokeLineCap="round"
+            android:strokeWidth="30" />
+    </group>
+</vector>
