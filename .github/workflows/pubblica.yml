@@ -107,4 +107,11 @@ jobs:
           else
             git commit -q -m "Dati del $(date '+%d/%m/%Y %H:%M')"
           fi
-          git push -q -f origin gh-pages
+          # Il 29/09 alle 16:43 GitHub ha risposto «Internal Server Error» e
+          # il giro, calcolato bene, non e' stato pubblicato. Si riprova.
+          for tentativo in 1 2 3; do
+            git push -q -f origin gh-pages && exit 0
+            echo "Pubblicazione non riuscita (tentativo $tentativo), si riprova."
+            sleep 15
+          done
+          exit 1
