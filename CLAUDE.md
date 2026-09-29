@@ -161,7 +161,7 @@ all'algoritmo, guardare *dove* stanno i punti fuori percorso.
 **Il 29/09**, col cammino lungo le vie, su 75 confronti: 11 escono «già
 negli orari». Dove c'erano i mezzi (9 e 68 in tutte e due le direzioni,
 27, 43 verso Moncalieri; tracce dalle 9:55 alle 12) restano davvero sulla
-linea, e l'algoritmo 1 dava 23 fermate non servite da cui passavano;
+linea, e l'algoritmo 1 dava 27 fermate non servite da cui passavano;
 84, 99, 1087 e 1224 non sono verificate. La 43 verso Rivalta è una
 deviazione vera: del rosso del 2 fuori linea l'85% è stato percorso dai
 mezzi (dell'1 il 5%), e l'unica fermata del tratto sostituito, Bengasi
