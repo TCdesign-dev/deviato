@@ -68,11 +68,19 @@ No login is needed. To try it: tap +, pick a line (for example 10N or 15), then 
 
 ## 4. Cosa testare (per ogni build)
 
-**Build 1.0.0 (10)** — quella da dare ai tester: mappa a tutto schermo con
-i comandi scritti («Tutta la linea», «Segui i mezzi», «Dove sono»), una
-direzione sola e il pannello dal basso; percorsi più spessi; cartina di
-CARTO chiara o scura; mezzi in tempo reale con la direzione. Va compilata
-con `--dart-define-from-file=chiavi.json`.
+**Build 1.0.0 (11)** — quella da dare ai tester (caricata il 29/09, e
+lo stesso giorno come AAB versionCode 11 per il Play Store): le fermate
+salvate raggruppate per linea nella home, una riga per fermata; niente
+più «fino al» con la data finta che GTT mette agli avvisi «sino a nuove
+comunicazioni». Dal 29/09 i percorsi deviati li calcola il secondo
+algoritmo (lato job, non nella build): deviazioni già negli orari
+riconosciute, percorso lungo le vie dell'avviso. Va compilata con
+`--dart-define-from-file=chiavi.json`.
+
+**Build 1.0.0 (10)**: mappa a tutto schermo con i comandi scritti («Tutta
+la linea», «Segui i mezzi», «Dove sono»), una direzione sola e il
+pannello dal basso; percorsi più spessi; cartina di CARTO chiara o scura;
+mezzi in tempo reale con la direzione.
 
 ```text
 Prima versione di prova. Ci aiuta soprattutto sapere:
