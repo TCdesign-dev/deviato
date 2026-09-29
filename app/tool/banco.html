@@ -141,6 +141,10 @@ function disegnaPercorsi(c, inquadra) {
     L.polyline(g, {color: '#b71c1c', weight: 4}).bindTooltip('algoritmo 2').addTo(stratoPercorsi);
     freccette(g, '#4a0000', stratoPercorsi);
   }
+  for (const f of (c.a2.sulPercorso || [])) {
+    L.circleMarker(f.p, {radius: 6, color: '#fff', weight: 2, fillColor: '#0b9470', fillOpacity: 1})
+      .bindTooltip(f.n).addTo(stratoPercorsi);
+  }
   if (inquadra) {
     const tutti = [...c.a1.geometria, ...g];
     mappa.fitBounds(tutti.length > 1 ? L.polyline(tutti).getBounds().pad(0.35) : blu.getBounds());
@@ -153,11 +157,12 @@ function disegnaLato(c) {
   const alg = (n, m) => `<tr><th>${n}</th><td>${affid(m.affidabilita)} · ${km(m.metri)}<br>
       <span class="male">${problemi(m) || ''}</span>
       ${m.nonServite.length ? `<br>${m.nonServite.length} non servite: ${m.nonServite.join(', ')}` : '<br>nessuna fermata non servita'}
+      ${(m.sulPercorso || []).length ? `<br>${m.sulPercorso.length} lungo la deviazione: ${m.sulPercorso.map(f => f.n).join(', ')}` : ''}
       ${m.perche ? `<br><span class="nota">${m.perche}</span>` : ''}</td></tr>`;
   el.innerHTML = `
     <h2>${c.linea} verso ${c.direzione}</h2>
     <p>${etichettaStato(c)} ${c.periodo || ''}</p>
-    <div class="legenda"><span><i style="background:#2a5bd7"></i>normale</span><span><i style="background:#ff8a80"></i>algoritmo 1</span><span><i style="background:#b71c1c"></i>algoritmo 2</span><span><i style="background:#7b1fa2"></i>mezzi</span></div>
+    <div class="legenda"><span><i style="background:#2a5bd7"></i>normale</span><span><i style="background:#ff8a80"></i>algoritmo 1</span><span><i style="background:#b71c1c"></i>algoritmo 2</span><span><i style="background:#7b1fa2"></i>mezzi</span><span><i style="background:#0b9470"></i>fermate lungo la deviazione</span></div>
     <table>${alg('1', c.a1)}${alg('2', c.a2)}</table>
     <h3>Mezzi in tempo reale</h3>
     <button id="segui" class="${seguita ? '' : 'pieno'}">${seguita ? 'Interrompi' : 'Segui i mezzi della ' + c.linea}</button>

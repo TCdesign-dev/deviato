@@ -98,8 +98,25 @@ capolinea o, se non basta, da dove finisce la direzione sulla mappa);
 stacco e rientro sulla linea; le tappe sono **gli incroci fra una via e la
 successiva**, calcolati sulla forma intera delle vie presa da OpenStreetMap
 con Overpass (`pipeline/vie_osm.dart`, `ricostruzione/incroci.dart`), e se
-una via manca si torna ai punti di Photon; il rosso perde i pezzi sopra la
-linea normale; tre controlli in più (inizio o fine lontani, verso
+una via manca si torna ai punti di Photon; **fra una svolta e l'altra il
+percorso segue la via nominata** (`ricostruzione/lungo_le_vie.dart`, il
+cammino più corto sulle sole vie del tratto, e se le carreggiate non si
+toccano con le vie accanto), non quella che sceglie Valhalla — per la 9
+prendeva corso Francia invece di via Cibrario; un tratto che sulle vie
+non si trova (un ponte con un altro nome) lo fa Valhalla da solo; **per un
+tram i binari** (`railway=tram` da Overpass, al massimo 50° di svolta in un
+nodo: dove due binari si incrociano il tram tira dritto), ma solo dove
+coincidono con la via — un incrocio fra due vie cade spesso sul binario di
+traverso, e da lì il cammino sui binari va a cercare un raccordo lontano;
+se il percorso delle vie nominate sta sulla linea (meno di 120 m a più di
+40 m da lei) **la deviazione è già negli orari**: «Verificato», nessuna
+fermata saltata, e lo dice; **le fermate lungo il rosso**
+(`ricostruzione/fermate_sul_percorso.dart`: a meno di 25 m dal rosso, a
+più di 40 m dalla linea, dal lato giusto secondo il verso delle linee che
+le servono) si pubblicano in `sulPercorso`, con le loro coordinate nelle
+`fermate` dello stato, solo sui percorsi «Verificato» — l'app non le
+mostra ancora; il rosso perde i pezzi
+sopra la linea normale; tre controlli in più (inizio o fine lontani, verso
 contrario, andare e tornare) rendono il percorso «Da confermare».
 
 **La lettura del modello si pubblica** (`lettura` in ogni esito, dal
@@ -131,10 +148,31 @@ fermata N», dove valgono le date del feed). L'app per ora non lo usa.
 **Cosa hanno detto i mezzi il 28/09** (15:10–15:30, prima misura vera):
 la 9 ha la deviazione **già negli orari** — i tram seguono la linea blu,
 che è proprio il giro dell'avviso — e i due algoritmi danno per non servite
-fermate da cui passano; sulla 46 l'algoritmo 1 spiega l'88% dei punti
-fuori percorso e il 2 lo 0%, perché il 2 mette il rientro dove via Cigna
-*incrocia* la linea invece che dove ci si *riunisce*; la 9 è un tram, e
-Valhalla con `costing: bus` non segue i binari.
+fermate da cui passano; la 9 è un tram, e Valhalla con `costing: bus`
+non segue i binari. Sulla 46 l'algoritmo 1 spiegava l'88% dei punti fuori
+percorso e il 2 lo 0%, e sembrava colpa del rientro del 2. **Era sbagliata
+la diagnosi** (ricontrollato il 29/09): i mezzi facevano il percorso
+normale per piazza Baldissera — la deviazione era finita, il 29 l'avviso
+non c'era più — mentre gli orari hanno ancora il giro per via Cigna, in
+tutte e due le direzioni. Il rientro «dove la via si riunisce alla linea»,
+scritto per correggerla, si è tolto. Prima di dare la colpa
+all'algoritmo, guardare *dove* stanno i punti fuori percorso.
+
+**Il 29/09**, col cammino lungo le vie, su 75 confronti: 11 escono «già
+negli orari». Dove c'erano i mezzi (9 e 68 in tutte e due le direzioni,
+27, 43 verso Moncalieri; tracce dalle 9:55 alle 12) restano davvero sulla
+linea, e l'algoritmo 1 dava 23 fermate non servite da cui passavano;
+84, 99, 1087 e 1224 non sono verificate. La 43 verso Rivalta è una
+deviazione vera: del rosso del 2 fuori linea l'85% è stato percorso dai
+mezzi (dell'1 il 5%), e l'unica fermata del tratto sostituito, Bengasi
+Ovest, sta a 34 m dal rosso — servita, come dice il 2 (l'1 ne dava 5 non
+servite). Fermate non servite in tutto: 108 con l'1, 63 col 2. Overpass quella mattina alternava 504 e risposte in mezzo
+secondo sul server principale, la riserva ci metteva 14 s o non
+rispondeva, e gli altri server pubblici provati (kumi.systems,
+private.coffee) non rispondevano affatto: ora si prova principale,
+riserva, di nuovo principale. Quando nessuno risponde l'esito torna ai
+punti di Photon e si segna da rifare: stessi dati, risultati diversi fra
+un giro e l'altro finché Overpass non risponde.
 
 **Confrontare i due algoritmi**: `dart run tool/confronta_algoritmi.dart`
 scarica i dati pubblicati, rifà l'analisi con l'1 e col 2 sulle letture
@@ -171,7 +209,7 @@ Non sono stime. Se li rimetti in discussione, rimisurali.
 | `active_period.start` negli alert | **161 su 161 nel passato** | idem |
 | Variazioni pubblicate da **entrambe** le fonti | **31 coppie** su 189 avvisi | `check_merge_offline.dart` |
 | Di queste, quelle in cui la data d'inizio cambia | **17** (fino a 3 mesi) | idem |
-| Test | **374** | `flutter test` |
+| Test | **382** | `flutter test` |
 | Somiglianza fra le vie nominate: coppie vere | **0,67 – 1,00** e ≥3 vie | idem |
 | Idem, coppie false | **0,67 con 2 vie**, o 3 vie a **0,38** | idem |
 | Data d'inizio estraibile a regex dal testo | **40%** — troppo poco | idem |
@@ -635,7 +673,7 @@ Per non fraintendere quello che c'è in `config.dart`:
 ## 8. Come si lavora
 
 ```bash
-cd app && flutter test          # 374 test, devono passare tutti
+cd app && flutter test          # 382 test, devono passare tutti
 cd app && flutter analyze       # deve essere pulito
 ```
 
@@ -706,4 +744,4 @@ facendo gli screenshot troppo presto.
 
 ---
 
-*Ultimo aggiornamento: 28 settembre 2026. 374 test.*
+*Ultimo aggiornamento: 29 settembre 2026. 382 test.*

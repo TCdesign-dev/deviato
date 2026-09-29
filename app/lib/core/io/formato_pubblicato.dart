@@ -136,6 +136,9 @@ class FormatoPubblicato {
           fermate[a.stop.id] = a.stop;
         }
       }
+      for (final f in r.fermateSulPercorso) {
+        fermate[f.id] = f;
+      }
     }
     return {
       'versione': versione,
@@ -239,6 +242,8 @@ class FormatoPubblicato {
         if (r.impact != null) 'impatto': _impatto(r.impact!),
         if (r.letture.isNotEmpty)
           'lettura': [for (final d in r.letture) d.toJson()],
+        if (r.fermateSulPercorso.isNotEmpty)
+          'sulPercorso': [for (final f in r.fermateSulPercorso) f.id],
       };
 
   static DeviationReport? _leggiRapporto(
@@ -264,6 +269,10 @@ class FormatoPubblicato {
         for (final d
             in (j['lettura'] as List? ?? const []).cast<Map<String, dynamic>>())
           ParsedDeviation.fromJson(d),
+      ],
+      fermateSulPercorso: [
+        for (final id in (j['sulPercorso'] as List? ?? const []).cast<String>())
+          ?fermata(id),
       ],
       deviatedGeometry: j['geometria'] == null
           ? null

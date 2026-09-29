@@ -105,8 +105,32 @@ class RouteBuilder {
     return out;
   }
 
+  /// Le cinque prove su un percorso calcolato altrove: il secondo
+  /// algoritmo lo costruisce lungo le vie nominate, senza Valhalla.
+  static RouteBuildResult verifica({
+    required List<GeoPoint> geometry,
+    required List<GeoPoint> waypoints,
+    required RouteShape officialRoute,
+    List<GeoPoint> requiredVias = const [],
+  }) {
+    final failures = _validate(
+      geometry: geometry,
+      waypoints: waypoints,
+      requiredVias: requiredVias,
+      officialRoute: officialRoute,
+    );
+    return RouteBuildResult(
+      status: failures.isEmpty
+          ? RouteBuildStatus.ok
+          : RouteBuildStatus.validationFailed,
+      geometry: geometry,
+      lengthMeters: Geometry.length(geometry.map((p) => p.meters).toList()),
+      failures: failures,
+    );
+  }
+
   /// Le cinque prove di §5.2.3.
-  List<RouteValidationFailure> _validate({
+  static List<RouteValidationFailure> _validate({
     required List<GeoPoint> geometry,
     required List<GeoPoint> waypoints,
     required List<GeoPoint> requiredVias,

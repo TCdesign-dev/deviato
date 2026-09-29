@@ -41,9 +41,11 @@ lib/
 │   ├── ricostruzione/           ← da avviso letto a percorso deviato
 │   │   ├── ricostruzione.dart   ← quale algoritmo (ALGORITMO_PERCORSI)
 │   │   ├── ricostruzione_1.dart ← il primo, com'era il 28/09/2026: non si tocca
-│   │   ├── ricostruzione_2.dart ← il secondo: direzioni, incroci, rifinitura
+│   │   ├── ricostruzione_2.dart ← il secondo: direzioni, incroci, vie, rifinitura
 │   │   ├── scelta_direzione.dart← le parole con cui un avviso nomina una direzione
 │   │   ├── incroci.dart         ← dove due vie si toccano, dove una via tocca la linea
+│   │   ├── lungo_le_vie.dart    ← il cammino fra due svolte sulla via nominata (o sui binari)
+│   │   ├── fermate_sul_percorso.dart ← le fermate lungo il rosso, dal lato giusto
 │   │   └── rifinitura.dart      ← rosso agganciato alla linea, e i controlli
 │   └── pipeline/                ← i passaggi del calcolo, uno per file
 │       ├── line_resolver.dart   ← "55" → 55U   (tabella alias, §4.1)
@@ -51,7 +53,7 @@ lib/
 │       ├── extractor.dart       ← testo → JSON  (LLM)
 │       ├── geocoder.dart        ← toponimo → coordinate, VINCOLATO
 │       ├── route_builder.dart   ← vie → polilinea  (Valhalla)
-│       ├── vie_osm.dart         ← nome di via → forma intera (Overpass)
+│       ├── vie_osm.dart         ← nome di via → forma intera, e i binari (Overpass)
 │       ├── stop_impact.dart     ← quali fermate saltano, quali alternative
 │       ├── closure_summary.dart ← le fermate chiuse lette per tratti, non per avviso
 │       ├── stop_answer.dart     ← «la mia fermata è servita?», per una fermata salvata

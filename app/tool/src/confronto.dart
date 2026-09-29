@@ -59,6 +59,31 @@ class Confronto {
     return j == null ? const [] : FormatoPubblicato.leggiPercorsi(j).shapes;
   }
 
+  /// Tutta la rete pubblicata, come l'indice del job: le fermate delle
+  /// altre linee servono alle alternative e a quelle lungo la deviazione.
+  Future<GtfsIndex> rete(List<TransitLine> linee, String? feed) async {
+    final shapes = <String, List<RouteShape>>{};
+    for (var i = 0; i < linee.length; i += 8) {
+      final gruppo = linee.skip(i).take(8).toList();
+      final letti =
+          await Future.wait([for (final l in gruppo) percorsi(l.routeId)]);
+      for (var k = 0; k < gruppo.length; k++) {
+        if (letti[k].isNotEmpty) shapes[gruppo[k].routeId] = letti[k];
+      }
+    }
+    return GtfsIndex(
+      feedVersion: feed,
+      builtAt: DateTime.now(),
+      lines: {for (final l in linee) l.routeId: l},
+      shapes: shapes,
+      stops: {
+        for (final ss in shapes.values)
+          for (final s in ss)
+            for (final f in s.stops) f.id: f,
+      },
+    );
+  }
+
   /// Un confronto per ogni direzione di ogni avviso con una lettura. [ogni]
   /// riceve ciascuno appena pronto, [avanzamento] quante linee sono state
   /// guardate su quante.
@@ -77,6 +102,7 @@ class Confronto {
     final geocoder = Geocoder();
     final router = RouteBuilder();
     final righe = <Map<String, Object?>>[];
+    final index = await rete(indice.linee, indice.feed);
 
     for (var n = 0; n < linee.length; n++) {
       avanzamento?.call(n, linee.length);
@@ -91,18 +117,7 @@ class Confronto {
           letture.containsKey((a['avviso'] as Map)['id']))) {
         continue;
       }
-      final shapes = await percorsi(linea.routeId);
-      if (shapes.isEmpty) continue;
-      final index = GtfsIndex(
-        feedVersion: indice.feed,
-        builtAt: DateTime.now(),
-        lines: {linea.routeId: linea},
-        shapes: {linea.routeId: shapes},
-        stops: {
-          for (final s in shapes)
-            for (final f in s.stops) f.id: f,
-        },
-      );
+      if (index.shapesOf(linea.routeId).isEmpty) continue;
       final letto = FormatoPubblicato.leggiStato(stato, index,
           controllata: DateTime.now());
       if (letto == null) continue;
@@ -222,6 +237,13 @@ class Confronto {
       ],
       'lettura': r.parsed?.toString(),
       'geometria': coppie(g),
+      'sulPercorso': [
+        for (final f in r.fermateSulPercorso)
+          {
+            'n': f.name,
+            'p': coppie([f.position]).single,
+          },
+      ],
     };
   }
 

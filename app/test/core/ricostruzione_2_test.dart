@@ -10,7 +10,9 @@ import 'package:gtt_deviazioni/core/pipeline/geocoder.dart';
 import 'package:gtt_deviazioni/core/pipeline/route_builder.dart';
 import 'package:gtt_deviazioni/core/pipeline/stop_impact.dart';
 import 'package:gtt_deviazioni/core/pipeline/vie_osm.dart';
+import 'package:gtt_deviazioni/core/ricostruzione/fermate_sul_percorso.dart';
 import 'package:gtt_deviazioni/core/ricostruzione/incroci.dart';
+import 'package:gtt_deviazioni/core/ricostruzione/lungo_le_vie.dart';
 import 'package:gtt_deviazioni/core/ricostruzione/rifinitura.dart';
 import 'package:gtt_deviazioni/core/ricostruzione/ricostruzione_2.dart';
 import 'package:gtt_deviazioni/core/ricostruzione/scelta_direzione.dart';
@@ -412,24 +414,24 @@ void main() {
     );
 
     test('le tappe sono le svolte, non i punti di Photon', () async {
-      final router = _Router();
-      await Ricostruzione2(
+      final r = await Ricostruzione2(
         geocoder: lontano,
-        router: router,
+        router: _Router(),
         impact: StopImpactAnalyzer(index: index),
         vie: intere,
       ).analizza(avviso, andata, letto(const [giro]));
-      final t = router.tappe;
-      expect(t.length, 4);
-      // corso Linea angolo via Nord, via Nord in via Alta, via Alta in via
-      // Rientro, via Rientro sulla linea.
-      expect(t[0].lon, closeTo(7.6700, 0.0001));
-      expect(t[0].lat, closeTo(lat, 0.0001));
-      expect(t[1].lon, closeTo(7.6700, 0.0001));
-      expect(t[1].lat, closeTo(nord, 0.0001));
-      expect(t[2].lon, closeTo(7.6800, 0.0001));
-      expect(t[3].lon, closeTo(7.6800, 0.0001));
-      expect(t[3].lat, closeTo(lat, 0.0001));
+      final g = r.deviatedGeometry!;
+      bool passa(double la, double lo) => g.any(
+        (p) => (p.lat - la).abs() < 0.0001 && (p.lon - lo).abs() < 0.0001,
+      );
+      // Da corso Linea angolo via Nord, via Nord in via Alta, via Alta in
+      // via Rientro, via Rientro sulla linea.
+      expect(g.first.lon, closeTo(7.6700, 0.0001));
+      expect(passa(nord, 7.6700), isTrue);
+      expect(passa(nord, 7.6800), isTrue);
+      expect(g.last.lon, closeTo(7.6800, 0.0001));
+      // Non fino al punto lontano di Photon.
+      expect(g.every((p) => p.lon < 7.69), isTrue);
     });
 
     test('col giro vero niente andare e tornare: e\' verificato', () async {
@@ -514,12 +516,16 @@ void main() {
           v.cerca(['via Nord'], andata),
           throwsA(isA<GttHttpException>()),
         );
-        expect(http.chiamate, 2, reason: 'il server principale e la riserva');
+        expect(
+          http.chiamate,
+          3,
+          reason: 'il principale, la riserva, di nuovo il principale',
+        );
         await expectLater(
           v.cerca(['via Alta'], andata),
           throwsA(isA<GttHttpException>()),
         );
-        expect(http.chiamate, 2, reason: 'niente altre attese in questo giro');
+        expect(http.chiamate, 3, reason: 'niente altre attese in questo giro');
       },
     );
 
@@ -623,6 +629,247 @@ void main() {
         GeoPoint(lat, 7.6700),
       ], andata);
       expect(problemi, contains('verso contrario alla direzione'));
+    });
+  });
+
+  group('lungo le vie', () {
+    // Le stesse vie del giro a nord, ma come in OpenStreetMap: dove due vie
+    // si incontrano hanno un vertice in comune.
+    const nord = lat + 0.0020;
+    final connesse = _Vie({
+      'corso Linea': [
+        const [
+          GeoPoint(lat, 7.6550),
+          GeoPoint(lat, 7.6700),
+          GeoPoint(lat, 7.6800),
+          GeoPoint(lat, 7.7050),
+        ],
+      ],
+      'via Nord': [
+        const [GeoPoint(lat, 7.6700), GeoPoint(nord, 7.6700)],
+      ],
+      'via Alta': [
+        const [
+          GeoPoint(nord, 7.6650),
+          GeoPoint(nord, 7.6700),
+          GeoPoint(nord, 7.6800),
+          GeoPoint(nord, 7.7000),
+        ],
+      ],
+      'via Rientro': [
+        const [GeoPoint(nord, 7.6800), GeoPoint(lat, 7.6800)],
+      ],
+    });
+    const giro = ParsedDeviation(
+      type: DeviationType.deviazione,
+      detachStreet: 'corso Linea',
+      detachCrossStreet: 'via Nord',
+      viaSequence: ['via Nord', 'via Alta', 'via Rientro'],
+    );
+
+    test('il percorso segue le vie nominate, senza Valhalla', () async {
+      final router = _Router();
+      final r = await algoritmo(
+        router,
+        connesse,
+      ).analizza(avviso, andata, letto(const [giro]));
+      expect(router.tappe, isEmpty);
+      expect(r.confidence, Confidence.confermata);
+      // Passa dagli angoli, non in diagonale.
+      final g = r.deviatedGeometry!;
+      expect(
+        g.any(
+          (p) =>
+              (p.lat - nord).abs() < 0.00005 && (p.lon - 7.67).abs() < 0.00005,
+        ),
+        isTrue,
+      );
+      expect(
+        g.any(
+          (p) =>
+              (p.lat - nord).abs() < 0.00005 && (p.lon - 7.68).abs() < 0.00005,
+        ),
+        isTrue,
+      );
+    });
+
+    test('le fermate lungo la deviazione, solo dal lato giusto', () async {
+      // Un'altra linea su via Alta, nei due versi: il palo a nord e' di chi
+      // va verso est, come il bus deviato; quello a sud di chi va a ovest.
+      TransitStop pal(String id, double dLat, double lon) =>
+          TransitStop(id: id, name: id, position: GeoPoint(nord + dLat, lon));
+      final est = RouteShape(
+        shapeId: 'X:0',
+        routeId: 'XU',
+        directionId: 0,
+        headsign: 'EST',
+        points: const [GeoPoint(nord, 7.6600), GeoPoint(nord, 7.7000)],
+        stops: [
+          pal('X-est', 0.00003, 7.6750),
+          pal('X-lontana', 0.00003, 7.6950),
+        ],
+      );
+      final ovest = RouteShape(
+        shapeId: 'X:1',
+        routeId: 'XU',
+        directionId: 1,
+        headsign: 'OVEST',
+        points: const [GeoPoint(nord, 7.7000), GeoPoint(nord, 7.6600)],
+        stops: [pal('X-ovest', -0.00003, 7.6750)],
+      );
+      final conAltre = GtfsIndex(
+        feedVersion: 't',
+        builtAt: DateTime(2026),
+        lines: {
+          ...index.lines,
+          'XU': const TransitLine(routeId: 'XU', shortName: 'X'),
+        },
+        shapes: {
+          ...index.shapes,
+          'XU': [est, ovest],
+        },
+        stops: {
+          ...index.stops,
+          for (final f in [...est.stops, ...ovest.stops]) f.id: f,
+        },
+      );
+      final r = await Ricostruzione2(
+        geocoder: vie,
+        router: _Router(),
+        impact: StopImpactAnalyzer(index: conAltre),
+        vie: connesse,
+      ).analizza(avviso, andata, letto(const [giro]));
+      expect(r.fermateSulPercorso.map((f) => f.id), ['X-est']);
+
+      // Da sole, nell'ordine in cui il bus le incontra.
+      final f = FermateSulPercorso(
+        conAltre,
+      ).lungo(const [GeoPoint(nord, 7.6600), GeoPoint(nord, 7.7000)], andata);
+      expect(f.map((x) => x.id), ['X-est', 'X-lontana']);
+    });
+
+    test(
+      'se le vie dell\'avviso sono la linea, e\' gia\' negli orari',
+      () async {
+        // GTT ha gia' messo la deviazione nel percorso: la linea fa il giro.
+        final deviataNegliOrari = RouteShape(
+          shapeId: 'T:0',
+          routeId: 'TU',
+          directionId: 0,
+          headsign: 'PIAZZA ORIENTE',
+          points: const [
+            GeoPoint(lat, 7.6600),
+            GeoPoint(lat, 7.6700),
+            GeoPoint(nord, 7.6700),
+            GeoPoint(nord, 7.6800),
+            GeoPoint(lat, 7.6800),
+            GeoPoint(lat, 7.7000),
+          ],
+          stops: const [],
+        );
+        final router = _Router();
+        final r = await algoritmo(
+          router,
+          connesse,
+        ).analizza(avviso, deviataNegliOrari, letto(const [giro]));
+        expect(router.tappe, isEmpty);
+        expect(r.confidence, Confidence.confermata);
+        expect(r.whyIncomplete, contains('già negli orari'));
+        expect(r.hasMap, isFalse);
+        expect(r.skippedStops, isEmpty);
+      },
+    );
+
+    test(
+      'un tratto che sulle vie non si trova lo fa Valhalla, da solo',
+      () async {
+        final staccata = _Vie({
+          ...connesse.vie,
+          // via Alta comincia 400 m piu' a est: non tocca via Nord.
+          'via Alta': [
+            const [GeoPoint(nord, 7.6750), GeoPoint(nord, 7.7000)],
+          ],
+        });
+        final router = _Router();
+        await algoritmo(
+          router,
+          staccata,
+        ).analizza(avviso, andata, letto(const [giro]));
+        // Solo il primo tratto, dallo stacco a via Alta; il resto per le vie.
+        expect(router.tappe, hasLength(2));
+        expect(router.tappe.first.lon, closeTo(7.6700, 0.0001));
+        expect(router.tappe.last.lon, closeTo(7.6750, 0.0001));
+      },
+    );
+
+    test('LungoLeVie: resta sulle vie date', () {
+      // Una L: da ovest verso l'angolo, poi a nord.
+      final l = LungoLeVie(const [
+        [GeoPoint(lat, 7.66), GeoPoint(lat, 7.67)],
+        [GeoPoint(lat, 7.67), GeoPoint(lat + 0.002, 7.67)],
+      ]);
+      final c = l.cammino(
+        const GeoPoint(lat, 7.662),
+        const GeoPoint(lat + 0.0015, 7.67),
+      )!;
+      expect(
+        c.any((p) => (p.lat - lat).abs() < 1e-6 && (p.lon - 7.67).abs() < 1e-6),
+        isTrue,
+      );
+      // Un punto lontano dalle vie non si aggancia.
+      expect(
+        l.cammino(const GeoPoint(lat, 7.662), const GeoPoint(lat + 0.01, 7.70)),
+        isNull,
+      );
+    });
+
+    test('LungoLeVie: da una carreggiata all\'altra si passa', () {
+      // Le due carreggiate di un corso, a 15 m, che non si toccano.
+      const corso = [
+        [GeoPoint(lat, 7.660), GeoPoint(lat, 7.665), GeoPoint(lat, 7.670)],
+        [
+          GeoPoint(lat + 0.000135, 7.670),
+          GeoPoint(lat + 0.000135, 7.665),
+          GeoPoint(lat + 0.000135, 7.660),
+        ],
+      ];
+      const da = GeoPoint(lat, 7.661);
+      const a = GeoPoint(lat + 0.000135, 7.669);
+      final c = LungoLeVie(corso).cammino(da, a)!;
+      expect(LungoLeVie.lunghezza(c), lessThan(700));
+      // I binari invece sono collegati davvero, o non lo sono.
+      expect(LungoLeVie(corso, svoltaMassima: 50).cammino(da, a), isNull);
+    });
+
+    test('LungoLeVie: sui binari un tram non gira ad angolo retto', () {
+      // Due binari che si incrociano con un nodo in comune, e una curva
+      // che li raccorda piu' in la'.
+      const incrocio = [
+        [GeoPoint(lat, 7.66), GeoPoint(lat, 7.67), GeoPoint(lat, 7.68)],
+        [
+          GeoPoint(lat - 0.002, 7.67),
+          GeoPoint(lat, 7.67),
+          GeoPoint(lat + 0.002, 7.67),
+        ],
+      ];
+      const da = GeoPoint(lat, 7.662);
+      const a = GeoPoint(lat + 0.0015, 7.67);
+      // Per le vie si gira all'incrocio.
+      expect(LungoLeVie(incrocio).cammino(da, a), isNotNull);
+      // Per i binari no, e senza raccordo non c'e' cammino.
+      expect(LungoLeVie(incrocio, svoltaMassima: 50).cammino(da, a), isNull);
+      // Con una curva a piccoli passi si'.
+      final raccordo = LungoLeVie(const [
+        [GeoPoint(lat, 7.66), GeoPoint(lat, 7.6693)],
+        [
+          GeoPoint(lat, 7.6693),
+          GeoPoint(lat + 0.00005, 7.6697),
+          GeoPoint(lat + 0.00015, 7.6699),
+          GeoPoint(lat + 0.0003, 7.67),
+        ],
+        [GeoPoint(lat + 0.0003, 7.67), GeoPoint(lat + 0.002, 7.67)],
+      ], svoltaMassima: 50);
+      expect(raccordo.cammino(da, a), isNotNull);
     });
   });
 }

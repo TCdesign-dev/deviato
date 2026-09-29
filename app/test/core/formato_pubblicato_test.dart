@@ -238,6 +238,52 @@ void main() {
     expect(r.letture.single.viaSequence, ['corso Vinzaglio', 'via Cernaia']);
   });
 
+  test('le fermate lungo la deviazione viaggiano nello stato, in ordine', () {
+    final index = GtfsIndex(
+      feedVersion: 'f', builtAt: DateTime(2026),
+      lines: {'15U': linea}, shapes: {'15U': [andata]}, stops: const {},
+    );
+    final j = viaJson(FormatoPubblicato.stato(LineStatus(
+      line: linea,
+      shape: andata,
+      checkedAt: DateTime(2026),
+      reports: [
+        DeviationReport(
+          notice: const RawNotice(
+              id: 'a', source: NoticeSource.gtfsRtAlert, text: 't',
+              sourceUrl: ''),
+          shape: andata,
+          confidence: Confidence.confermata,
+          fermateSulPercorso: [altrove, f2],
+        ),
+      ],
+    )));
+    // La fermata di un'altra linea e' nel file: il telefono non la conosce.
+    expect((j['fermate'] as Map).keys, contains('S9'));
+    final r = FormatoPubblicato.leggiStato(j, index,
+            controllata: DateTime(2026))!
+        .reports
+        .single;
+    expect(r.fermateSulPercorso.map((f) => f.code), ['900', '200']);
+
+    // Senza, il campo non c'e': i file di prima restano identici.
+    final senza = viaJson(FormatoPubblicato.stato(LineStatus(
+      line: linea,
+      shape: andata,
+      checkedAt: DateTime(2026),
+      reports: [
+        DeviationReport(
+          notice: const RawNotice(
+              id: 'a', source: NoticeSource.gtfsRtAlert, text: 't',
+              sourceUrl: ''),
+          shape: andata,
+          confidence: Confidence.confermata,
+        ),
+      ],
+    )));
+    expect((senza['avvisi'] as List).first, isNot(contains('sulPercorso')));
+  });
+
   test('il nome del file non esce dalla cartella', () {
     expect(FormatoPubblicato.nomeFile('10NU'), '10NU.json');
     expect(FormatoPubblicato.nomeFile('../x'), '___x.json');

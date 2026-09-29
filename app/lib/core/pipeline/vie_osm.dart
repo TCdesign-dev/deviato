@@ -45,13 +45,6 @@ class ViePerNome {
     final chiave = '${vicino.shapeId}|${unici.join('|')}';
     final gia = _gia[chiave];
     if (gia != null) return gia;
-    if (_giu) {
-      throw GttHttpException(
-        GttConfig.overpassUrl,
-        null,
-        'Overpass non ha risposto prima, in questo giro',
-      );
-    }
 
     final parti = {
       for (final n in unici)
@@ -65,37 +58,54 @@ class ViePerNome {
     final b = zona.isNotEmpty
         ? Geometry.boundsOf(zona, paddingMeters: GttConfig.vieOsmMargineMetri)
         : vicino.boundsWithPadding(GttConfig.vieOsmMargineMetri);
-    final query =
-        '[out:json][timeout:25];'
-        'way["highway"]["name"~"${parti.join('|')}",i]'
-        '(${b.minLat},${b.minLon},${b.maxLat},${b.maxLon});'
-        'out tags geom;';
-    String url(String server) =>
-        Uri.parse(server).replace(queryParameters: {'data': query}).toString();
-    String risposta;
-    try {
-      risposta = await _http.getTextPolite(
-        url(GttConfig.overpassUrl),
-        timeout: GttConfig.overpassTimeout,
-      );
-    } on GttHttpException catch (e) {
-      // Troppo carico (429), tempo scaduto (504) o rete: si prova l'altro
-      // server, dopo una pausa. Una richiesta sbagliata (400) no.
-      if (e.statusCode == 400) rethrow;
-      await Future<void>.delayed(pausa);
-      try {
-        risposta = await _http.getTextPolite(
-          url(GttConfig.overpassRiserva),
-          timeout: GttConfig.overpassTimeout,
-        );
-      } on GttHttpException {
-        _giu = true;
-        rethrow;
-      }
-    }
+    final risposta = await _chiedi(
+      '[out:json][timeout:25];'
+      'way["highway"]["name"~"${parti.join('|')}",i]'
+      '(${b.minLat},${b.minLon},${b.maxLat},${b.maxLon});'
+      'out tags geom;',
+    );
     final out = abbina(unici, leggi(risposta));
     _gia[chiave] = out;
     return out;
+  }
+
+  /// Una richiesta a Overpass, col server di riserva. Se nessuno dei due
+  /// risponde, per il resto del giro non si richiama.
+  Future<String> _chiedi(String query) async {
+    if (_giu) {
+      throw GttHttpException(
+        GttConfig.overpassUrl,
+        null,
+        'Overpass non ha risposto prima, in questo giro',
+      );
+    }
+    String url(String server) =>
+        Uri.parse(server).replace(queryParameters: {'data': query}).toString();
+    // Il principale, la riserva, di nuovo il principale: il 29/09 il
+    // principale alternava 504 e risposte in mezzo secondo, e la riserva
+    // ci metteva 14 s quando rispondeva.
+    const server = [
+      GttConfig.overpassUrl,
+      GttConfig.overpassRiserva,
+      GttConfig.overpassUrl,
+    ];
+    for (var i = 0; ; i++) {
+      try {
+        return await _http.getTextPolite(
+          url(server[i]),
+          timeout: GttConfig.overpassTimeout,
+        );
+      } on GttHttpException catch (e) {
+        // Troppo carico (429), tempo scaduto (504) o rete: si riprova
+        // dopo una pausa. Una richiesta sbagliata (400) no.
+        if (e.statusCode == 400) rethrow;
+        if (i == server.length - 1) {
+          _giu = true;
+          rethrow;
+        }
+        await Future<void>.delayed(pausa);
+      }
+    }
   }
 
   /// I punti di [attorno] vicini fra loro: uno finito lontano (un corso
@@ -113,13 +123,52 @@ class ViePerNome {
 
   static const _raggioZona = 3000.0;
 
-  /// Le vie della risposta di Overpass: nome e punti.
-  static List<({String nome, List<GeoPoint> punti})> leggi(String json) {
+  /// I binari del tram attorno ad [attorno] (o a [vicino]): la rete su cui
+  /// un tram deviato puo' davvero passare. In OpenStreetMap la rete di
+  /// Torino c'e' tutta, anche i raccordi fuori servizio.
+  Future<List<List<GeoPoint>>> binari(
+    RouteShape vicino, {
+    List<GeoPoint> attorno = const [],
+  }) async {
+    final zona = _zona(attorno);
+    final b = zona.isNotEmpty
+        ? Geometry.boundsOf(zona, paddingMeters: GttConfig.vieOsmMargineMetri)
+        : vicino.boundsWithPadding(GttConfig.vieOsmMargineMetri);
+    final chiave =
+        'binari|${b.minLat.toStringAsFixed(3)},'
+        '${b.minLon.toStringAsFixed(3)},${b.maxLat.toStringAsFixed(3)},'
+        '${b.maxLon.toStringAsFixed(3)}';
+    final gia = _gia[chiave];
+    if (gia != null) return gia['binari'] ?? const [];
+    final vie = leggi(
+      await _chiedi(
+        '[out:json][timeout:25];'
+        'way["railway"="tram"]'
+        '(${b.minLat},${b.minLon},${b.maxLat},${b.maxLon});'
+        'out geom;',
+      ),
+      conNome: false,
+    );
+    final out = [
+      for (final v in vie)
+        if (v.punti.length >= 2) v.punti,
+    ];
+    _gia[chiave] = {'binari': out};
+    return out;
+  }
+
+  /// Le vie della risposta di Overpass: nome e punti. Con [conNome] falso
+  /// valgono anche quelle senza nome (i binari).
+  static List<({String nome, List<GeoPoint> punti})> leggi(
+    String json, {
+    bool conNome = true,
+  }) {
     final j = jsonDecode(json) as Map<String, dynamic>;
     return [
       for (final e
           in (j['elements'] as List? ?? const []).cast<Map<String, dynamic>>())
-        if ((e['tags'] as Map?)?['name'] case final String nome)
+        if ((e['tags'] as Map?)?['name'] as String? ?? (conNome ? null : '')
+            case final String nome)
           (
             nome: nome,
             punti: [

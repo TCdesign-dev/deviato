@@ -44,6 +44,7 @@ class DeviationReport {
     this.retryable = false,
     this.algoritmo = 1,
     this.letture = const [],
+    this.fermateSulPercorso = const [],
   });
 
   final RawNotice notice;
@@ -91,6 +92,11 @@ class DeviationReport {
   /// senza spendere un'altra delle cinquanta letture giornaliere.
   final List<ParsedDeviation> letture;
 
+  /// Le fermate lungo il percorso deviato, fuori dalla linea normale,
+  /// nell'ordine in cui il bus le incontra: dove lo si puo' prendere
+  /// mentre e' deviato. Le calcola solo il secondo algoritmo.
+  final List<TransitStop> fermateSulPercorso;
+
   bool get hasMap => deviatedGeometry != null && deviatedGeometry!.length > 1;
   List<StopImpact> get skippedStops => impact?.skipped ?? const [];
 
@@ -121,6 +127,7 @@ class DeviationReport {
         retryable: retryable,
         algoritmo: algoritmo,
         letture: letture,
+        fermateSulPercorso: fermateSulPercorso,
       );
 
   /// Le alternative di ogni avviso, tolte le fermate chiuse dagli ALTRI.
