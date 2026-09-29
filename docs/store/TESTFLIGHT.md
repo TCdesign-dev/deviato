@@ -68,9 +68,13 @@ No login is needed. To try it: tap +, pick a line (for example 10N or 15), then 
 
 ## 4. Cosa testare (per ogni build)
 
-**Build 1.0.0 (11)** — quella da dare ai tester (caricata il 29/09, e
-lo stesso giorno come AAB versionCode 11 per il Play Store): le fermate
-salvate raggruppate per linea nella home, una riga per fermata; niente
+**Build 1.0.0 (12)** — quella da dare ai tester (caricata il 29/09 sera,
+e come AAB versionCode 12 per il Play Store): la schermata di avvio col
+logo sullo sfondo della home, chiaro o scuro (da Android 12 il simbolo su
+un cerchio giallo). Per il resto uguale alla 11.
+
+**Build 1.0.0 (11)** (caricata il 29/09, e lo stesso giorno come AAB
+versionCode 11 per il Play Store): le fermate salvate raggruppate per linea nella home, una riga per fermata; niente
 più «fino al» con la data finta che GTT mette agli avvisi «sino a nuove
 comunicazioni». Dal 29/09 i percorsi deviati li calcola il secondo
 algoritmo (lato job, non nella build): deviazioni già negli orari
