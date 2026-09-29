@@ -84,7 +84,12 @@ percorso deviato ci sono `ricostruzione/ricostruzione_1.dart`, quello in
 servizio fino ad allora, copiato riga per riga e **da non toccare**, e
 `ricostruzione_2.dart`, nato come sua copia e dove vanno le correzioni. Il
 job sceglie con la variabile di GitHub `ALGORITMO_PERCORSI` («1»
-predefinito, «2»): tornare indietro è cambiare una variabile. Ogni esito
+predefinito, «2»): tornare indietro è cambiare una variabile. **Dal
+29/09/2026 alle 15 è «2»**, deciso da Tommaso dopo la misura coi mezzi.
+Passati `MINUTI_MAX` (12) il giro non rifà altri avvisi col nuovo
+algoritmo: tengono l'esito vecchio fino al giro dopo, perché un giro che
+supera i 25 minuti del job non pubblica niente e il successivo
+ricomincerebbe da capo. Ogni esito
 ricorda l'algoritmo (`algoritmo` nel file, scritto solo se è 2), e
 cambiando valore gli avvisi si rianalizzano: subito e gratis quelli con la
 lettura salvata, gli altri al massimo `RILETTURE_CAMBIO_ALGORITMO` per giro
@@ -215,7 +220,7 @@ Non sono stime. Se li rimetti in discussione, rimisurali.
 | `active_period.start` negli alert | **161 su 161 nel passato** | idem |
 | Variazioni pubblicate da **entrambe** le fonti | **31 coppie** su 189 avvisi | `check_merge_offline.dart` |
 | Di queste, quelle in cui la data d'inizio cambia | **17** (fino a 3 mesi) | idem |
-| Test | **384** | `flutter test` |
+| Test | **385** | `flutter test` |
 | Somiglianza fra le vie nominate: coppie vere | **0,67 – 1,00** e ≥3 vie | idem |
 | Idem, coppie false | **0,67 con 2 vie**, o 3 vie a **0,38** | idem |
 | Data d'inizio estraibile a regex dal testo | **40%** — troppo poco | idem |
@@ -679,7 +684,7 @@ Per non fraintendere quello che c'è in `config.dart`:
 ## 8. Come si lavora
 
 ```bash
-cd app && flutter test          # 384 test, devono passare tutti
+cd app && flutter test          # 385 test, devono passare tutti
 cd app && flutter analyze       # deve essere pulito
 ```
 
@@ -750,4 +755,4 @@ facendo gli screenshot troppo presto.
 
 ---
 
-*Ultimo aggiornamento: 29 settembre 2026. 384 test.*
+*Ultimo aggiornamento: 29 settembre 2026. 385 test.*

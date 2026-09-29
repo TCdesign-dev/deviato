@@ -631,6 +631,22 @@ void main() {
       expect(status.reports.first.confidence, Confidence.confermata);
     });
 
+    test('passato il tempo del giro, il cambio di algoritmo aspetta',
+        () async {
+      // Anche con la lettura salvata: rifare tutti gli avvisi con le vie
+      // di OpenStreetMap puo' superare il limite del job, che allora non
+      // pubblica niente.
+      final llm = _LlmSpento();
+      final status = await DeviationService(
+        index: index,
+        llm: llm,
+        algoritmo: AlgoritmoPercorsi.secondo,
+        scadenzaCambioAlgoritmo: DateTime(2000),
+      ).statusOf(linea, allNotices: [avviso()], previous: conLettura());
+      expect(llm.richieste, isZero);
+      expect(status.reports.every((r) => r.algoritmo == 1), isTrue);
+    });
+
     test('passando al secondo, se le vie non rispondono resta il vecchio',
         () async {
       // Il secondo ha bisogno delle vie di OpenStreetMap. Se Overpass non

@@ -234,6 +234,7 @@ class DeviationService {
     VariazioniSource? variazioni,
     this.algoritmo = AlgoritmoPercorsi.primo,
     int rilettureCambioAlgoritmo = 5,
+    this.scadenzaCambioAlgoritmo,
     ViePerNome? vie,
   })  : _rilettureConcesse = rilettureCambioAlgoritmo,
         _extractor = NoticeExtractor(llm: llm),
@@ -265,6 +266,13 @@ class DeviationService {
   /// la lettura salvata si rifanno subito e gratis; gli altri tengono
   /// l'esito vecchio e passano al nuovo algoritmo pochi alla volta.
   int _rilettureConcesse;
+
+  /// Dopo quest'ora gli avvisi dell'altro algoritmo non si rifanno piu':
+  /// tengono l'esito vecchio fino al giro dopo. Il primo giro col secondo
+  /// algoritmo, il 29/09, rifaceva tutti gli avvisi con le vie di
+  /// OpenStreetMap, e un giro che supera il limite del job non pubblica
+  /// niente: il successivo ricomincerebbe da capo, e cosi' ogni volta.
+  final DateTime? scadenzaCambioAlgoritmo;
   final NoticeExtractor _extractor;
   final AlertsSource _alerts;
   final VariazioniSource _variazioni;
@@ -380,8 +388,12 @@ class DeviationService {
       final prima = previous?.reports.where((r) => r.notice.id == notice.id);
       final altroAlgoritmo =
           prima != null && prima.any((r) => r.algoritmo != algoritmo.numero);
-      var tieniAltroAlgoritmo = false;
-      if (altroAlgoritmo && _letturaSalvata(notice, previous) == null) {
+      var tieniAltroAlgoritmo = altroAlgoritmo &&
+          scadenzaCambioAlgoritmo != null &&
+          DateTime.now().isAfter(scadenzaCambioAlgoritmo!);
+      if (altroAlgoritmo &&
+          !tieniAltroAlgoritmo &&
+          _letturaSalvata(notice, previous) == null) {
         if (_rilettureConcesse > 0) {
           _rilettureConcesse--;
         } else {

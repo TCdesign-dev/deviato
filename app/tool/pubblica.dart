@@ -10,7 +10,8 @@
 //                           che GTT scrive col numero, lette con una regex.
 //   LLM_MODELLO             il modello (predefinito: GttConfig).
 //   LLM_MAX_RICHIESTE       tetto di letture per giro (predefinito 40).
-//   MINUTI_MAX              dopo quanti minuti non si iniziano altre letture
+//   MINUTI_MAX              dopo quanti minuti non si iniziano altre letture,
+//                           ne' si rifanno avvisi col nuovo algoritmo
 //                           (predefinito 12): il job deve poter pubblicare.
 //   ALGORITMO_PERCORSI      "1" (predefinito) o "2": quale algoritmo
 //                           ricostruisce i percorsi deviati. Il primo e'
@@ -94,11 +95,12 @@ Future<void> main(List<String> args) async {
           model: _nonVuoto(env['LLM_MODELLO']) ??
               GttConfig.llmModelloPredefinito,
         );
+  final scadenza = inizio.add(
+      Duration(minutes: int.tryParse(env['MINUTI_MAX'] ?? '') ?? 12));
   final llm = LlmConBudget(
     modello,
     maxRichieste: int.tryParse(env['LLM_MAX_RICHIESTE'] ?? '') ?? 40,
-    scadenza: inizio.add(
-        Duration(minutes: int.tryParse(env['MINUTI_MAX'] ?? '') ?? 12)),
+    scadenza: scadenza,
   );
   final algoritmo = AlgoritmoPercorsi.daTesto(env['ALGORITMO_PERCORSI']);
   _log('algoritmo dei percorsi: ${algoritmo.numero}');
@@ -110,6 +112,8 @@ Future<void> main(List<String> args) async {
       algoritmo: algoritmo,
       rilettureCambioAlgoritmo:
           int.tryParse(env['RILETTURE_CAMBIO_ALGORITMO'] ?? '') ?? 5,
+      // Anche il cambio di algoritmo si ferma: il resto al giro dopo.
+      scadenzaCambioAlgoritmo: scadenza,
     ),
   ).calcola(avvisi: avvisi, precedenti: precedenti, log: _log);
 
