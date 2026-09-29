@@ -609,6 +609,24 @@ mark {
   gap: 0 1.25rem;
 }
 .piede nav a { display: inline-flex; align-items: center; min-height: 44px; }
+.piede .servizio {
+  margin-top: .75rem;
+  display: flex;
+  align-items: flex-start;
+  gap: .5rem;
+  color: #d0d0d0;
+}
+.piede .servizio[hidden] { display: none; }
+.piede .spia {
+  flex: none;
+  width: .5rem;
+  height: .5rem;
+  border-radius: 50%;
+  background: #81c784;
+  /* Col testo su due righe, all'altezza della prima. */
+  margin-top: .55em;
+}
+.piede .servizio.in-ritardo .spia { background: #ffb74d; }
 .piede .fonti {
   margin-top: 1.5rem;
   padding-top: 1.25rem;

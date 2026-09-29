@@ -207,6 +207,7 @@
       <a href="mailto:devia.to@icloud.com">Contatti</a>
       <a href="https://github.com/TCdesign-dev/deviato">Codice su GitHub</a>
     </nav>
+    <p class="servizio" id="servizio" hidden><span class="spia" aria-hidden="true"></span><span id="servizio-testo"></span></p>
     <div class="fonti">
       <p><a href="https://www.gtt.to.it">Data source: GTT S.p.A. – Gruppo Torinese Trasporti</a></p>
       <p>Mappe dell'app © <a href="https://www.openstreetmap.org/copyright">contributori di OpenStreetMap</a> · © <a href="https://carto.com/attributions">CARTO</a></p>
@@ -215,6 +216,37 @@
     </div>
   </div>
 </footer>
+
+<script>
+  // Lo stato del servizio: quando i dati sono stati pubblicati l'ultima
+  // volta. Non l'esito dei giri: se l'ora smette di avanzare qualcosa si e'
+  // rotto, qualunque cosa sia (il giro, cron-job.org, GitHub). I giri sono
+  // ogni mezz'ora di giorno e radi di notte: in ritardo oltre un'ora e
+  // mezza dalle 7 a mezzanotte, oltre quattro ore di notte. Senza dati la
+  // riga non si mostra.
+  (async () => {
+    try {
+      const r = await fetch('v1/indice.json', { cache: 'no-store' });
+      const { generato } = await r.json();
+      // Sei decimali nei secondi: Safari ne vuole tre.
+      const quando = new Date(String(generato).replace(/(\.\d{3})\d+/, '$1'));
+      if (isNaN(quando)) return;
+      const adesso = new Date();
+      const fuso = { timeZone: 'Europe/Rome' };
+      const giorno = d => d.toLocaleDateString('it-IT', { ...fuso, day: '2-digit', month: '2-digit' });
+      const orario = quando.toLocaleTimeString('it-IT', { ...fuso, hour: '2-digit', minute: '2-digit' });
+      const quale = giorno(quando) === giorno(adesso) ? `alle ${orario}` : `del ${giorno(quando)} alle ${orario}`;
+      const ora = Number(adesso.toLocaleString('it-IT', { ...fuso, hour: 'numeric', hour12: false }));
+      const ritardo = adesso - quando > (ora < 7 ? 240 : 90) * 60000;
+      const riga = document.getElementById('servizio');
+      riga.classList.toggle('in-ritardo', ritardo);
+      document.getElementById('servizio-testo').textContent = ritardo
+        ? `Aggiornamento in ritardo: ultimi dati ${quale}`
+        : `Servizio attivo: dati aggiornati ${quale}`;
+      riga.hidden = false;
+    } catch (_) {}
+  })();
+</script>
 
 </body>
 </html>
