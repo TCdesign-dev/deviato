@@ -68,8 +68,16 @@ No login is needed. To try it: tap +, pick a line (for example 10N or 15), then 
 
 ## 4. Cosa testare (per ogni build)
 
-**Build 1.0.0 (13)** — quella da dare ai tester (caricata il 30/09, e
-come AAB versionCode 13 per il Play Store): nelle Informazioni i link al
+**Build 1.0.0 (14)** — quella da dare ai tester (caricata il 30/09, e
+come AAB versionCode 14 per il Play Store): sulla mappa a tutto schermo,
+al posto del pannello dal basso, una scheda fluttuante a pagine —
+Riepilogo, Fermate, Avvisi — da toccare o scorrere di lato; è alta
+quanto il contenuto (al massimo metà schermo, poi scorre) e toccando una
+fermata mostra quella. I comandi a destra sono stretti quanto «Tutta la
+linea» (su Android «Segui i mezzi» non va più a capo).
+
+**Build 1.0.0 (13)** (caricata il 30/09 mattina, e come AAB versionCode
+13 per il Play Store): nelle Informazioni i link al
 sito, alla mail («Segnala un errore o scrivici»), al codice e
 all'informativa, e «© 2026 DeviaTo»; i mezzi in tempo reale dicono
 «fuori dal percorso» solo se lo sono almeno due (uno solo può essere un
