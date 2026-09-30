@@ -226,18 +226,10 @@ class _Outcome extends StatelessWidget {
         // sola cosa in tutta l'app che non viene da un testo di GTT.
         if (result.consensus != null)
           _Osservato(consenso: result.consensus!, shape: shape),
-        // Quando i mezzi seguono il percorso normale ma GTT dichiara ancora
-        // una deviazione, e' l'indizio che sia finita. Non lo si afferma:
-        // lo si suggerisce, perche' due mezzi non sono una certezza.
-        if (result.outcome == WatchOutcome.tuttiSulPercorso)
-          Padding(
-            padding: const EdgeInsets.only(top: 6),
-            child: Text(
-              'Se l\'avviso è ancora pubblicato, la deviazione potrebbe '
-              'essere già finita.',
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-          ),
+        // Si dice solo cosa fanno i mezzi. Che la deviazione sia finita non
+        // lo si suggerisce: un'osservazione di qualche minuto non basta, e
+        // una deviazione gia' negli orari lascia i mezzi sul percorso
+        // (Tommaso, 30/09/2026).
         // Un mezzo solo, visto due volte, non e' una prova: puo' essere
         // fermo al capolinea. Non cambia l'esito, ma va detto.
         if (!result.enoughVehicles && result.tracks.isNotEmpty)

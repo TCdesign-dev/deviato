@@ -58,8 +58,8 @@ inserite a mano — quelle del feed sono l'ora di pubblicazione. Vale anche una 
 
 In parallelo, su richiesta: **osservazione dei mezzi** per qualche minuto —
 **una linea alla volta**, e continua mentre si guardano le altre.
-Dice se la deviazione è in corso o — cosa che nessun'altra fonte sa — se è
-**già finita**. E dice **dove i mezzi escono e dove rientrano**, che è
+Dice se i mezzi sono sul percorso o fuori — fuori solo se lo sono almeno
+due — e **dove escono e dove rientrano**, che è
 l'unico dato del sistema a non venire da un testo: non è dedotto da come
 GTT ha scritto l'avviso, è quello che i bus hanno fatto.
 

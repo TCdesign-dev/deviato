@@ -11,9 +11,9 @@ import 'route_excursion.dart';
 enum WatchOutcome {
   /// Mezzi osservati, tutti sul percorso normale.
   ///
-  /// Se GTT dichiara una deviazione, questo e' l'indizio migliore che sia
-  /// **finita**: la specifica (§10.13) segnala che GTT annuncia quasi
-  /// sempre l'inizio e quasi mai la fine.
+  /// Non vuol dire che la deviazione sia finita, e l'app non lo dice: si
+  /// osserva per qualche minuto, e una deviazione gia' negli orari lascia
+  /// i mezzi sul loro percorso.
   tuttiSulPercorso,
 
   /// Almeno due mezzi fuori dal percorso normale: la deviazione e' in
