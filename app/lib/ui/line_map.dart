@@ -275,13 +275,19 @@ class _LineMapState extends State<LineMap> {
           if (widget.onToggleWatch != null) ...[
             const SizedBox(height: 10),
             _Comando(
-              icon: widget.watching
-                  ? Icons.stop_circle_outlined
-                  : Icons.visibility_outlined,
+              icon: Icons.visibility_outlined,
+              // Mentre si seguono i mezzi il comando si muove: con la sola
+              // icona ferma non si capiva che l'osservazione era attiva.
+              // Gira mentre li cerca, pulsa quando ci sono.
+              indicatore: !widget.watching
+                  ? null
+                  : n == 0
+                  ? const _Rotella()
+                  : const _Pulsazione(),
               testo: !widget.watching
                   ? 'Segui i mezzi'
                   : n == 0
-                  ? 'Cerco i mezzi · Interrompi'
+                  ? 'Ricerca dei mezzi… · Interrompi'
                   : '$n ${n == 1 ? "mezzo" : "mezzi"} · Interrompi',
               attivo: widget.watching,
               onPressed: widget.onToggleWatch!,
@@ -1056,6 +1062,7 @@ class _Comando extends StatelessWidget {
     required this.onPressed,
     this.attivo = false,
     this.busy = false,
+    this.indicatore,
   });
 
   final IconData icon;
@@ -1063,6 +1070,10 @@ class _Comando extends StatelessWidget {
   final VoidCallback onPressed;
   final bool attivo;
   final bool busy;
+
+  /// Al posto dell'icona, qualcosa che si muove: il comando resta
+  /// toccabile, a differenza di [busy].
+  final Widget? indicatore;
 
   @override
   Widget build(BuildContext context) {
@@ -1092,6 +1103,11 @@ class _Comando extends StatelessWidget {
                       color: colore,
                     ),
                   )
+                else if (indicatore != null)
+                  IconTheme(
+                    data: IconThemeData(color: colore, size: 20),
+                    child: SizedBox(width: 20, height: 20, child: indicatore),
+                  )
                 else
                   Icon(icon, size: 20, color: colore),
                 const SizedBox(width: 8),
@@ -1108,6 +1124,88 @@ class _Comando extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// La rotellina del comando dei mezzi, mentre li si cerca.
+class _Rotella extends StatelessWidget {
+  const _Rotella();
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.all(1),
+    child: CircularProgressIndicator(
+      strokeWidth: 2.5,
+      color: IconTheme.of(context).color,
+    ),
+  );
+}
+
+/// Il pallino «in diretta»: un punto fermo e un anello che si allarga e
+/// svanisce, una volta ogni secondo e mezzo. Con le animazioni ridotte
+/// resta il punto.
+class _Pulsazione extends StatefulWidget {
+  const _Pulsazione();
+
+  @override
+  State<_Pulsazione> createState() => _PulsazioneState();
+}
+
+class _PulsazioneState extends State<_Pulsazione>
+    with SingleTickerProviderStateMixin {
+  late final _giro = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1500),
+  );
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _giro.stop();
+    } else if (!_giro.isAnimating) {
+      _giro.repeat();
+    }
+  }
+
+  @override
+  void dispose() {
+    _giro.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colore = IconTheme.of(context).color ?? Colors.black;
+    final fermo = MediaQuery.disableAnimationsOf(context);
+    return AnimatedBuilder(
+      animation: _giro,
+      builder: (context, _) {
+        final t = fermo ? 0.0 : Curves.easeOut.transform(_giro.value);
+        return Stack(
+          alignment: Alignment.center,
+          children: [
+            if (!fermo)
+              Container(
+                width: 8 + 12 * t,
+                height: 8 + 12 * t,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: colore.withValues(alpha: 0.7 * (1 - t)),
+                    width: 2,
+                  ),
+                ),
+              ),
+            Container(
+              width: 9,
+              height: 9,
+              decoration: BoxDecoration(shape: BoxShape.circle, color: colore),
+            ),
+          ],
+        );
+      },
     );
   }
 }
