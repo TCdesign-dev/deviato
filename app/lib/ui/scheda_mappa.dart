@@ -123,7 +123,7 @@ class _SchedaMappaState extends State<SchedaMappa> {
             soloDirezione: widget.soloDirezione,
             onTratto: widget.onTratto,
             parte: ParteRiassunto.tratti,
-            margin: const EdgeInsets.fromLTRB(4, 0, 4, 8),
+            margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
           ),
           _Pagina.avvisi => _Avvisi(status: widget.status),
         },
