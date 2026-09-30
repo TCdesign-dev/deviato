@@ -265,13 +265,14 @@ class _LineMapState extends State<LineMap> {
     // larghezza, quella della scritta piu' lunga che puo' comparire: prima
     // era quella della scritta di adesso, e seguendo i mezzi «Tutta la
     // linea» e «Dove sono» si allargavano con «25 mezzi · Interrompi».
+    // Scritte corte anche da accese, perche' la colonna non si allarghi
+    // sulla mappa: e' il giallo a dire che sono accese.
     return SizedBox(
       width: _Comando.larghezza(context, const [
         'Tutta la linea',
         'Segui i mezzi',
         'Interrompi',
         'Dove sono',
-        'Nascondi dove sono',
       ]),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -309,7 +310,8 @@ class _LineMapState extends State<LineMap> {
           const SizedBox(height: 10),
           _Comando(
             icon: seguendo ? Icons.my_location : Icons.location_searching,
-            testo: seguendo ? 'Nascondi dove sono' : 'Dove sono',
+            testo: 'Dove sono',
+            descrizione: seguendo ? 'Nascondi dove sono' : null,
             attivo: seguendo,
             busy: _locating,
             onPressed: _showMe,
