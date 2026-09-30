@@ -101,12 +101,21 @@ Hai trovato un errore o hai un suggerimento? Scrivi a devia.to@icloud.com
 
 - **Icona** 512 × 512: [`play/icona-512.png`](play/icona-512.png) (la
   stessa dell'app; gli angoli li arrotonda Google).
-- **Grafica in primo piano** 1024 × 500, obbligatoria: da fare.
-- **Screenshot del telefono**: almeno 2, meglio 4–8. Il lato lungo non
-  può superare il doppio del corto, e per le vetrine di Google conviene
-  9:16 (per esempio 1080 × 1920). Gli screenshot grezzi dei telefoni di
-  oggi (1080 × 2400, 1206 × 2622) sono troppo allungati: vanno
-  ritagliati o messi in una cornice.
+- **Grafica in primo piano** 1024 × 500:
+  [`play/grafica-1024x500.png`](play/grafica-1024x500.png) — logo, la
+  domanda del sito e il cartello giallo con la 91.
+- **Screenshot del telefono** 1080 × 1920 (9:16), nell'ordine:
+  1. [`screenshot-1-home.png`](play/screenshot-1-home.png) — «La tua fermata è ancora servita?»
+  2. [`screenshot-2-linea.png`](play/screenshot-2-linea.png) — «Quali fermate saltano»
+  3. [`screenshot-3-mappa.png`](play/screenshot-3-mappa.png) — «Il giro deviato sulla mappa»
+  4. [`screenshot-4-fermata.png`](play/screenshot-4-fermata.png) — «Tocca la tua fermata»
+  5. [`screenshot-5-avviso.png`](play/screenshot-5-avviso.png) — «Sempre l'avviso originale»
+
+  Fatti il 30/09 sera sul telefono virtuale Android (build 14, linea 91
+  deviata) e montati nello stile del sito: fondo grafite, titoli in
+  Boldonse, la cornice del telefono della pagina «Come si usa». Google
+  vuole al massimo il doppio fra lato lungo e corto: gli screenshot
+  grezzi (1080 × 2400) non passano, per questo la cornice.
 
 **Categoria**: App › Mappe e navigazione.
 
