@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../data/app_repository.dart';
 import 'cartina.dart';
+import 'logo.dart';
 
 /// Da dove vengono i dati, cosa sono, e cosa non sono.
 ///
@@ -41,13 +43,12 @@ class InfoScreen extends StatelessWidget {
             'il giorno per ricavarne i percorsi deviati e le fermate non '
             'servite.',
           ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
-            child: Text(
-              'Data source: GTT S.p.A. – Gruppo Torinese Trasporti\n'
-              'www.gtt.to.it',
-              style: testo.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
-            ),
+          _Collegamento(
+            icona: Icons.directions_bus_outlined,
+            titolo: 'Data source: GTT S.p.A. – Gruppo Torinese Trasporti',
+            dettaglio: 'www.gtt.to.it',
+            indirizzo: 'https://www.gtt.to.it',
+            seNonSiApre: 'Impossibile aprire il sito di GTT.',
           ),
           if (generato != null || feed != null)
             Padding(
@@ -66,11 +67,56 @@ class InfoScreen extends StatelessWidget {
             'L\'app non raccoglie dati personali e non ha un account. La tua '
             'posizione, se la attivi sulla mappa, resta sul telefono.',
           ),
+          const _Collegamento(
+            icona: Icons.privacy_tip_outlined,
+            titolo: 'Informativa sulla privacy',
+            dettaglio: 'deviato.it/privacy',
+            indirizzo: 'https://deviato.it/privacy.html',
+            seNonSiApre: 'Impossibile aprire l\'informativa.',
+          ),
+          const _Sezione('DeviaTo'),
+          const _Collegamento(
+            icona: Icons.language,
+            titolo: 'Sito',
+            dettaglio: 'deviato.it',
+            indirizzo: 'https://deviato.it',
+            seNonSiApre: 'Impossibile aprire il sito.',
+          ),
+          // Un errore visto per strada e' la segnalazione piu' preziosa: e'
+          // l'unico modo di sapere dove il calcolo sbaglia.
+          const _Collegamento(
+            icona: Icons.mail_outline,
+            titolo: 'Segnala un errore o scrivici',
+            dettaglio: 'devia.to@icloud.com',
+            indirizzo: 'mailto:devia.to@icloud.com?subject=DeviaTo',
+            seNonSiApre:
+                'Nessuna app per la posta. Scrivi a devia.to@icloud.com.',
+          ),
+          const _Collegamento(
+            icona: Icons.code,
+            titolo: 'Codice su GitHub',
+            dettaglio: 'github.com/TCdesign-dev/deviato',
+            indirizzo: 'https://github.com/TCdesign-dev/deviato',
+            seNonSiApre: 'Impossibile aprire GitHub.',
+          ),
           const _Sezione('Crediti'),
           _Paragrafo(
             'Mappe © contributori di OpenStreetMap'
             '${Cartina.carto ? ', immagini della cartina © CARTO' : ''}. '
             'Percorsi calcolati con Valhalla (FOSSGIS), indirizzi con Photon.',
+          ),
+          Padding(
+            padding: const EdgeInsets.only(top: 36),
+            child: Column(
+              children: [
+                const DeviatoLogo(height: 28),
+                const SizedBox(height: 8),
+                Text(
+                  '© ${DateTime.now().year} DeviaTo',
+                  style: testo.bodySmall?.copyWith(color: secondario),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -119,5 +165,48 @@ class _Paragrafo extends StatelessWidget {
   Widget build(BuildContext context) => Padding(
     padding: const EdgeInsets.symmetric(horizontal: 16),
     child: Text(testo, style: Theme.of(context).textTheme.bodyMedium),
+  );
+}
+
+/// Una riga che apre un indirizzo: un sito, o la posta.
+class _Collegamento extends StatelessWidget {
+  const _Collegamento({
+    required this.icona,
+    required this.titolo,
+    required this.dettaglio,
+    required this.indirizzo,
+    required this.seNonSiApre,
+  });
+
+  final IconData icona;
+  final String titolo;
+  final String dettaglio;
+  final String indirizzo;
+
+  /// Cosa dire se il telefono non sa aprirlo: nessun browser, nessuna app
+  /// per la posta.
+  final String seNonSiApre;
+
+  @override
+  Widget build(BuildContext context) => ListTile(
+    leading: Icon(icona),
+    title: Text(titolo),
+    subtitle: Text(dettaglio),
+    trailing: const Icon(Icons.open_in_new, size: 18),
+    onTap: () async {
+      final messenger = ScaffoldMessenger.of(context);
+      var aperto = false;
+      try {
+        aperto = await launchUrl(
+          Uri.parse(indirizzo),
+          mode: LaunchMode.externalApplication,
+        );
+      } on Object {
+        aperto = false;
+      }
+      if (!aperto) {
+        messenger.showSnackBar(SnackBar(content: Text(seNonSiApre)));
+      }
+    },
   );
 }
