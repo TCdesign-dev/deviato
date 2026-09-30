@@ -74,26 +74,27 @@ Bus e tram deviati a Torino: scopri se la tua fermata è ancora servita
 **Descrizione completa** (massimo 4000):
 
 ```text
-DeviaTo ti dice se la tua fermata di bus o tram a Torino è ancora servita quando GTT devia una linea.
+Bus o tram deviato? DeviaTo ti dice subito se la tua fermata a Torino è ancora servita e, se non lo è, dove salire invece.
 
-Gli avvisi di deviazione sono scritti per chi conosce le vie a memoria: «da corso X svolta in via Y, poi riprende il percorso in piazza Z». DeviaTo li trasforma in una risposta semplice: quali fermate non sono servite, fino a quando e dove salire invece.
+Gli avvisi di deviazione di GTT sono elenchi di vie e incroci, difficili da capire al volo mentre aspetti. DeviaTo li legge per te e li trasforma in una risposta chiara, sulla mappa.
 
-Cosa fa
-• Aggiungi le linee che usi: la home ti dice subito se il percorso è regolare, se la linea è deviata o se qualche fermata non è servita.
-• Apri una linea per vedere sulla mappa il percorso deviato, le fermate saltate e quelle più vicine dove salire.
-• Salva le tue fermate: la home risponde per quelle, direzione per direzione.
-• Segui i mezzi in tempo reale per vedere dove stanno passando davvero.
-• Leggi sempre l'avviso originale di GTT, in fondo a ogni linea.
+Cosa puoi fare
+• Aggiungere le linee che usi: appena apri l'app vedi se il percorso è regolare, se la linea è deviata o se qualche fermata non è servita.
+• Salvare le tue fermate: l'app risponde per quelle, nella direzione che prendi.
+• Vedere sulla mappa il percorso deviato, le fermate saltate e le più vicine dove salire.
+• Seguire i mezzi in tempo reale, per vedere dove passano davvero.
+• Leggere sempre l'avviso originale di GTT.
+• Consultare gli ultimi dati anche senza connessione.
 
-Semplice e rispettosa
-DeviaTo è gratuita, senza pubblicità, senza account e senza statistiche d'uso. Le linee e le fermate che salvi restano sul tuo telefono; la posizione, se la attivi, serve solo a mostrarti sulla mappa e non lascia il telefono.
+Gratis, senza pubblicità, senza account
+DeviaTo non ha statistiche d'uso né tracciamento. Linee e fermate salvate restano sul telefono; la posizione, se la attivi, serve solo a mostrarti sulla mappa e non lascia il telefono.
 
 Da sapere
 I percorsi deviati sono ricostruiti in automatico dal testo degli avvisi e possono contenere errori: in caso di dubbio fa fede l'avviso originale di GTT, che l'app mostra sempre.
 
-DeviaTo non è un'app di GTT e non è collegata a GTT. Usa i dati aperti pubblicati da GTT S.p.A. (orari, avvisi e posizioni dei mezzi) secondo la loro licenza. Mappe © contributori di OpenStreetMap · © CARTO.
+DeviaTo non è un'app di GTT e non è collegata a GTT. Usa i dati aperti di GTT S.p.A. (orari, avvisi e posizioni dei mezzi) secondo la loro licenza. Mappe © contributori di OpenStreetMap · © CARTO.
 
-Segnalazioni e suggerimenti: devia.to@icloud.com
+Hai trovato un errore o hai un suggerimento? Scrivi a devia.to@icloud.com
 ```
 
 **Grafica**
