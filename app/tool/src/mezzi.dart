@@ -176,9 +176,11 @@ class LineaSeguita {
   ///   normale — solo quelli dove e' passato anche un altro mezzo — quanti
   ///   cadono sul rosso. Dice se il rosso va dove vanno loro.
   /// - confermato: del tratto di rosso fuori dalla linea normale, quanto e'
-  ///   stato percorso da almeno due mezzi. Dice se il rosso inventa vie
-  ///   dove nessuno passa. Vale solo se i mezzi hanno fatto tutta la
-  ///   deviazione.
+  ///   stato percorso da almeno due mezzi, nel verso del rosso. Dice se il
+  ///   rosso inventa vie dove nessuno passa. Vale solo se i mezzi hanno
+  ///   fatto tutta la deviazione. Il verso conta: sulla 27 il 30/09 il
+  ///   rosso del primo algoritmo verso Barca stava su via Gottardo, che la
+  ///   linea fa nell'altro senso, e sembrava percorso.
   Map<String, Object?> _valuta(
     List<GeoPoint> rosso,
     List<GeoPoint> fuori,
@@ -196,14 +198,26 @@ class LineaSeguita {
     double? confermato;
     if (perMezzo.length >= 2 && r.length >= 2) {
       final l = normale.meters;
+      final fitto = Geometry.densify(r, 20);
       final campioni = [
-        for (final q in Geometry.densify(r, 20))
+        for (var k = 0; k < fitto.length; k++)
           // Il rosso che sta sulla linea normale non e' deviazione.
-          if (Geometry.pointToPolyline(q, l) > Rifinitura.sopraLaLinea) q,
+          if (Geometry.pointToPolyline(fitto[k], l) > Rifinitura.sopraLaLinea)
+            (
+              punto: fitto[k],
+              verso: _verso(
+                fitto[k == 0 ? 0 : k - 1],
+                fitto[k == fitto.length - 1 ? k : k + 1],
+              ),
+            ),
       ];
       if (campioni.isNotEmpty) {
         final ok = campioni.where(
-          (q) => perMezzo.values.where((l) => _passa(l, q)).length >= 2,
+          (c) =>
+              perMezzo.values
+                  .where((t) => _passaNelVerso(t, c.punto, c.verso))
+                  .length >=
+              2,
         );
         confermato = ok.length / campioni.length;
       }
@@ -214,6 +228,27 @@ class LineaSeguita {
   /// La traccia di un mezzo passa a meno di [vicino] da [q]?
   static bool _passa(List<List<Point>> tratti, Point q) =>
       tratti.any((t) => Geometry.pointToPolyline(q, t) <= vicino);
+
+  /// Come [_passa], ma andando nel [verso] dato (un vettore di lunghezza
+  /// uno), entro 60 gradi.
+  static bool _passaNelVerso(List<List<Point>> tratti, Point q, Point verso) {
+    for (final t in tratti) {
+      for (var i = 0; i < t.length - 1; i++) {
+        final a = t[i], b = t[i + 1];
+        if (Geometry.pointToPolyline(q, [a, b]) > vicino) continue;
+        final v = _verso(a, b);
+        if (v.x * verso.x + v.y * verso.y > 0.5) return true;
+      }
+    }
+    return false;
+  }
+
+  /// Il vettore di lunghezza uno da [a] a [b]; zero se coincidono.
+  static Point _verso(Point a, Point b) {
+    final dx = b.x - a.x, dy = b.y - a.y;
+    final l = a.distanceTo(b);
+    return l < 1e-6 ? const Point(0, 0) : Point(dx / l, dy / l);
+  }
 
   /// La traccia di un mezzo in tratti senza buchi.
   static List<List<Point>> _tratti(VehicleTrack t) {
