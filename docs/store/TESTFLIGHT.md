@@ -68,9 +68,17 @@ No login is needed. To try it: tap +, pick a line (for example 10N or 15), then 
 
 ## 4. Cosa testare (per ogni build)
 
-**Build 1.0.0 (12)** — quella da dare ai tester (caricata il 29/09 sera,
-e come AAB versionCode 12 per il Play Store): la schermata di avvio col
-logo sullo sfondo della home, chiaro o scuro (da Android 12 il simbolo su
+**Build 1.0.0 (13)** — quella da dare ai tester (caricata il 30/09, e
+come AAB versionCode 13 per il Play Store): nelle Informazioni i link al
+sito, alla mail («Segnala un errore o scrivici»), al codice e
+all'informativa, e «© 2026 DeviaTo»; i mezzi in tempo reale dicono
+«fuori dal percorso» solo se lo sono almeno due (uno solo può essere un
+bus che rientra al deposito) e non dicono più che la deviazione potrebbe
+essere finita; sulla mappa a tutto schermo il comando dei mezzi si
+muove mentre li segue, e i tre comandi non cambiano più larghezza.
+
+**Build 1.0.0 (12)** (caricata il 29/09 sera, e come AAB versionCode 12
+per il Play Store): la schermata di avvio col logo sullo sfondo della home, chiaro o scuro (da Android 12 il simbolo su
 un cerchio giallo). Per il resto uguale alla 11.
 
 **Build 1.0.0 (11)** (caricata il 29/09, e lo stesso giorno come AAB
