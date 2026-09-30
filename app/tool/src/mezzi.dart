@@ -120,15 +120,28 @@ class LineaSeguita {
       // posizione accesa (Tommaso, 30/09/2026). Una posizione fuori vale se
       // un altro mezzo e' passato li' vicino.
       final perMezzo = {for (final t in mie) t.vehicleId: _tratti(t)};
-      final condivisi = [
-        for (final t in mie)
-          for (final o in t.points)
-            if (_fuori(o.position) &&
-                perMezzo.entries.any((e) =>
-                    e.key != t.vehicleId &&
-                    _passa(e.value, o.position.meters)))
-              o.position,
-      ];
+      // Con il verso in cui il mezzo andava: un bus dell'altro senso vicino
+      // al rosso non lo spiega.
+      final condivisi = <({Point punto, Point verso})>[];
+      for (final t in mie) {
+        final ps = [...t.points]..sort((a, b) => a.seenAt.compareTo(b.seenAt));
+        for (var i = 0; i < ps.length; i++) {
+          final q = ps[i].position.meters;
+          if (!_fuori(ps[i].position) ||
+              !perMezzo.entries.any(
+                (e) => e.key != t.vehicleId && _passa(e.value, q),
+              )) {
+            continue;
+          }
+          condivisi.add((
+            punto: q,
+            verso: _verso(
+              ps[i == 0 ? 0 : i - 1].position.meters,
+              ps[i == ps.length - 1 ? i : i + 1].position.meters,
+            ),
+          ));
+        }
+      }
       final uscite = <List<double>>[], rientri = <List<double>>[];
       for (final t in mie) {
         for (final e in RouteExcursion.detect(
@@ -174,7 +187,8 @@ class LineaSeguita {
   ///
   /// - spiegati: dei punti in cui i mezzi stanno fuori dal percorso
   ///   normale — solo quelli dove e' passato anche un altro mezzo — quanti
-  ///   cadono sul rosso. Dice se il rosso va dove vanno loro.
+  ///   cadono sul rosso, andando nel suo verso. Dice se il rosso va dove
+  ///   vanno loro.
   /// - confermato: del tratto di rosso fuori dalla linea normale, quanto e'
   ///   stato percorso da almeno due mezzi, nel verso del rosso. Dice se il
   ///   rosso inventa vie dove nessuno passa. Vale solo se i mezzi hanno
@@ -183,16 +197,14 @@ class LineaSeguita {
   ///   linea fa nell'altro senso, e sembrava percorso.
   Map<String, Object?> _valuta(
     List<GeoPoint> rosso,
-    List<GeoPoint> fuori,
+    List<({Point punto, Point verso})> fuori,
     Map<String, List<List<Point>>> perMezzo,
     RouteShape normale,
   ) {
     final r = [for (final p in rosso) p.meters];
     double? spiegati;
     if (fuori.isNotEmpty && r.length >= 2) {
-      final ok = fuori
-          .where((p) => Geometry.pointToPolyline(p.meters, r) <= vicino)
-          .length;
+      final ok = fuori.where((f) => _vicinoNelVerso(r, f.punto, f.verso)).length;
       spiegati = ok / fuori.length;
     }
     double? confermato;
@@ -239,6 +251,19 @@ class LineaSeguita {
         final v = _verso(a, b);
         if (v.x * verso.x + v.y * verso.y > 0.5) return true;
       }
+    }
+    return false;
+  }
+
+  /// [q] sta a meno di [vicino] dal [rosso] e ci va nel suo verso? Un
+  /// mezzo fermo non ha verso: conta la sola distanza.
+  static bool _vicinoNelVerso(List<Point> rosso, Point q, Point verso) {
+    final fermo = verso.x == 0 && verso.y == 0;
+    for (var i = 0; i < rosso.length - 1; i++) {
+      final a = rosso[i], b = rosso[i + 1];
+      if (Geometry.pointToPolyline(q, [a, b]) > vicino) continue;
+      final v = _verso(a, b);
+      if (fermo || v.x * verso.x + v.y * verso.y > 0.5) return true;
     }
     return false;
   }

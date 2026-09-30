@@ -215,7 +215,7 @@ async function aggiornaMezzi() {
     <p class="nota">${mio.mezzi} mezzi in questa direzione · ${mio.punti} posizioni · ${mio.fuori} fuori dal percorso normale, ${mio.fuoriDaDue ?? '–'} dove è passato anche un altro mezzo
     ${mio.fuori > 0 && mio.fuoriDaDue === 0 ? '<br><span class="male">Fuori percorso c\'è un mezzo solo: può essere un bus che rientra al deposito, non basta per dire che la deviazione è in corso.</span>' : ''}
     ${fuoriMa ? '<br><span class="male">Nessun mezzo esce dal percorso: la deviazione potrebbe essere finita, o non essere ancora cominciata.</span>' : ''}</p>
-    <p class="nota"><b>Punti fuori sul rosso</b>: delle posizioni in cui i mezzi stanno fuori dal percorso normale, e dove è passato anche un altro mezzo, quante cadono a meno di 40 m dal rosso. Basso vuol dire che i mezzi passano altrove.<br>
+    <p class="nota"><b>Punti fuori sul rosso</b>: delle posizioni in cui i mezzi stanno fuori dal percorso normale, e dove è passato anche un altro mezzo, quante cadono a meno di 40 m dal rosso andando nel suo verso. Basso vuol dire che i mezzi passano altrove.<br>
     <b>Rosso percorso dai mezzi</b>: del rosso fuori dalla linea normale, quanto è stato percorso da almeno due mezzi, nel verso del rosso. Basso vuol dire che il rosso passa dove nessuno va; vale solo quando i mezzi hanno fatto tutta la deviazione.<br>
     Un mezzo solo non basta mai: può essere un rinforzo che rientra al deposito con la posizione accesa.</p>`;
   }
