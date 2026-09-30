@@ -1086,10 +1086,14 @@ class _Comando extends StatelessWidget {
   /// sul telefono.
   static double larghezza(BuildContext context, List<String> scritte) {
     final scala = MediaQuery.textScalerOf(context);
+    // Lo stile che la scritta avra' davvero: quello del tema (carattere e
+    // spaziatura fra le lettere) piu' il nostro. Con solo il nostro, su
+    // Android «Segui i mezzi» andava a capo.
+    final stile = DefaultTextStyle.of(context).style.merge(_stile);
     var massima = 0.0;
     for (final t in scritte) {
       final p = TextPainter(
-        text: TextSpan(text: t, style: _stile),
+        text: TextSpan(text: t, style: stile),
         textDirection: TextDirection.ltr,
         textScaler: scala,
         maxLines: 1,
