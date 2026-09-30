@@ -16,8 +16,15 @@ enum WatchOutcome {
   /// sempre l'inizio e quasi mai la fine.
   tuttiSulPercorso,
 
-  /// Mezzi fuori dal percorso normale: la deviazione e' in corso.
+  /// Almeno due mezzi fuori dal percorso normale: la deviazione e' in
+  /// corso.
   fuoriPercorso,
+
+  /// Un mezzo solo fuori dal percorso normale: non basta per dire che la
+  /// deviazione e' in corso. Puo' essere un bus di rinforzo che rientra al
+  /// deposito con la posizione accesa (lo ha fatto notare Tommaso il
+  /// 30/09/2026).
+  unMezzoFuori,
 
   /// Nessun mezzo osservato.
   ///
@@ -113,6 +120,9 @@ class WatchResult {
           '${offRoute.length} su $vehiclesSeen '
               '${vehiclesSeen == 1 ? "mezzo è" : "mezzi sono"} fuori dal '
               'percorso normale, fino a ${maxDistance.round()} m.',
+        WatchOutcome.unMezzoFuori =>
+          'Un solo mezzo fuori dal percorso normale, su $vehiclesSeen: può '
+              'essere un bus che rientra al deposito.',
       };
 }
 
@@ -299,9 +309,13 @@ class VehicleWatch {
     if (tracks.isEmpty) return WatchOutcome.nessunMezzo;
     final usable = tracks.where((t) => t.points.length >= 2).toList();
     if (usable.isEmpty) return WatchOutcome.inconcludente;
-    return usable.any((t) => t.isOffRoute)
-        ? WatchOutcome.fuoriPercorso
-        : WatchOutcome.tuttiSulPercorso;
+    // Per dire che la deviazione e' in corso servono almeno due mezzi
+    // fuori: uno solo puo' essere un rinforzo che torna al deposito.
+    return switch (usable.where((t) => t.isOffRoute).length) {
+      0 => WatchOutcome.tuttiSulPercorso,
+      1 => WatchOutcome.unMezzoFuori,
+      _ => WatchOutcome.fuoriPercorso,
+    };
   }
 
   static double _distanceToNearestRoute(GeoPoint p, List<List<Point>> routes) {

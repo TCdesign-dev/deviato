@@ -220,7 +220,7 @@ Non sono stime. Se li rimetti in discussione, rimisurali.
 | `active_period.start` negli alert | **161 su 161 nel passato** | idem |
 | Variazioni pubblicate da **entrambe** le fonti | **31 coppie** su 189 avvisi | `check_merge_offline.dart` |
 | Di queste, quelle in cui la data d'inizio cambia | **17** (fino a 3 mesi) | idem |
-| Test | **387** | `flutter test` |
+| Test | **388** | `flutter test` |
 | Somiglianza fra le vie nominate: coppie vere | **0,67 – 1,00** e ≥3 vie | idem |
 | Idem, coppie false | **0,67 con 2 vie**, o 3 vie a **0,38** | idem |
 | Data d'inizio estraibile a regex dal testo | **40%** — troppo poco | idem |
@@ -370,6 +370,13 @@ Ognuna di queste è costata tempo. Sono tutte silenziose: non danno errore.
   `AppRepository`, che vive quanto l'app. Vale come regola: se una cosa
   deve continuare mentre l'utente si sposta, la schermata è il posto
   sbagliato.
+- **Un mezzo solo fuori percorso non è una deviazione.** Può essere un
+  bus di rinforzo che rientra al deposito con la posizione accesa (lo ha
+  fatto notare Tommaso il 30/09). Nell'app «fuori dal percorso normale»
+  richiede almeno due mezzi fuori (`WatchOutcome.unMezzoFuori` altrimenti);
+  sul banco una posizione fuori linea conta solo se un altro mezzo è
+  passato lì vicino, e un pezzo di rosso è «percorso» solo se ci passano
+  almeno due mezzi. Vale per ogni misura coi mezzi.
 - **Le escursioni vanno confrontate con TUTTE le varianti, non con la
   principale.** Visto sul campo appena scritto il rilevatore: la 65 diceva
   «3 mezzi seguono il percorso normale» e subito sotto «lasciano il
@@ -684,7 +691,7 @@ Per non fraintendere quello che c'è in `config.dart`:
 ## 8. Come si lavora
 
 ```bash
-cd app && flutter test          # 387 test, devono passare tutti
+cd app && flutter test          # 388 test, devono passare tutti
 cd app && flutter analyze       # deve essere pulito
 ```
 
@@ -755,4 +762,4 @@ facendo gli screenshot troppo presto.
 
 ---
 
-*Ultimo aggiornamento: 29 settembre 2026. 387 test.*
+*Ultimo aggiornamento: 30 settembre 2026. 388 test.*

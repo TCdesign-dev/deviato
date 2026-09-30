@@ -58,16 +58,29 @@ void main() {
   });
 
   test('mezzi lontani dal percorso: deviazione in corso', () async {
-    // ~330 m a sud del percorso principale.
+    // Due mezzi ~330 m a sud del percorso principale.
     final r = await run([
-      [obs('A', 45.0670, 7.6700, 0)],
-      [obs('A', 45.0670, 7.6750, 30)],
-      [obs('A', 45.0670, 7.6800, 60)],
+      [obs('A', 45.0670, 7.6700, 0), obs('B', 45.0670, 7.6650, 0)],
+      [obs('A', 45.0670, 7.6750, 30), obs('B', 45.0670, 7.6700, 30)],
+      [obs('A', 45.0670, 7.6800, 60), obs('B', 45.0670, 7.6750, 60)],
     ]);
     expect(r.outcome, equals(WatchOutcome.fuoriPercorso));
-    expect(r.offRoute.length, equals(1));
+    expect(r.offRoute.length, equals(2));
     expect(r.maxDistance, greaterThan(200));
     expect(r.summary, contains('fuori dal percorso'));
+  });
+
+  test('un mezzo solo fuori dal percorso non basta', () async {
+    // Il 30/09 Tommaso: un bus di rinforzo che rientra al deposito con la
+    // posizione accesa sembra una deviazione. Servono almeno due mezzi.
+    final r = await run([
+      [obs('A', 45.0670, 7.6700, 0), obs('B', 45.0700, 7.6700, 0)],
+      [obs('A', 45.0670, 7.6750, 30), obs('B', 45.0700, 7.6750, 30)],
+      [obs('A', 45.0670, 7.6800, 60), obs('B', 45.0700, 7.6800, 60)],
+    ]);
+    expect(r.outcome, equals(WatchOutcome.unMezzoFuori));
+    expect(r.offRoute.length, equals(1));
+    expect(r.summary, contains('deposito'));
   });
 
   test('una VARIANTE legittima non e una deviazione', () async {

@@ -115,6 +115,20 @@ class LineaSeguita {
       ];
       final tutti = [for (final t in mie) ...t.points.map((o) => o.position)];
       final fuori = [for (final p in tutti) if (_fuori(p)) p];
+      // Un tratto fuori percorso conta solo se lo fanno almeno due mezzi:
+      // uno solo puo' essere un rinforzo che rientra al deposito con la
+      // posizione accesa (Tommaso, 30/09/2026). Una posizione fuori vale se
+      // un altro mezzo e' passato li' vicino.
+      final perMezzo = {for (final t in mie) t.vehicleId: _tratti(t)};
+      final condivisi = [
+        for (final t in mie)
+          for (final o in t.points)
+            if (_fuori(o.position) &&
+                perMezzo.entries.any((e) =>
+                    e.key != t.vehicleId &&
+                    _passa(e.value, o.position.meters)))
+              o.position,
+      ];
       final uscite = <List<double>>[], rientri = <List<double>>[];
       for (final t in mie) {
         for (final e in RouteExcursion.detect(
@@ -133,13 +147,14 @@ class LineaSeguita {
         'mezzi': mie.length,
         'punti': tutti.length,
         'fuori': fuori.length,
+        'fuoriDaDue': condivisi.length,
         'uscite': uscite,
         'rientri': rientri,
         for (final a in ['a1', 'a2'])
           a: _valuta(
             Confronto.punti((c[a] as Map)['geometria']),
-            fuori,
-            mie,
+            condivisi,
+            perMezzo,
             shape,
           ),
       });
@@ -158,15 +173,16 @@ class LineaSeguita {
   /// Quanto un rosso coincide coi mezzi.
   ///
   /// - spiegati: dei punti in cui i mezzi stanno fuori dal percorso
-  ///   normale, quanti cadono sul rosso. Dice se il rosso va dove vanno
-  ///   loro.
+  ///   normale — solo quelli dove e' passato anche un altro mezzo — quanti
+  ///   cadono sul rosso. Dice se il rosso va dove vanno loro.
   /// - confermato: del tratto di rosso fuori dalla linea normale, quanto e'
-  ///   stato percorso da un mezzo. Dice se il rosso inventa vie dove
-  ///   nessuno passa. Vale solo se i mezzi hanno fatto tutta la deviazione.
+  ///   stato percorso da almeno due mezzi. Dice se il rosso inventa vie
+  ///   dove nessuno passa. Vale solo se i mezzi hanno fatto tutta la
+  ///   deviazione.
   Map<String, Object?> _valuta(
     List<GeoPoint> rosso,
     List<GeoPoint> fuori,
-    List<VehicleTrack> mie,
+    Map<String, List<List<Point>>> perMezzo,
     RouteShape normale,
   ) {
     final r = [for (final p in rosso) p.meters];
@@ -178,10 +194,7 @@ class LineaSeguita {
       spiegati = ok / fuori.length;
     }
     double? confermato;
-    final linee = [
-      for (final t in mie) ..._tratti(t),
-    ];
-    if (linee.isNotEmpty && r.length >= 2) {
+    if (perMezzo.length >= 2 && r.length >= 2) {
       final l = normale.meters;
       final campioni = [
         for (final q in Geometry.densify(r, 20))
@@ -189,14 +202,18 @@ class LineaSeguita {
           if (Geometry.pointToPolyline(q, l) > Rifinitura.sopraLaLinea) q,
       ];
       if (campioni.isNotEmpty) {
-        final ok = campioni.where((q) => linee.any(
-              (t) => Geometry.pointToPolyline(q, t) <= vicino,
-            ));
+        final ok = campioni.where(
+          (q) => perMezzo.values.where((l) => _passa(l, q)).length >= 2,
+        );
         confermato = ok.length / campioni.length;
       }
     }
     return {'spiegati': spiegati, 'confermato': confermato};
   }
+
+  /// La traccia di un mezzo passa a meno di [vicino] da [q]?
+  static bool _passa(List<List<Point>> tratti, Point q) =>
+      tratti.any((t) => Geometry.pointToPolyline(q, t) <= vicino);
 
   /// La traccia di un mezzo in tratti senza buchi.
   static List<List<Point>> _tratti(VehicleTrack t) {

@@ -188,6 +188,10 @@ class _Outcome extends StatelessWidget {
         Icons.check_circle_outline,
       ),
       WatchOutcome.fuoriPercorso => (scheme.error, Icons.alt_route),
+      WatchOutcome.unMezzoFuori => (
+        StatusColors.of(context).warning,
+        Icons.alt_route,
+      ),
       WatchOutcome.nessunMezzo => (
         scheme.onSurfaceVariant,
         Icons.bedtime_outlined,
