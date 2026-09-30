@@ -260,16 +260,19 @@ void main() {
     await tester.pumpAndSettle();
 
     // I comandi della mappa con la scritta, il pulsante dei mezzi fra
-    // loro; nel pannello il riassunto, e «Più dettagli» per aprirlo.
+    // loro; sotto, la scheda: si apre sul riepilogo, e le fermate stanno
+    // nella pagina accanto.
     expect(find.text('Tutta la linea'), findsOneWidget);
     expect(find.text('Segui i mezzi'), findsOneWidget);
     expect(find.text('Dove sono'), findsOneWidget);
-    expect(find.text('Più dettagli'), findsOneWidget);
+    expect(find.text('Riepilogo'), findsOneWidget);
+    expect(find.text('Fermate'), findsOneWidget);
     expect(find.textContaining('1 fermata non servita'), findsWidgets);
+    expect(find.textContaining('Tocca una fermata'), findsOneWidget);
 
-    await tester.tap(find.text('Più dettagli'));
+    await tester.tap(find.text('Fermate'));
     await tester.pumpAndSettle();
-    expect(find.text('Meno dettagli'), findsOneWidget);
+    expect(find.textContaining('Tocca una fermata'), findsNothing);
 
     await tester.tap(find.byTooltip('Indietro'));
     await tester.pumpAndSettle();

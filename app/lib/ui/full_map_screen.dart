@@ -11,15 +11,15 @@ import '../data/app_repository.dart';
 import 'cartina.dart';
 import 'line_badge.dart';
 import 'line_map.dart';
-import 'riassunto.dart';
+import 'scheda_mappa.dart';
 
-/// La mappa a tutto schermo, con un pannello che si trascina dal basso.
+/// La mappa a tutto schermo, con una scheda che galleggia in basso.
 ///
 /// Nel dettaglio la mappa e' alta 280 punti: basta per capire dove passa
-/// la linea, non per leggere una deviazione. Qui la cartina e' tutta, e il
-/// pannello dice quello che serve senza coprirla: chiuso una riga, a meta'
-/// le fermate non servite per tratti, e la fermata toccata quando se ne
-/// tocca una. In alto si puo' tenere una direzione sola.
+/// la linea, non per leggere una deviazione. Qui la cartina e' tutta, e la
+/// scheda ([SchedaMappa]) dice quello che serve senza coprirla: lo stato,
+/// le fermate non servite per tratti, gli avvisi, e la fermata toccata
+/// quando se ne tocca una. In alto si puo' tenere una direzione sola.
 class FullMapScreen extends StatefulWidget {
   const FullMapScreen({
     required this.repo,
@@ -41,56 +41,35 @@ class FullMapScreen extends StatefulWidget {
 class _FullMapScreenState extends State<FullMapScreen> {
   final _mappa = MapController();
   final _scelta = ValueNotifier<FermataScelta?>(null);
-  final _pannello = DraggableScrollableController();
 
   /// La direzione mostrata, fra i percorsi principali. null: tutte e due.
   int? _direzione;
 
-  /// Quanto e' alto il pannello chiuso: la maniglia e la prima riga.
-  static const _chiusoPx = 150.0;
-  static const _meta = 0.5;
-  static const _aperto = 0.88;
+  /// Quanto e' alta la scheda in basso, misurata: la mappa le fa posto.
+  var _scheda = 120.0;
 
   /// L'altezza della barra in alto, sotto la barra di stato.
   static const _barra = 56.0;
 
-  @override
-  void initState() {
-    super.initState();
-    // Toccando una fermata il pannello deve mostrarla: se era aperto su
-    // un elenco lungo, torna giu' a quanto basta.
-    _scelta.addListener(_seguiScelta);
-  }
+  /// Lo spazio fra la scheda e i bordi.
+  static const _margine = 10.0;
 
   @override
   void dispose() {
-    _scelta.removeListener(_seguiScelta);
     _scelta.dispose();
-    _pannello.dispose();
     super.dispose();
   }
 
-  void _seguiScelta() {
-    if (_scelta.value != null && _pannello.isAttached) {
-      final chiuso = _frazioneChiusa(context);
-      if (_pannello.size > _meta) _pannello.jumpTo(_meta);
-      if (_pannello.size < chiuso) _pannello.jumpTo(chiuso);
-    }
-  }
-
-  double _frazioneChiusa(BuildContext context) {
-    final h = MediaQuery.sizeOf(context).height;
-    final sotto = MediaQuery.paddingOf(context).bottom;
-    return ((_chiusoPx + sotto) / h).clamp(0.1, 0.4);
-  }
+  /// Quanto spazio copre la scheda, dal fondo dello schermo.
+  double _sotto(BuildContext context) =>
+      _scheda + _margine * 2 + MediaQuery.paddingOf(context).bottom;
 
   List<RouteShape> _direzioni(LineStatus status) => [
     for (final s in status.mainShapes)
       if (s.points.length > 1) s,
   ];
 
-  /// Toccando un tratto: la mappa lo inquadra, e il pannello si abbassa per
-  /// lasciarlo vedere.
+  /// Toccando un tratto: la mappa lo inquadra, sopra la scheda.
   void _vaiAlTratto(ClosedRun r) {
     final punti = [
       for (final s in [?r.before, ...r.stops, ?r.after])
@@ -98,13 +77,7 @@ class _FullMapScreenState extends State<FullMapScreen> {
     ];
     if (punti.isEmpty) return;
     final alto = MediaQuery.paddingOf(context).top + _barra;
-    final h = MediaQuery.sizeOf(context).height;
-    final basso = h * _frazioneChiusa(context);
-    _pannello.animateTo(
-      _frazioneChiusa(context),
-      duration: const Duration(milliseconds: 250),
-      curve: Curves.easeOut,
-    );
+    final basso = _sotto(context);
     _mappa.fitCamera(
       CameraFit.coordinates(
         coordinates: punti,
@@ -131,9 +104,10 @@ class _FullMapScreenState extends State<FullMapScreen> {
     final osservando = repo.isWatching(widget.line.routeId);
     final esito = repo.watchResultOf(widget.line.routeId);
     final alto = MediaQuery.paddingOf(context).top + _barra;
-    final chiuso = _frazioneChiusa(context);
-    final h = MediaQuery.sizeOf(context).height;
     final cartina = Cartina.of(context);
+    final soloDirezione = _direzione == null || _direzione! >= direzioni.length
+        ? null
+        : direzioni[_direzione!].shapeId;
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       // La barra di stato sta sopra la cartina: chiara su quella scura.
@@ -141,95 +115,81 @@ class _FullMapScreenState extends State<FullMapScreen> {
           ? SystemUiOverlayStyle.light
           : SystemUiOverlayStyle.dark,
       child: Scaffold(
-        body: Stack(
-          children: [
-            Positioned.fill(
-              child: LineMap(
-                status: status,
-                fullScreen: true,
-                controller: _mappa,
-                selection: _scelta,
-                onlyDirection: _direzione,
-                vehicles: osservando ? repo.liveTracks : const [],
-                observed: esito?.consensus,
-                isSaved: widget.isSaved,
-                onToggleSave: widget.onToggleSave,
-                inset: EdgeInsets.only(top: alto, bottom: h * chiuso),
-                watching: osservando,
-                watchCount: osservando ? repo.liveTracks.length : 0,
-                onToggleWatch: osservando
-                    ? repo.stopWatch
-                    : () => repo.startWatch(widget.line),
+        // Tutto lo schermo, sempre: la scheda in basso e' posizionata, e
+        // senza questo la pila prendeva l'altezza della barra in alto — la
+        // mappa diventava alta 56 punti.
+        body: SizedBox.expand(
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: LineMap(
+                  status: status,
+                  fullScreen: true,
+                  controller: _mappa,
+                  selection: _scelta,
+                  onlyDirection: _direzione,
+                  vehicles: osservando ? repo.liveTracks : const [],
+                  observed: esito?.consensus,
+                  isSaved: widget.isSaved,
+                  onToggleSave: widget.onToggleSave,
+                  inset: EdgeInsets.only(top: alto, bottom: _sotto(context)),
+                  watching: osservando,
+                  watchCount: osservando ? repo.liveTracks.length : 0,
+                  onToggleWatch: osservando
+                      ? repo.stopWatch
+                      : () => repo.startWatch(widget.line),
+                ),
               ),
-            ),
-            _Barra(
-              line: status.line,
-              direzioni: [
-                for (final d in direzioni)
-                  DisplayNames.direction(
-                    d.headsign,
-                    longName: status.line.longName,
+              _Barra(
+                line: status.line,
+                direzioni: [
+                  for (final d in direzioni)
+                    DisplayNames.direction(
+                      d.headsign,
+                      longName: status.line.longName,
+                    ),
+                ],
+                scelta: _direzione,
+                onScelta: (i) {
+                  setState(() => _direzione = i);
+                  _scelta.value = null;
+                },
+              ),
+              Positioned(
+                left: _margine,
+                right: _margine,
+                bottom: _margine + MediaQuery.paddingOf(context).bottom,
+                child: SchedaMappa(
+                  status: status,
+                  soloDirezione: soloDirezione,
+                  onTratto: _vaiAlTratto,
+                  onAltezza: (a) {
+                    if ((a - _scheda).abs() > 1 && mounted) {
+                      setState(() => _scheda = a);
+                    }
+                  },
+                  fermata: _scelta.value == null
+                      ? null
+                      : _fermata(status, _scelta.value!),
+                  riepilogo: _Legenda(
+                    cartina: cartina,
+                    direzioni: [
+                      for (var i = 0; i < direzioni.length; i++)
+                        if (_direzione == null || _direzione == i)
+                          (
+                            i,
+                            DisplayNames.direction(
+                              direzioni[i].headsign,
+                              longName: status.line.longName,
+                            ),
+                          ),
+                    ],
+                    deviata: status.activeReports.any((r) => r.hasMap),
                   ),
-              ],
-              scelta: _direzione,
-              onScelta: (i) {
-                setState(() => _direzione = i);
-                _scelta.value = null;
-              },
-            ),
-            DraggableScrollableSheet(
-              controller: _pannello,
-              initialChildSize: chiuso,
-              minChildSize: chiuso,
-              maxChildSize: _aperto,
-              snap: true,
-              snapSizes: const [_meta],
-              builder: (context, scorrimento) => _Pannello(
-                scorrimento: scorrimento,
-                controller: _pannello,
-                chiuso: chiuso,
-                onApri: () => _pannello.animateTo(
-                  _meta,
-                  duration: const Duration(milliseconds: 250),
-                  curve: Curves.easeOut,
                 ),
-                onChiudi: () => _pannello.animateTo(
-                  chiuso,
-                  duration: const Duration(milliseconds: 250),
-                  curve: Curves.easeOut,
-                ),
-                children: _scelta.value != null
-                    ? [_fermata(status, _scelta.value!)]
-                    : [
-                        RiassuntoLinea(
-                          status: status,
-                          soloDirezione:
-                              _direzione == null ||
-                                  _direzione! >= direzioni.length
-                              ? null
-                              : direzioni[_direzione!].shapeId,
-                          onTratto: _vaiAlTratto,
-                          margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-                        ),
-                        _Legenda(
-                          cartina: cartina,
-                          direzioni: [
-                            for (var i = 0; i < direzioni.length; i++)
-                              if (_direzione == null || _direzione == i)
-                                (
-                                  i,
-                                  DisplayNames.direction(
-                                    direzioni[i].headsign,
-                                    longName: status.line.longName,
-                                  ),
-                                ),
-                          ],
-                          deviata: status.activeReports.any((r) => r.hasMap),
-                        ),
-                      ],
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -376,104 +336,6 @@ class _SceltaDirezione extends StatelessWidget {
   }
 }
 
-/// Il pannello: la maniglia, «Più dettagli», e sotto il contenuto.
-///
-/// Si trascina, ma trascinare e' un gesto che non tutti conoscono: la
-/// testata si puo' anche toccare, e dice cosa succede.
-class _Pannello extends StatelessWidget {
-  const _Pannello({
-    required this.scorrimento,
-    required this.controller,
-    required this.chiuso,
-    required this.onApri,
-    required this.onChiudi,
-    required this.children,
-  });
-
-  final ScrollController scorrimento;
-  final DraggableScrollableController controller;
-  final double chiuso;
-  final VoidCallback onApri;
-  final VoidCallback onChiudi;
-  final List<Widget> children;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Material(
-      color: scheme.surface,
-      elevation: 8,
-      shadowColor: Colors.black,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: ListView(
-        controller: scorrimento,
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.paddingOf(context).bottom + 16,
-        ),
-        children: [
-          ListenableBuilder(
-            listenable: controller,
-            builder: (context, _) {
-              final aperto =
-                  controller.isAttached && controller.size > chiuso + 0.05;
-              return InkWell(
-                onTap: aperto ? onChiudi : onApri,
-                child: SizedBox(
-                  height: 52,
-                  child: Stack(
-                    children: [
-                      Align(
-                        alignment: const Alignment(0, -0.6),
-                        child: Container(
-                          width: 36,
-                          height: 4,
-                          decoration: BoxDecoration(
-                            color: scheme.outlineVariant,
-                            borderRadius: BorderRadius.circular(2),
-                          ),
-                        ),
-                      ),
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: Padding(
-                          padding: const EdgeInsets.only(right: 16, top: 6),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                aperto ? 'Meno dettagli' : 'Più dettagli',
-                                style: TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w600,
-                                  color: scheme.onSurface,
-                                ),
-                              ),
-                              Icon(
-                                aperto
-                                    ? Icons.keyboard_arrow_down
-                                    : Icons.keyboard_arrow_up,
-                                color: scheme.onSurface,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            },
-          ),
-          ...children,
-        ],
-      ),
-    );
-  }
-}
-
 /// La legenda, in una riga o due: a tutto schermo non ha un posto fisso.
 class _Legenda extends StatelessWidget {
   const _Legenda({
@@ -506,7 +368,7 @@ class _Legenda extends StatelessWidget {
       ],
     );
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 6),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -528,7 +390,7 @@ class _Legenda extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           Text(
-            'Tocca una fermata per vederla, un tratto per inquadrarlo.',
+            'Tocca una fermata sulla mappa per vederla.',
             style: stile?.copyWith(color: tenue),
           ),
           if (deviata)

@@ -6,11 +6,25 @@ import '../core/pipeline/closure_summary.dart';
 import '../core/text/display_names.dart';
 import 'theme.dart';
 
+/// Quale parte del riassunto mostrare.
+enum ParteRiassunto {
+  /// Tutto insieme, nel riquadro: il dettaglio della linea.
+  tutto,
+
+  /// Solo lo stato: «2 fermate non servite», «Percorso regolare».
+  titolo,
+
+  /// Solo i tratti non serviti, con dove salire.
+  tratti,
+}
+
 /// Il riassunto di una linea: quali fermate non sono servite, fino a
 /// quando, e dove salire invece. Per tratti, non per avviso.
 ///
 /// Sta in un file suo perche' lo usano due schermate: il dettaglio della
-/// linea, in cima, e la mappa a tutto schermo, nel pannello in basso.
+/// linea, in cima, tutto insieme, e la mappa a tutto schermo, dove la
+/// scheda in basso ne mostra lo stato in una pagina e i tratti in
+/// un'altra ([parte]).
 class RiassuntoLinea extends StatelessWidget {
   const RiassuntoLinea({
     required this.status,
@@ -18,7 +32,18 @@ class RiassuntoLinea extends StatelessWidget {
     this.soloDirezione,
     this.onTratto,
     this.margin = const EdgeInsets.fromLTRB(12, 12, 12, 12),
+    this.parte = ParteRiassunto.tutto,
   });
+
+  /// Ci sono tratti non serviti da mostrare?
+  static bool conTratti(LineStatus status, {String? soloDirezione}) =>
+      ClosureSummary.of(status.activeReports).any(
+        (d) =>
+            (soloDirezione == null || d.shape.shapeId == soloDirezione) &&
+            d.runs.isNotEmpty,
+      );
+
+  final ParteRiassunto parte;
 
   final LineStatus status;
 
@@ -37,7 +62,16 @@ class RiassuntoLinea extends StatelessWidget {
     final colori = StatusColors.of(context);
     final testo = Theme.of(context).textTheme;
     final attivi = status.activeReports;
+    // Nella scheda della mappa gli avvisi stanno in una pagina accanto,
+    // non «piu' in basso».
+    final dove = parte == ParteRiassunto.tutto
+        ? 'più in basso'
+        : 'negli avvisi';
 
+    if (parte == ParteRiassunto.tratti &&
+        !conTratti(status, soloDirezione: soloDirezione)) {
+      return const SizedBox.shrink();
+    }
     if (status.reports.isEmpty) {
       return _Riga(
         colore: colori.ok,
@@ -51,9 +85,7 @@ class RiassuntoLinea extends StatelessWidget {
         colore: colori.ok,
         icona: Icons.check_circle_outline,
         titolo: 'Percorso regolare',
-        dettaglio:
-            'C\'è una variazione in programma: trovi i dettagli più '
-            'in basso.',
+        dettaglio: 'C\'è una variazione in programma: trovi i dettagli $dove.',
       );
     }
 
@@ -73,7 +105,7 @@ class RiassuntoLinea extends StatelessWidget {
         dettaglio: ricostruito
             ? 'Il percorso cambia, ma tutte le fermate restano servite.'
             : 'Non è stato possibile ricavarne le fermate: leggi il testo '
-                  'di GTT più in basso.',
+                  'di GTT $dove.',
       );
     }
 
@@ -82,6 +114,56 @@ class RiassuntoLinea extends StatelessWidget {
         for (final r in d.runs) ...r.stops.map((s) => s.id),
     }.length;
     final fine = ClosureSummary.commonEnd(attivi);
+
+    final titolo = Row(
+      children: [
+        Icon(Icons.do_not_disturb_on_outlined, size: 20, color: scheme.error),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            totale == 1
+                ? '1 fermata non servita'
+                : '$totale fermate non servite',
+            style: testo.titleMedium?.copyWith(
+              color: scheme.error,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      ],
+    );
+    final finoAl = fine == null
+        ? null
+        : Padding(
+            padding: const EdgeInsets.only(left: 28, top: 2),
+            child: Text(
+              'fino al ${_data(fine)}',
+              style: testo.bodyMedium?.copyWith(color: scheme.error),
+            ),
+          );
+    switch (parte) {
+      case ParteRiassunto.titolo:
+        return Padding(
+          padding: margin,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [titolo, ?finoAl],
+          ),
+        );
+      case ParteRiassunto.tratti:
+        return Padding(
+          padding: margin,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              for (final d in direzioni)
+                _Direzione(d: d, line: status.line, onTratto: onTratto),
+            ],
+          ),
+        );
+      case ParteRiassunto.tutto:
+        break;
+    }
 
     return Container(
       margin: margin,
