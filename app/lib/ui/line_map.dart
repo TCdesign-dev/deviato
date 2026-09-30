@@ -261,8 +261,18 @@ class _LineMapState extends State<LineMap> {
     final seguendo = _locationSub != null;
     final n = widget.watchCount;
     // Tutti larghi uguale: una colonna frastagliata sembra disordinata, e
-    // pulsanti allineati si leggono come un gruppo.
-    return IntrinsicWidth(
+    // pulsanti allineati si leggono come un gruppo. E sempre la stessa
+    // larghezza, quella della scritta piu' lunga che puo' comparire: prima
+    // era quella della scritta di adesso, e seguendo i mezzi «Tutta la
+    // linea» e «Dove sono» si allargavano con «25 mezzi · Interrompi».
+    return SizedBox(
+      width: _Comando.larghezza(context, const [
+        'Tutta la linea',
+        'Segui i mezzi',
+        'Interrompi',
+        'Dove sono',
+        'Nascondi dove sono',
+      ]),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -284,11 +294,14 @@ class _LineMapState extends State<LineMap> {
                   : n == 0
                   ? const _Rotella()
                   : const _Pulsazione(),
-              testo: !widget.watching
-                  ? 'Segui i mezzi'
+              // Seguendo, solo l'azione: che i mezzi si seguono lo dice
+              // l'indicatore, quanti sono lo dice la mappa.
+              testo: widget.watching ? 'Interrompi' : 'Segui i mezzi',
+              descrizione: !widget.watching
+                  ? null
                   : n == 0
-                  ? 'Ricerca dei mezzi… · Interrompi'
-                  : '$n ${n == 1 ? "mezzo" : "mezzi"} · Interrompi',
+                  ? 'Ricerca dei mezzi in corso. Interrompi'
+                  : '$n ${n == 1 ? "mezzo" : "mezzi"} sulla mappa. Interrompi',
               attivo: widget.watching,
               onPressed: widget.onToggleWatch!,
             ),
@@ -1063,7 +1076,32 @@ class _Comando extends StatelessWidget {
     this.attivo = false,
     this.busy = false,
     this.indicatore,
+    this.descrizione,
   });
+
+  /// Quanto e' largo il comando con la scritta piu' lunga fra [scritte]:
+  /// icona, spazio, scritta e margini, con la dimensione del testo scelta
+  /// sul telefono.
+  static double larghezza(BuildContext context, List<String> scritte) {
+    final scala = MediaQuery.textScalerOf(context);
+    var massima = 0.0;
+    for (final t in scritte) {
+      final p = TextPainter(
+        text: TextSpan(text: t, style: _stile),
+        textDirection: TextDirection.ltr,
+        textScaler: scala,
+        maxLines: 1,
+      )..layout();
+      if (p.width > massima) massima = p.width;
+    }
+    // Margini 16 + 16, icona 20, spazio 8, e un punto per gli arrotondamenti.
+    final w = massima + 61;
+    // Mai piu' di due terzi dello schermo: con il testo grandissimo la
+    // scritta va a capo invece di coprire la mappa.
+    return w.clamp(0, MediaQuery.sizeOf(context).width * 2 / 3).toDouble();
+  }
+
+  static const _stile = TextStyle(fontSize: 15, fontWeight: FontWeight.w600);
 
   final IconData icon;
   final String testo;
@@ -1075,12 +1113,15 @@ class _Comando extends StatelessWidget {
   /// toccabile, a differenza di [busy].
   final Widget? indicatore;
 
+  /// Per i lettori di schermo, quando la scritta non dice tutto.
+  final String? descrizione;
+
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final fondo = attivo ? scheme.primaryContainer : scheme.surface;
     final colore = attivo ? scheme.onPrimaryContainer : scheme.onSurface;
-    return Material(
+    final pulsante = Material(
       color: fondo,
       shape: const StadiumBorder(),
       elevation: 3,
@@ -1111,12 +1152,10 @@ class _Comando extends StatelessWidget {
                 else
                   Icon(icon, size: 20, color: colore),
                 const SizedBox(width: 8),
-                Text(
-                  testo,
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    color: colore,
+                Flexible(
+                  child: Text(
+                    testo,
+                    style: _stile.copyWith(color: colore),
                   ),
                 ),
               ],
@@ -1125,6 +1164,16 @@ class _Comando extends StatelessWidget {
         ),
       ),
     );
+    final d = descrizione;
+    return d == null
+        ? pulsante
+        : Semantics(
+            button: true,
+            label: d,
+            onTap: busy ? null : onPressed,
+            excludeSemantics: true,
+            child: pulsante,
+          );
   }
 }
 
