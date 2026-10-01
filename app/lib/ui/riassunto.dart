@@ -16,6 +16,9 @@ enum ParteRiassunto {
 
   /// Solo i tratti non serviti, con dove salire.
   tratti,
+
+  /// Lo stato su una riga, senza altro: per la scheda ridotta.
+  stato,
 }
 
 /// Il riassunto di una linea: quali fermate non sono servite, fino a
@@ -74,6 +77,8 @@ class RiassuntoLinea extends StatelessWidget {
     }
     if (status.reports.isEmpty) {
       return _Riga(
+        soloTitolo: parte == ParteRiassunto.stato,
+        margine: parte == ParteRiassunto.stato ? margin : null,
         colore: colori.ok,
         icona: Icons.check_circle_outline,
         titolo: 'Percorso regolare',
@@ -82,6 +87,8 @@ class RiassuntoLinea extends StatelessWidget {
     }
     if (attivi.isEmpty) {
       return _Riga(
+        soloTitolo: parte == ParteRiassunto.stato,
+        margine: parte == ParteRiassunto.stato ? margin : null,
         colore: colori.ok,
         icona: Icons.check_circle_outline,
         titolo: 'Percorso regolare',
@@ -99,6 +106,8 @@ class RiassuntoLinea extends StatelessWidget {
       // quello della 7 il 26/09 diceva «sospesa». Si dice la stessa cosa
       // della home, e si rimanda al testo.
       return _Riga(
+        soloTitolo: parte == ParteRiassunto.stato,
+        margine: parte == ParteRiassunto.stato ? margin : null,
         colore: colori.warning,
         icona: ricostruito ? Icons.alt_route : Icons.article_outlined,
         titolo: ricostruito ? 'Deviata, fermate servite' : 'Avviso in corso',
@@ -150,6 +159,8 @@ class RiassuntoLinea extends StatelessWidget {
             children: [titolo, ?finoAl],
           ),
         );
+      case ParteRiassunto.stato:
+        return Padding(padding: margin, child: titolo);
       case ParteRiassunto.tratti:
         return Padding(
           padding: margin,
@@ -218,6 +229,8 @@ class _Riga extends StatelessWidget {
     required this.icona,
     required this.titolo,
     this.dettaglio,
+    this.soloTitolo = false,
+    this.margine,
   });
 
   final Color colore;
@@ -225,11 +238,15 @@ class _Riga extends StatelessWidget {
   final String titolo;
   final String? dettaglio;
 
+  /// Senza la riga di dettaglio: nella scheda ridotta della mappa.
+  final bool soloTitolo;
+  final EdgeInsets? margine;
+
   @override
   Widget build(BuildContext context) {
     final testo = Theme.of(context).textTheme;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+      padding: margine ?? const EdgeInsets.fromLTRB(16, 16, 16, 12),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -246,7 +263,7 @@ class _Riga extends StatelessWidget {
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-                if (dettaglio != null)
+                if (dettaglio != null && !soloTitolo)
                   Padding(
                     padding: const EdgeInsets.only(top: 2),
                     child: Text(dettaglio!, style: testo.bodyMedium),

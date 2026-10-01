@@ -274,6 +274,19 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.textContaining('Tocca una fermata'), findsNothing);
 
+    // La scheda si riduce: restano lo stato e i comandi, che stanno
+    // dentro di lei e non piu' sulla cartina. E si riapre.
+    await tester.tap(find.byTooltip('Riduci la scheda'));
+    await tester.pumpAndSettle();
+    expect(find.text('Riepilogo'), findsNothing);
+    expect(find.text('Dettagli'), findsOneWidget);
+    expect(find.textContaining('1 fermata non servita'), findsWidgets);
+    expect(find.text('Tutta la linea'), findsOneWidget);
+    expect(find.text('Dove sono'), findsOneWidget);
+    await tester.tap(find.text('Dettagli'));
+    await tester.pumpAndSettle();
+    expect(find.text('Riepilogo'), findsOneWidget);
+
     await tester.tap(find.byTooltip('Indietro'));
     await tester.pumpAndSettle();
     expect(find.byTooltip('Mappa a tutto schermo'), findsOneWidget);

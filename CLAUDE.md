@@ -550,10 +550,18 @@ Ognuna di queste è costata tempo. Sono tutte silenziose: non danno errore.
   dal pulsante in angolo o toccando un punto vuoto della mappa del
   dettaglio. In alto si può tenere una direzione sola — dove andata e
   ritorno passano per le stesse vie (la 9, la 15) le due linee si coprono —
-  e in basso un pannello si trascina — o si apre toccando «Più
-  dettagli» —: chiuso una riga, a metà le fermate per tratti (toccandone
-  uno la mappa lo inquadra), e la fermata toccata. I comandi della mappa
-  hanno la scritta: «Tutta la linea», «Segui i mezzi», «Dove sono». È la stessa `LineMap` del dettaglio in
+  e in basso c'è una scheda staccata dai bordi (`ui/scheda_mappa.dart`,
+  dal 30/09): tre pagine — Riepilogo, Fermate (per tratti: toccandone uno
+  la mappa lo inquadra), Avvisi — da toccare o scorrere di lato, e al loro
+  posto la fermata toccata. Dall'01/10 i comandi della mappa — «Tutta la
+  linea», «Segui i mezzi», «Dove sono», icona sopra e parola sotto —
+  stanno in fondo alla scheda e non più sulla cartina, dove coprivano la
+  linea; e la scheda si riduce verso il basso (freccia accanto alle
+  etichette, o trascinandola) a una riga con lo stato più i comandi.
+  Finché nessuno sposta la mappa con le dita, l'inquadratura segue la
+  scheda quando cambia altezza: la mappa segnala uno «spostamento» anche
+  quando applica da sola l'inquadratura iniziale, quindi contano solo i
+  gesti (`hasGesture`). È la stessa `LineMap` del dettaglio in
   modalità `fullScreen`, e lo stesso riassunto, spostato in `riassunto.dart`
   perché lo usano tutte e due. Il pulsante con le quattro frecce che
   inquadrava il percorso sembrava «ingrandisci»: nel dettaglio ora
@@ -623,9 +631,10 @@ anziane, e l'app deve funzionare per loro senza spiegazioni.
 - **I comandi dicono cosa fanno con una parola**, non solo con un'icona:
   «Dove sono», non un mirino. Dove lo spazio manca (la mappa piccola del
   dettaglio) l'icona resta, ma con la descrizione per i lettori di schermo.
-- **Bersagli da almeno 44–48 punti** e scritte dei comandi a 15.
-- **Nessun gesto senza alternativa visibile**: il pannello che si trascina
-  si apre anche toccando «Più dettagli».
+- **Bersagli da almeno 44–48 punti** e scritte dei comandi a 14–15.
+- **Nessun gesto senza alternativa visibile**: le pagine della scheda
+  della mappa si scorrono, ma hanno le etichette; la scheda si trascina
+  giù, ma ha la freccia e, da ridotta, «Dettagli».
 - **Le linee sulla mappa si vedono senza cercarle**: spesse 5,5 punti,
   piene, blu e verde (il grigio-azzurro di prima sembrava una strada).
 - **Ogni fermata dice da che parte si va**: bordo del colore della sua
@@ -762,4 +771,4 @@ facendo gli screenshot troppo presto.
 
 ---
 
-*Ultimo aggiornamento: 30 settembre 2026. 388 test.*
+*Ultimo aggiornamento: 1 ottobre 2026. 388 test.*

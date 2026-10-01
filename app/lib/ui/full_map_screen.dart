@@ -46,7 +46,7 @@ class _FullMapScreenState extends State<FullMapScreen> {
   int? _direzione;
 
   /// Quanto e' alta la scheda in basso, misurata: la mappa le fa posto.
-  var _scheda = 120.0;
+  var _scheda = 200.0;
 
   /// L'altezza della barra in alto, sotto la barra di stato.
   static const _barra = 56.0;
@@ -138,6 +138,42 @@ class _FullMapScreenState extends State<FullMapScreen> {
                   onToggleWatch: osservando
                       ? repo.stopWatch
                       : () => repo.startWatch(widget.line),
+                  // La scheda sta dentro la mappa, che le passa i suoi
+                  // comandi: cosi' non galleggiano piu' sulla cartina.
+                  scheda: (context, comandi) => Positioned(
+                    left: _margine,
+                    right: _margine,
+                    bottom: _margine + MediaQuery.paddingOf(context).bottom,
+                    child: SchedaMappa(
+                      status: status,
+                      soloDirezione: soloDirezione,
+                      onTratto: _vaiAlTratto,
+                      comandi: comandi,
+                      onAltezza: (a) {
+                        if ((a - _scheda).abs() > 1 && mounted) {
+                          setState(() => _scheda = a);
+                        }
+                      },
+                      fermata: _scelta.value == null
+                          ? null
+                          : _fermata(status, _scelta.value!),
+                      riepilogo: _Legenda(
+                        cartina: cartina,
+                        direzioni: [
+                          for (var i = 0; i < direzioni.length; i++)
+                            if (_direzione == null || _direzione == i)
+                              (
+                                i,
+                                DisplayNames.direction(
+                                  direzioni[i].headsign,
+                                  longName: status.line.longName,
+                                ),
+                              ),
+                        ],
+                        deviata: status.activeReports.any((r) => r.hasMap),
+                      ),
+                    ),
+                  ),
                 ),
               ),
               _Barra(
@@ -154,39 +190,6 @@ class _FullMapScreenState extends State<FullMapScreen> {
                   setState(() => _direzione = i);
                   _scelta.value = null;
                 },
-              ),
-              Positioned(
-                left: _margine,
-                right: _margine,
-                bottom: _margine + MediaQuery.paddingOf(context).bottom,
-                child: SchedaMappa(
-                  status: status,
-                  soloDirezione: soloDirezione,
-                  onTratto: _vaiAlTratto,
-                  onAltezza: (a) {
-                    if ((a - _scheda).abs() > 1 && mounted) {
-                      setState(() => _scheda = a);
-                    }
-                  },
-                  fermata: _scelta.value == null
-                      ? null
-                      : _fermata(status, _scelta.value!),
-                  riepilogo: _Legenda(
-                    cartina: cartina,
-                    direzioni: [
-                      for (var i = 0; i < direzioni.length; i++)
-                        if (_direzione == null || _direzione == i)
-                          (
-                            i,
-                            DisplayNames.direction(
-                              direzioni[i].headsign,
-                              longName: status.line.longName,
-                            ),
-                          ),
-                    ],
-                    deviata: status.activeReports.any((r) => r.hasMap),
-                  ),
-                ),
               ),
             ],
           ),

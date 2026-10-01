@@ -50,6 +50,7 @@ class LineMap extends StatefulWidget {
     this.onToggleWatch,
     this.watching = false,
     this.watchCount = 0,
+    this.scheda,
   });
 
   final LineStatus status;
@@ -89,6 +90,11 @@ class LineMap extends StatefulWidget {
   /// Quanti mezzi si vedono adesso, per dirlo sul pulsante.
   final int watchCount;
 
+  /// A tutto schermo: la scheda che sta sopra la mappa, in basso. Riceve i
+  /// comandi della mappa gia' pronti e li mette dentro di se': fuori,
+  /// sulla cartina, coprivano proprio il punto dove passa la linea.
+  final Widget Function(BuildContext context, Widget comandi)? scheda;
+
   /// I mezzi osservati adesso, se un'osservazione e' in corso o appena
   /// conclusa. Si disegnano sopra tutto il resto: sono la cosa che si
   /// muove, ed e' quella che si guarda.
@@ -120,6 +126,14 @@ class _LineMapState extends State<LineMap> {
   /// serve al pulsante che ci riporta.
   LatLngBounds? _routeBounds;
 
+  /// La mappa e' stata spostata — con le dita, o centrandola su di se' —
+  /// dopo l'ultima inquadratura del percorso. Finche' e' falso, a tutto
+  /// schermo l'inquadratura segue la scheda in basso quando cambia
+  /// altezza: senza, aprendo la mappa un pezzo di linea restava sotto la
+  /// scheda. Contano solo i gesti: la mappa segnala uno spostamento anche
+  /// quando applica da sola l'inquadratura iniziale, dopo il primo disegno.
+  var _mossa = false;
+
   final _location = UserLocation();
   StreamSubscription<GeoPoint>? _locationSub;
   GeoPoint? _me;
@@ -149,6 +163,12 @@ class _LineMapState extends State<LineMap> {
     // Cambiando direzione si torna a inquadrare quella rimasta.
     if (old.onlyDirection != widget.onlyDirection) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _fitRoute());
+    } else if (widget.fullScreen && !_mossa && old.inset != widget.inset) {
+      // La scheda in basso ha cambiato altezza e la mappa non l'ha toccata
+      // nessuno: il percorso resta tutto in vista, sopra la scheda.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && !_mossa) _fitRoute();
+      });
     }
   }
 
@@ -233,6 +253,7 @@ class _LineMapState extends State<LineMap> {
       return;
     }
     _map.move(LatLng(first.lat, first.lon), 15);
+    _mossa = true;
 
     // Poi il punto continua a seguirti: un pallino fermo dove eri due
     // minuti fa e' peggio che nessun pallino.
@@ -250,71 +271,67 @@ class _LineMapState extends State<LineMap> {
     final b = _routeBounds;
     if (b == null) return;
     _map.fitCamera(CameraFit.bounds(bounds: b, padding: _margine));
+    _mossa = false;
   }
 
-  /// I comandi a tutto schermo: con la scritta, uno sotto l'altro.
+  /// I comandi a tutto schermo: con la scritta, in riga dentro la scheda.
   ///
   /// L'app la usano anche persone che non sono cresciute coi telefoni: un
   /// cerchio con un'icona va interpretato, «Dove sono» no. Nel dettaglio
   /// la mappa e' piccola e restano i pulsanti tondi.
-  Widget _comandiConScritta() {
+  ///
+  /// Prima stavano in colonna sulla cartina, a destra: tre pillole che
+  /// coprivano la mappa proprio dove spesso passa la linea (Tommaso,
+  /// 01/10/2026). In riga, icona sopra e parola sotto, stanno nella scheda
+  /// e la cartina resta libera.
+  Widget _comandiInRiga() {
     final seguendo = _locationSub != null;
     final n = widget.watchCount;
-    // Tutti larghi uguale: una colonna frastagliata sembra disordinata, e
-    // pulsanti allineati si leggono come un gruppo. E sempre la stessa
-    // larghezza, quella della scritta piu' lunga che puo' comparire: prima
-    // era quella della scritta di adesso, e seguendo i mezzi «Tutta la
-    // linea» e «Dove sono» si allargavano con «25 mezzi · Interrompi».
-    // Scritte corte anche da accese, perche' la colonna non si allarghi
-    // sulla mappa: e' il giallo a dire che sono accese.
-    return SizedBox(
-      width: _Comando.larghezza(context, const [
-        'Tutta la linea',
-        'Segui i mezzi',
-        'Interrompi',
-        'Dove sono',
-      ]),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(6, 4, 6, 6),
+      child: Row(
         children: [
-          _Comando(
-            icon: Icons.zoom_out_map,
-            testo: 'Tutta la linea',
-            onPressed: _fitRoute,
-          ),
-          if (widget.onToggleWatch != null) ...[
-            const SizedBox(height: 10),
-            _Comando(
-              icon: Icons.visibility_outlined,
-              // Mentre si seguono i mezzi il comando si muove: con la sola
-              // icona ferma non si capiva che l'osservazione era attiva.
-              // Gira mentre li cerca, pulsa quando ci sono.
-              indicatore: !widget.watching
-                  ? null
-                  : n == 0
-                  ? const _Rotella()
-                  : const _Pulsazione(),
-              // Seguendo, solo l'azione: che i mezzi si seguono lo dice
-              // l'indicatore, quanti sono lo dice la mappa.
-              testo: widget.watching ? 'Interrompi' : 'Segui i mezzi',
-              descrizione: !widget.watching
-                  ? null
-                  : n == 0
-                  ? 'Ricerca dei mezzi in corso. Interrompi'
-                  : '$n ${n == 1 ? "mezzo" : "mezzi"} sulla mappa. Interrompi',
-              attivo: widget.watching,
-              onPressed: widget.onToggleWatch!,
+          Expanded(
+            child: _Comando(
+              icon: Icons.zoom_out_map,
+              testo: 'Tutta la linea',
+              onPressed: _fitRoute,
             ),
-          ],
-          const SizedBox(height: 10),
-          _Comando(
-            icon: seguendo ? Icons.my_location : Icons.location_searching,
-            testo: 'Dove sono',
-            descrizione: seguendo ? 'Nascondi dove sono' : null,
-            attivo: seguendo,
-            busy: _locating,
-            onPressed: _showMe,
+          ),
+          if (widget.onToggleWatch != null)
+            Expanded(
+              child: _Comando(
+                icon: Icons.visibility_outlined,
+                // Mentre si seguono i mezzi il comando si muove: con la
+                // sola icona ferma non si capiva che l'osservazione era
+                // attiva. Gira mentre li cerca, pulsa quando ci sono.
+                indicatore: !widget.watching
+                    ? null
+                    : n == 0
+                    ? const _Rotella()
+                    : const _Pulsazione(),
+                // Seguendo, solo l'azione: che i mezzi si seguono lo dice
+                // l'indicatore, quanti sono lo dice la mappa.
+                testo: widget.watching ? 'Interrompi' : 'Segui i mezzi',
+                descrizione: !widget.watching
+                    ? null
+                    : n == 0
+                    ? 'Ricerca dei mezzi in corso. Interrompi'
+                    : '$n ${n == 1 ? "mezzo" : "mezzi"} sulla mappa. '
+                          'Interrompi',
+                attivo: widget.watching,
+                onPressed: widget.onToggleWatch!,
+              ),
+            ),
+          Expanded(
+            child: _Comando(
+              icon: seguendo ? Icons.my_location : Icons.location_searching,
+              testo: 'Dove sono',
+              descrizione: seguendo ? 'Nascondi dove sono' : null,
+              attivo: seguendo,
+              busy: _locating,
+              onPressed: _showMe,
+            ),
           ),
         ],
       ),
@@ -429,6 +446,9 @@ class _LineMapState extends State<LineMap> {
                   InteractiveFlag.drag |
                   InteractiveFlag.doubleTapZoom,
             ),
+            onPositionChanged: (_, conLeDita) {
+              if (conLeDita) _mossa = true;
+            },
             // Un tocco a vuoto chiude la fermata aperta; se non ce
             // n'e', nel dettaglio apre la mappa a tutto schermo.
             onTap: (_, _) {
@@ -542,12 +562,24 @@ class _LineMapState extends State<LineMap> {
             ),
           ],
         ),
-        Positioned(
-          right: 10,
-          bottom: 10 + widget.inset.bottom,
-          child: widget.fullScreen
-              ? _comandiConScritta()
-              : Column(
+        if (widget.fullScreen)
+          widget.scheda?.call(context, _comandiInRiga()) ??
+              Positioned(
+                left: 10,
+                right: 10,
+                bottom: 10 + widget.inset.bottom,
+                child: Material(
+                  color: Theme.of(context).colorScheme.surface,
+                  elevation: 3,
+                  borderRadius: BorderRadius.circular(22),
+                  child: _comandiInRiga(),
+                ),
+              )
+        else
+          Positioned(
+            right: 10,
+            bottom: 10 + widget.inset.bottom,
+            child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     // Nel dettaglio la mappa e' piccola: il pulsante la
@@ -656,7 +688,12 @@ class _LineMapState extends State<LineMap> {
       width: _tapTarget,
       height: _tapTarget,
       child: GestureDetector(
-        onTap: () => setState(() => _selected = (stop: stop, impact: impact)),
+        onTap: () => setState(() {
+          // Chi tocca una fermata la sta guardando: la scheda cambia
+          // altezza, ma la mappa non gli si sposta sotto il dito.
+          _mossa = true;
+          _selected = (stop: stop, impact: impact);
+        }),
         behavior: HitTestBehavior.opaque,
         child: Center(
           child: isSkipped
@@ -1062,14 +1099,11 @@ class _Legend extends StatelessWidget {
   );
 }
 
-/// Un pulsante tondo sopra la mappa.
+/// Un comando della mappa a tutto schermo: icona sopra, parola sotto.
 ///
-/// Stanno sulla mappa e non nella scheda sotto perche' sono comandi della
-/// mappa, ed e' li' che uno li cerca.
-/// Un comando della mappa a tutto schermo: icona e parola.
-///
-/// Alto 48 punti, con la scritta a 15: si prende col pollice e si legge
-/// senza occhiali. Acceso, prende il giallo di DeviaTo.
+/// Largo un terzo della scheda, alto almeno 56 punti. Da acceso prende
+/// il giallo: e' quello a dire che il comando e' attivo, la scritta resta
+/// corta.
 class _Comando extends StatelessWidget {
   const _Comando({
     required this.icon,
@@ -1080,34 +1114,6 @@ class _Comando extends StatelessWidget {
     this.indicatore,
     this.descrizione,
   });
-
-  /// Quanto e' largo il comando con la scritta piu' lunga fra [scritte]:
-  /// icona, spazio, scritta e margini, con la dimensione del testo scelta
-  /// sul telefono.
-  static double larghezza(BuildContext context, List<String> scritte) {
-    final scala = MediaQuery.textScalerOf(context);
-    // Lo stile che la scritta avra' davvero: quello del tema (carattere e
-    // spaziatura fra le lettere) piu' il nostro. Con solo il nostro, su
-    // Android «Segui i mezzi» andava a capo.
-    final stile = DefaultTextStyle.of(context).style.merge(_stile);
-    var massima = 0.0;
-    for (final t in scritte) {
-      final p = TextPainter(
-        text: TextSpan(text: t, style: stile),
-        textDirection: TextDirection.ltr,
-        textScaler: scala,
-        maxLines: 1,
-      )..layout();
-      if (p.width > massima) massima = p.width;
-    }
-    // Margini 16 + 16, icona 20, spazio 8, e un punto per gli arrotondamenti.
-    final w = massima + 61;
-    // Mai piu' di due terzi dello schermo: con il testo grandissimo la
-    // scritta va a capo invece di coprire la mappa.
-    return w.clamp(0, MediaQuery.sizeOf(context).width * 2 / 3).toDouble();
-  }
-
-  static const _stile = TextStyle(fontSize: 15, fontWeight: FontWeight.w600);
 
   final IconData icon;
   final String testo;
@@ -1125,46 +1131,59 @@ class _Comando extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final fondo = attivo ? scheme.primaryContainer : scheme.surface;
     final colore = attivo ? scheme.onPrimaryContainer : scheme.onSurface;
-    final pulsante = Material(
-      color: fondo,
-      shape: const StadiumBorder(),
-      elevation: 3,
-      child: InkWell(
-        customBorder: const StadiumBorder(),
-        onTap: busy ? null : onPressed,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(minHeight: 48),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (busy)
-                  SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2.5,
-                      color: colore,
+    final pulsante = Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 2),
+      child: Material(
+        color: attivo ? scheme.primaryContainer : Colors.transparent,
+        borderRadius: BorderRadius.circular(16),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: busy ? null : onPressed,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 56),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 7),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  if (busy)
+                    SizedBox(
+                      width: 22,
+                      height: 22,
+                      child: Padding(
+                        padding: const EdgeInsets.all(2),
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.5,
+                          color: colore,
+                        ),
+                      ),
+                    )
+                  else if (indicatore != null)
+                    IconTheme(
+                      data: IconThemeData(color: colore, size: 22),
+                      child: SizedBox(width: 22, height: 22, child: indicatore),
+                    )
+                  else
+                    Icon(icon, size: 22, color: colore),
+                  const SizedBox(height: 4),
+                  // Su uno schermo stretto, o col testo ingrandito, la
+                  // scritta si stringe invece di andare a capo o tagliarsi.
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      testo,
+                      maxLines: 1,
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: colore,
+                      ),
                     ),
-                  )
-                else if (indicatore != null)
-                  IconTheme(
-                    data: IconThemeData(color: colore, size: 20),
-                    child: SizedBox(width: 20, height: 20, child: indicatore),
-                  )
-                else
-                  Icon(icon, size: 20, color: colore),
-                const SizedBox(width: 8),
-                Flexible(
-                  child: Text(
-                    testo,
-                    style: _stile.copyWith(color: colore),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -1265,6 +1284,10 @@ class _PulsazioneState extends State<_Pulsazione>
   }
 }
 
+/// Un pulsante tondo sopra la mappa del dettaglio.
+///
+/// Stanno sulla mappa e non nella scheda sotto perche' sono comandi della
+/// mappa, ed e' li' che uno li cerca.
 class _MapButton extends StatelessWidget {
   const _MapButton({
     required this.icon,

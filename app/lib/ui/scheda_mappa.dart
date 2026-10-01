@@ -20,6 +20,12 @@ import 'riassunto.dart';
 ///
 /// Toccando una fermata sulla mappa la scheda mostra quella ([fermata]),
 /// e chiudendola torna alle pagine.
+///
+/// In fondo, sempre, i comandi della mappa ([comandi]): prima galleggiavano
+/// sulla cartina e la coprivano. E la scheda si riduce verso il basso —
+/// dalla freccia accanto alle etichette, o trascinandola giu' — a una riga
+/// con lo stato della linea piu' i comandi, per guardare la mappa quasi
+/// intera (Tommaso, 01/10/2026).
 class SchedaMappa extends StatefulWidget {
   const SchedaMappa({
     required this.status,
@@ -27,6 +33,7 @@ class SchedaMappa extends StatefulWidget {
     this.soloDirezione,
     this.onTratto,
     this.fermata,
+    this.comandi,
     this.onAltezza,
     super.key,
   });
@@ -44,6 +51,9 @@ class SchedaMappa extends StatefulWidget {
   /// La fermata toccata, al posto delle pagine.
   final Widget? fermata;
 
+  /// I comandi della mappa, in fondo alla scheda.
+  final Widget? comandi;
+
   /// Quanto e' alta la scheda, a ogni cambio: la mappa le fa posto.
   final ValueChanged<double>? onAltezza;
 
@@ -59,6 +69,13 @@ class _SchedaMappaState extends State<SchedaMappa> {
   /// Da che parte entra la pagina nuova: 1 da destra, -1 da sinistra.
   var _verso = 1;
 
+  /// Ridotta: solo lo stato della linea e i comandi.
+  var _ridotta = false;
+
+  /// L'ultimo cambio e' stato fra due pagine: solo allora il contenuto
+  /// scorre di lato. Riducendo la scheda o toccando una fermata sfuma.
+  var _diLato = false;
+
   List<_Pagina> get _pagine => [
     _Pagina.riepilogo,
     if (RiassuntoLinea.conTratti(
@@ -69,12 +86,19 @@ class _SchedaMappaState extends State<SchedaMappa> {
     if (widget.status.reports.isNotEmpty) _Pagina.avvisi,
   ];
 
+  @override
+  void didUpdateWidget(SchedaMappa old) {
+    super.didUpdateWidget(old);
+    if ((old.fermata == null) != (widget.fermata == null)) _diLato = false;
+  }
+
   void _vai(_Pagina p) {
     if (p == _pagina) return;
     final pagine = _pagine;
     setState(() {
       _verso = pagine.indexOf(p) > pagine.indexOf(_pagina) ? 1 : -1;
       _pagina = p;
+      _diLato = true;
     });
   }
 
@@ -86,6 +110,20 @@ class _SchedaMappaState extends State<SchedaMappa> {
     if (i >= 0 && i < pagine.length) _vai(pagine[i]);
   }
 
+  void _riduci(bool ridotta) {
+    if (ridotta == _ridotta) return;
+    setState(() {
+      _ridotta = ridotta;
+      _diLato = false;
+    });
+  }
+
+  /// Trascinando in giu' si riduce, in su si riapre.
+  void _trascina(DragEndDetails d) {
+    final v = d.primaryVelocity ?? 0;
+    if (v.abs() >= 250) _riduci(v > 0);
+  }
+
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
@@ -94,12 +132,23 @@ class _SchedaMappaState extends State<SchedaMappa> {
     // si torna al riepilogo.
     final pagina = pagine.contains(_pagina) ? _pagina : _Pagina.riepilogo;
     final massima = MediaQuery.sizeOf(context).height * 0.45;
+    // Con una pagina sola non c'e' niente da ridurre: e' gia' corta.
+    final ridotta = _ridotta && pagine.length > 1 && widget.fermata == null;
 
     final Widget contenuto;
     if (widget.fermata != null) {
       contenuto = KeyedSubtree(
         key: const ValueKey('fermata'),
         child: widget.fermata!,
+      );
+    } else if (ridotta) {
+      contenuto = KeyedSubtree(
+        key: const ValueKey('ridotta'),
+        child: _Ridotta(
+          status: widget.status,
+          soloDirezione: widget.soloDirezione,
+          onApri: () => _riduci(false),
+        ),
       );
     } else {
       contenuto = KeyedSubtree(
@@ -129,6 +178,7 @@ class _SchedaMappaState extends State<SchedaMappa> {
         },
       );
     }
+    final inPagina = widget.fermata == null && !ridotta;
 
     return _Misura(
       onMisura: (s) => widget.onAltezza?.call(s.height),
@@ -146,17 +196,22 @@ class _SchedaMappaState extends State<SchedaMappa> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              if (widget.fermata == null && pagine.length > 1)
-                _Etichette(
-                  pagine: pagine,
-                  scelta: pagina,
-                  avvisi: _Avvisi.quanti(widget.status),
-                  onScelta: _vai,
+              if (inPagina && pagine.length > 1)
+                GestureDetector(
+                  onVerticalDragEnd: _trascina,
+                  child: _Etichette(
+                    pagine: pagine,
+                    scelta: pagina,
+                    avvisi: _Avvisi.quanti(widget.status),
+                    onScelta: _vai,
+                    onRiduci: () => _riduci(true),
+                  ),
                 ),
               ConstrainedBox(
                 constraints: BoxConstraints(maxHeight: massima),
                 child: GestureDetector(
-                  onHorizontalDragEnd: widget.fermata == null ? _scorri : null,
+                  onHorizontalDragEnd: inPagina ? _scorri : null,
+                  onVerticalDragEnd: ridotta ? _trascina : null,
                   child: AnimatedSwitcher(
                     duration: const Duration(milliseconds: 220),
                     layoutBuilder: (attuale, precedenti) => Stack(
@@ -164,32 +219,86 @@ class _SchedaMappaState extends State<SchedaMappa> {
                       children: [...precedenti, ?attuale],
                     ),
                     transitionBuilder: (figlio, animazione) {
-                      final entra = figlio.key == ValueKey(pagina);
-                      final da = Offset(
-                        entra ? 0.25 * _verso : -0.25 * _verso,
-                        0,
-                      );
-                      return FadeTransition(
+                      final sfuma = FadeTransition(
                         opacity: animazione,
-                        child: SlideTransition(
-                          position: Tween(
-                            begin: da,
-                            end: Offset.zero,
-                          ).animate(animazione),
-                          child: figlio,
-                        ),
+                        child: figlio,
+                      );
+                      if (!_diLato) return sfuma;
+                      final entra = figlio.key == ValueKey(pagina);
+                      return SlideTransition(
+                        position: Tween(
+                          begin: Offset(
+                            entra ? 0.25 * _verso : -0.25 * _verso,
+                            0,
+                          ),
+                          end: Offset.zero,
+                        ).animate(animazione),
+                        child: sfuma,
                       );
                     },
                     child: SingleChildScrollView(
                       key: contenuto.key,
-                      padding: EdgeInsets.only(
-                        bottom: widget.fermata == null ? 8 : 0,
-                      ),
+                      padding: EdgeInsets.only(bottom: inPagina ? 6 : 0),
                       child: contenuto,
                     ),
                   ),
                 ),
               ),
+              if (widget.comandi != null) ...[
+                Divider(height: 1, thickness: 1, color: scheme.outlineVariant),
+                widget.comandi!,
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// La scheda ridotta: lo stato della linea su una riga, e «Dettagli» per
+/// riaprirla. Tutta la riga si tocca.
+class _Ridotta extends StatelessWidget {
+  const _Ridotta({
+    required this.status,
+    required this.soloDirezione,
+    required this.onApri,
+  });
+
+  final LineStatus status;
+  final String? soloDirezione;
+  final VoidCallback onApri;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Semantics(
+      button: true,
+      label: 'Mostra i dettagli',
+      child: InkWell(
+        onTap: onApri,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 48),
+          child: Row(
+            children: [
+              Expanded(
+                child: RiassuntoLinea(
+                  status: status,
+                  soloDirezione: soloDirezione,
+                  parte: ParteRiassunto.stato,
+                  margin: const EdgeInsets.fromLTRB(16, 10, 8, 10),
+                ),
+              ),
+              Text(
+                'Dettagli',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: scheme.onSurfaceVariant,
+                ),
+              ),
+              Icon(Icons.expand_less, color: scheme.onSurfaceVariant),
+              const SizedBox(width: 10),
             ],
           ),
         ),
@@ -206,12 +315,16 @@ class _Etichette extends StatelessWidget {
     required this.scelta,
     required this.avvisi,
     required this.onScelta,
+    required this.onRiduci,
   });
 
   final List<_Pagina> pagine;
   final _Pagina scelta;
   final int avvisi;
   final ValueChanged<_Pagina> onScelta;
+
+  /// La freccia in fondo alla riga: riduce la scheda.
+  final VoidCallback onRiduci;
 
   @override
   Widget build(BuildContext context) {
@@ -265,6 +378,13 @@ class _Etichette extends StatelessWidget {
                 ),
               ),
             ),
+          IconButton(
+            onPressed: onRiduci,
+            tooltip: 'Riduci la scheda',
+            icon: const Icon(Icons.expand_more),
+            color: scheme.onSurfaceVariant,
+            constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+          ),
         ],
       ),
     );
