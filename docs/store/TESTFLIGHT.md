@@ -68,8 +68,18 @@ No login is needed. To try it: tap +, pick a line (for example 10N or 15), then 
 
 ## 4. Cosa testare (per ogni build)
 
-**Build 1.0.0 (14)** — quella da dare ai tester (caricata il 30/09, e
-come AAB versionCode 14 per il Play Store): sulla mappa a tutto schermo,
+**Build 1.0.0 (15)** — quella da dare ai tester (dell'01/10; AAB
+versionCode 15 per il Play Store. Su TestFlight va caricata dopo aver
+accettato il nuovo accordo di Apple: il caricamento rispondeva «You do
+not have required contracts»): sulla mappa a tutto schermo i
+tre comandi — «Tutta la linea», «Segui i mezzi», «Dove sono» — stanno in
+fondo alla scheda e non più sulla cartina; la scheda si riduce verso il
+basso (freccia accanto alle etichette, o trascinandola) e si riapre da
+«Dettagli»; finché non si sposta la mappa, il percorso resta inquadrato
+sopra la scheda.
+
+**Build 1.0.0 (14)** (caricata il 30/09, e come AAB versionCode 14 per il
+Play Store): sulla mappa a tutto schermo,
 al posto del pannello dal basso, una scheda fluttuante a pagine —
 Riepilogo, Fermate, Avvisi — da toccare o scorrere di lato; è alta
 quanto il contenuto (al massimo metà schermo, poi scorre) e toccando una

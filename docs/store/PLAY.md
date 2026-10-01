@@ -131,14 +131,26 @@ telefono no.
    Play**: accettare. La chiave `~/deviato-upload.jks` resta quella di
    caricamento; la chiave di firma la tiene Google.
 3. Carica `app/build/app/outputs/bundle/release/app-release.aab`
-   (versionCode 14 il 30/09). Nome release: `1.0.0 (14)`.
-4. Note di rilascio:
+   (versionCode 14 il 30/09, 15 l'01/10). Nome release: `1.0.0 (15)`.
+4. Note di rilascio, per la prima:
 
    ```text
    <it-IT>
    Prima versione di prova. Se una fermata risulta non servita ma il bus passa (o il contrario), scrivici a devia.to@icloud.com.
    </it-IT>
    ```
+
+   Per la 15:
+
+   ```text
+   <it-IT>
+   Sulla mappa a tutto schermo i comandi stanno nella scheda in basso, che si può ridurre per vedere meglio la mappa.
+   </it-IT>
+   ```
+
+   Una build nuova si carica una volta sola nel test interno e poi si
+   porta al test chiuso con «Promuovi release»: lo stesso codice versione
+   non si può caricare due volte.
 
 5. Tester: una lista di email (account Google). Ognuno accetta dal link
    di adesione e poi installa dal Play Store.
