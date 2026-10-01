@@ -144,7 +144,11 @@ in deviazione è lontano dal percorso e l'ultima posizione non basta. Le
 tracce si salvano in `build/banco/mezzi/`: sono la verità con cui misurare
 gli algoritmi. I confronti si tengono in `build/banco/confronti.json`
 («Ricalcola» li rifà, una ventina di minuti). Il calcolo è in
-`tool/src/confronto.dart`, condiviso con lo strumento qui sotto. Ogni
+`tool/src/confronto.dart`, condiviso con lo strumento qui sotto. Per
+misurare molte linee insieme senza aprire la pagina:
+`python3 scripts/valuta_banco.py '2026-10-01T1[12]' [linee]` rifà i due
+numeri sulle tracce salvate, e `scripts/tratti_fuori.py` elenca i tratti
+fuori linea di ogni mezzo con la corsa prima e dopo. Ogni
 deviazione dice se è nel suo periodo — in corso, ora fuori orario, in
 programma, finita — letto dal testo con `core/text/periodo_avviso.dart`
 (68 testi su 101 il 28/09; gli altri sono quasi tutti «non transita dalla
@@ -377,6 +381,22 @@ Ognuna di queste è costata tempo. Sono tutte silenziose: non danno errore.
   sul banco una posizione fuori linea conta solo se un altro mezzo è
   passato lì vicino, e un pezzo di rosso è «percorso» solo se ci passano
   almeno due mezzi. Vale per ogni misura coi mezzi.
+- **Nemmeno due mezzi bastano, se vanno al deposito.** L'01/10 sulla 59
+  tre mezzi uscivano dalla linea fino a 2 km, tutti per la stessa strada:
+  andavano e venivano dallo stabilimento GTT di Venaria (in OpenStreetMap
+  c'è, `industrial=depot`), e la regola dei due mezzi li contava. Lo
+  stesso su 49, 92, VE1, 9 e 68. **Guardare se la posizione ha una corsa
+  non serve**: il feed toglie il `trip_id` a ogni posizione fuori linea,
+  anche in deviazione vera (quel giorno 479 posizioni fuori linea senza
+  corsa, 15 con). Quello che distingue è la corsa **prima e dopo**: chi
+  devia esce, rientra e riprende la corsa che faceva (sulla 43, undici
+  tratti su undici); chi va al deposito esce e non rientra, chi ne arriva
+  compare già fuori, chi gira al capolinea rientra con un'altra corsa. Sul
+  banco un tratto fuori linea conta solo nel primo caso
+  (`LineaSeguita._fuoriServizio`, e i punti esclusi si vedono in grigio).
+  Nell'app non c'è: lì basta la regola dei due mezzi. La «sorpresa» della
+  58 del 30/09 invece non era un deposito: gli orari del giorno dopo
+  avevano il percorso su cui i mezzi già passavano.
 - **Le escursioni vanno confrontate con TUTTE le varianti, non con la
   principale.** Visto sul campo appena scritto il rilevatore: la 65 diceva
   «3 mezzi seguono il percorso normale» e subito sotto «lasciano il

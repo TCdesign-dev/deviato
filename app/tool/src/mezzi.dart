@@ -87,18 +87,77 @@ class LineaSeguita {
     return true;
   }
 
+  /// Le posizioni di un mezzo in ordine di tempo.
+  static List<VehicleObservation> _inOrdine(VehicleTrack t) =>
+      [...t.points]..sort((a, b) => a.seenAt.compareTo(b.seenAt));
+
+  /// Per ogni posizione di [ps] (in ordine di tempo): e' fuori linea ma il
+  /// mezzo non e' in servizio?
+  ///
+  /// Un mezzo che devia esce dalla linea e ci rientra, e la corsa che
+  /// faceva prima di uscire e' quella che fa dopo. Uno che va al deposito
+  /// esce e non rientra; uno che ne arriva compare gia' fuori e poi prende
+  /// servizio; uno che gira al capolinea rientra con un'altra corsa. Visto
+  /// l'01/10/2026: sulla 59 tre mezzi uscivano fino a 2 km dalla linea,
+  /// per la stessa strada — verso lo stabilimento GTT di Venaria — e la
+  /// regola dei due mezzi li contava; sulla 43, deviazione vera, tutti e
+  /// undici i tratti fuori linea avevano la stessa corsa prima e dopo.
+  ///
+  /// Guardare se la posizione ha una corsa non serve: il feed la toglie a
+  /// ogni posizione fuori linea, anche in deviazione (quel giorno 479
+  /// posizioni fuori linea senza corsa, 15 con). Un mezzo che sta ancora
+  /// deviando, e non e' rientrato, resta escluso finche' non rientra.
+  List<bool> _fuoriServizio(List<VehicleObservation> ps) {
+    final fuori = [for (final o in ps) _fuori(o.position)];
+    final out = List.filled(ps.length, false);
+    var i = 0;
+    while (i < ps.length) {
+      if (!fuori[i]) {
+        i++;
+        continue;
+      }
+      var j = i;
+      while (j < ps.length && fuori[j]) {
+        j++;
+      }
+      String? prima, dopo;
+      for (var k = i - 1; k >= 0 && prima == null; k--) {
+        if (!fuori[k]) prima = ps[k].tripId;
+      }
+      for (var k = j; k < ps.length && dopo == null; k++) {
+        if (!fuori[k]) dopo = ps[k].tripId;
+      }
+      if (prima == null || prima != dopo) {
+        for (var k = i; k < j; k++) {
+          out[k] = true;
+        }
+      }
+      i = j;
+    }
+    return out;
+  }
+
   /// I mezzi e, per ogni confronto di questa linea, quanto i due rossi
   /// coincidono con loro.
   Map<String, Object?> json(List<Map<String, Object?>> confronti) {
     final direzioni = {for (final t in tracce.values) t.vehicleId: _direzione(t)};
+    final ordinate = {for (final t in tracce.values) t.vehicleId: _inOrdine(t)};
+    final nonInServizio = {
+      for (final e in ordinate.entries) e.key: _fuoriServizio(e.value),
+    };
     final mezzi = [
       for (final t in tracce.values)
         {
           'id': t.vehicleId,
           'dir': direzioni[t.vehicleId],
           'punti': [
-            for (final o in t.points)
-              [o.position.lat, o.position.lon, _fuori(o.position)],
+            for (final (i, o) in ordinate[t.vehicleId]!.indexed)
+              [
+                o.position.lat,
+                o.position.lon,
+                _fuori(o.position),
+                nonInServizio[t.vehicleId]![i],
+              ],
           ],
           'visto': t.points.last.seenAt.toIso8601String(),
         },
@@ -119,15 +178,28 @@ class LineaSeguita {
       // uno solo puo' essere un rinforzo che rientra al deposito con la
       // posizione accesa (Tommaso, 30/09/2026). Una posizione fuori vale se
       // un altro mezzo e' passato li' vicino.
-      final perMezzo = {for (final t in mie) t.vehicleId: _tratti(t)};
+      // E solo se i mezzi sono in servizio: due bus che vanno al deposito
+      // per la stessa strada non fanno una deviazione.
+      final perMezzo = {
+        for (final t in mie)
+          t.vehicleId: _tratti(
+            ordinate[t.vehicleId]!,
+            nonInServizio[t.vehicleId]!,
+          ),
+      };
+      final fuoriServizio = [
+        for (final t in mie) ...nonInServizio[t.vehicleId]!,
+      ].where((x) => x).length;
       // Con il verso in cui il mezzo andava: un bus dell'altro senso vicino
       // al rosso non lo spiega.
       final condivisi = <({Point punto, Point verso})>[];
       for (final t in mie) {
-        final ps = [...t.points]..sort((a, b) => a.seenAt.compareTo(b.seenAt));
+        final ps = ordinate[t.vehicleId]!;
+        final esclusi = nonInServizio[t.vehicleId]!;
         for (var i = 0; i < ps.length; i++) {
           final q = ps[i].position.meters;
           if (!_fuori(ps[i].position) ||
+              esclusi[i] ||
               !perMezzo.entries.any(
                 (e) => e.key != t.vehicleId && _passa(e.value, q),
               )) {
@@ -160,6 +232,7 @@ class LineaSeguita {
         'mezzi': mie.length,
         'punti': tutti.length,
         'fuori': fuori.length,
+        'fuoriServizio': fuoriServizio,
         'fuoriDaDue': condivisi.length,
         'uscite': uscite,
         'rientri': rientri,
@@ -275,15 +348,22 @@ class LineaSeguita {
     return l < 1e-6 ? const Point(0, 0) : Point(dx / l, dy / l);
   }
 
-  /// La traccia di un mezzo in tratti senza buchi.
-  static List<List<Point>> _tratti(VehicleTrack t) {
-    final punti = [...t.points]..sort((a, b) => a.seenAt.compareTo(b.seenAt));
+  /// La traccia di un mezzo — [punti], in ordine di tempo — in tratti
+  /// senza buchi, saltando le posizioni [escluse]: quelle fuori linea e
+  /// fuori servizio.
+  static List<List<Point>> _tratti(
+    List<VehicleObservation> punti,
+    List<bool> escluse,
+  ) {
     final out = <List<Point>>[];
     var corrente = <Point>[];
     for (var i = 0; i < punti.length; i++) {
-      if (i > 0 && punti[i].seenAt.difference(punti[i - 1].seenAt) > buco) {
+      if (escluse[i] ||
+          (i > 0 &&
+              punti[i].seenAt.difference(punti[i - 1].seenAt) > buco)) {
         if (corrente.length >= 2) out.add(corrente);
         corrente = [];
+        if (escluse[i]) continue;
       }
       corrente.add(punti[i].position.meters);
     }

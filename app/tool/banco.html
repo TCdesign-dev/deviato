@@ -191,7 +191,9 @@ async function aggiornaMezzi() {
     const colore = suo ? '#7b1fa2' : '#9e9e9e';
     const p = m.punti.map(x => [x[0], x[1]]);
     if (p.length > 1) L.polyline(p, {color: colore, weight: 3, opacity: suo ? .9 : .4, dashArray: suo ? null : '4 6'}).addTo(stratoMezzi);
-    for (const x of m.punti) if (x[2]) L.circleMarker([x[0], x[1]], {radius: 3, color: '#e65100', weight: 1, fillOpacity: .9}).addTo(stratoMezzi);
+    // Fuori linea: arancio se il mezzo e' in servizio, grigio se sta
+    // andando al deposito o girando al capolinea.
+    for (const x of m.punti) if (x[2]) L.circleMarker([x[0], x[1]], {radius: 3, color: x[3] ? '#757575' : '#e65100', weight: 1, fillOpacity: x[3] ? .5 : .9}).addTo(stratoMezzi);
     const u = p[p.length - 1];
     L.circleMarker(u, {radius: 7, color: '#fff', weight: 2, fillColor: colore, fillOpacity: 1})
       .bindTooltip(`mezzo ${m.id}${suo ? '' : ' (altra direzione o non chiara)'}`).addTo(stratoMezzi);
@@ -212,12 +214,13 @@ async function aggiornaMezzi() {
       <tr><td>punti fuori sul rosso</td><td>${pct(mio.a1.spiegati)}</td><td>${pct(mio.a2.spiegati)}</td></tr>
       <tr><td>rosso percorso dai mezzi</td><td>${pct(mio.a1.confermato)}</td><td>${pct(mio.a2.confermato)}</td></tr>
     </table>
-    <p class="nota">${mio.mezzi} mezzi in questa direzione · ${mio.punti} posizioni · ${mio.fuori} fuori dal percorso normale, ${mio.fuoriDaDue ?? '–'} dove è passato anche un altro mezzo
+    <p class="nota">${mio.mezzi} mezzi in questa direzione · ${mio.punti} posizioni · ${mio.fuori} fuori dal percorso normale (${mio.fuoriServizio ?? 0} fuori servizio, in grigio), ${mio.fuoriDaDue ?? '–'} in servizio e dove è passato anche un altro mezzo
     ${mio.fuori > 0 && mio.fuoriDaDue === 0 ? '<br><span class="male">Fuori percorso c\'è un mezzo solo: può essere un bus che rientra al deposito, non basta per dire che la deviazione è in corso.</span>' : ''}
     ${fuoriMa ? '<br><span class="male">Nessun mezzo esce dal percorso: la deviazione potrebbe essere finita, o non essere ancora cominciata.</span>' : ''}</p>
     <p class="nota"><b>Punti fuori sul rosso</b>: delle posizioni in cui i mezzi stanno fuori dal percorso normale, e dove è passato anche un altro mezzo, quante cadono a meno di 40 m dal rosso andando nel suo verso. Basso vuol dire che i mezzi passano altrove.<br>
     <b>Rosso percorso dai mezzi</b>: del rosso fuori dalla linea normale, quanto è stato percorso da almeno due mezzi, nel verso del rosso. Basso vuol dire che il rosso passa dove nessuno va; vale solo quando i mezzi hanno fatto tutta la deviazione.<br>
-    Un mezzo solo non basta mai: può essere un rinforzo che rientra al deposito con la posizione accesa.</p>`;
+    Un mezzo solo non basta mai: può essere un rinforzo che rientra al deposito con la posizione accesa.<br>
+    <b>Fuori servizio</b>: un tratto fuori linea conta solo se il mezzo rientra con la stessa corsa che faceva prima di uscire. Chi esce e non rientra va al deposito; chi compare già fuori ne arriva; chi rientra con un'altra corsa ha girato al capolinea.</p>`;
   }
   el.innerHTML = h;
 }
