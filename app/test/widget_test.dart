@@ -57,6 +57,9 @@ void main() {
     final generato = DateTime(2026, 9, 26, 18, 40);
     f.pubblicati['indice.json'] = _json(FormatoPubblicato.indice(
         feed: '20260922', generato: generato, linee: linee, fonte: 'GTT'));
+    f.pubblicati['fermate.json'] = _json(FormatoPubblicato.fermate(
+        {for (final l in linee) l.routeId: [shape(l.routeId)]},
+        feed: '20260922'));
     for (final l in linee) {
       final s = shape(l.routeId);
       f.pubblicati['percorsi/${l.routeId}.json'] =
@@ -157,6 +160,60 @@ void main() {
     expect(find.text('Linea 55 aggiunta'), findsOneWidget);
     expect(repo.settings.watchlist, contains('55'));
     expect(find.text('1 fermata non servita'), findsOneWidget);
+  });
+
+  testWidgets('una fermata si cerca per numero di palina, e si salva',
+      (tester) async {
+    final f = fonte();
+    final repo = await repoWith({}, f);
+    await repo.initialise();
+    await tester.pumpWidget(GttApp(repo: repo));
+    await tester.pump();
+
+    await tester.tap(find.widgetWithText(FilledButton, 'Aggiungi una linea'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), '100');
+    await tester.pumpAndSettle();
+    // Il file delle fermate si scarica alla prima lettera, una volta.
+    expect(f.scaricati.where((p) => p == 'fermate.json'), hasLength(1));
+
+    expect(find.text('Fermate'), findsOneWidget);
+    await tester.tap(find.textContaining('Sabotino'));
+    await tester.pumpAndSettle();
+    // Le linee che ci passano, con la direzione.
+    expect(find.text('Quale linea prendi? La fermata si salva nella home, '
+        'con la sua risposta.'), findsOneWidget);
+    expect(find.text('verso Capolinea'), findsNWidgets(2));
+    expect(find.text('Salva'), findsNWidgets(2));
+
+    await tester.tap(find.text('Salva').first);
+    await tester.pumpAndSettle();
+    expect(find.text('Sabotino salvata nelle tue fermate'), findsOneWidget);
+    // La linea c'e' anche se non era fra le tue: senza, la fermata non
+    // avrebbe una risposta.
+    expect(repo.settings.watchlist, contains('55'));
+    expect(repo.savedStops.single.stopId, 'S1');
+    expect(repo.savedStops.single.routeId, '55U');
+    expect(find.text('Le tue fermate'), findsOneWidget);
+  });
+
+  testWidgets('dalla fermata si torna ai risultati, senza chiudere',
+      (tester) async {
+    final repo = await repoWith({}, fonte());
+    await repo.initialise();
+    await tester.pumpWidget(GttApp(repo: repo));
+    await tester.pump();
+
+    await tester.tap(find.widgetWithText(FilledButton, 'Aggiungi una linea'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'sabotino');
+    await tester.pumpAndSettle();
+    await tester.tap(find.textContaining('Sabotino'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Indietro'));
+    await tester.pumpAndSettle();
+    expect(find.text('Fermate'), findsOneWidget);
+    expect(find.byType(TextField), findsOneWidget);
   });
 
   testWidgets('una linea si toglie scorrendo, e si rimette con Annulla',

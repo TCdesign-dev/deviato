@@ -67,9 +67,9 @@ GTT ha scritto l'avviso, è quello che i bus hanno fatto.
 `.github/workflows/pubblica.yml` esegue `app/tool/pubblica.dart` ogni
 mezz'ora di giorno, ogni ora la sera e una volta nel cuore della notte:
 scarica il GTFS del giorno, legge gli avvisi, calcola lo stato di
-**tutte** le linee e pubblica tre tipi di file JSON sul ramo `gh-pages`
-(`indice.json`, `percorsi/<linea>.json`, `stato/<linea>.json`, formato in
-`core/io/formato_pubblicato.dart`). L'app li scarica — qualche KB — e ne
+**tutte** le linee e pubblica quattro tipi di file JSON sul ramo `gh-pages`
+(`indice.json`, `percorsi/<linea>.json`, `stato/<linea>.json` e, dal
+03/10/2026, `fermate.json`, formato in `core/io/formato_pubblicato.dart`). L'app li scarica — qualche KB — e ne
 tiene una copia per quando non c'è rete. Niente chiavi sul telefono, niente
 24 MB di orari, niente quota per utente: le richieste al modello dipendono
 dagli avvisi nuovi di GTT (una ventina al giorno), non da quante persone
@@ -224,7 +224,7 @@ Non sono stime. Se li rimetti in discussione, rimisurali.
 | `active_period.start` negli alert | **161 su 161 nel passato** | idem |
 | Variazioni pubblicate da **entrambe** le fonti | **31 coppie** su 189 avvisi | `check_merge_offline.dart` |
 | Di queste, quelle in cui la data d'inizio cambia | **17** (fino a 3 mesi) | idem |
-| Test | **388** | `flutter test` |
+| Test | **397** | `flutter test` |
 | Somiglianza fra le vie nominate: coppie vere | **0,67 – 1,00** e ≥3 vie | idem |
 | Idem, coppie false | **0,67 con 2 vie**, o 3 vie a **0,38** | idem |
 | Data d'inizio estraibile a regex dal testo | **40%** — troppo poco | idem |
@@ -471,6 +471,15 @@ Ognuna di queste è costata tempo. Sono tutte silenziose: non danno errore.
   via, sulle 216 linee di `routes.txt`), si leggono gli orari della sola
   linea nuova, e si toglie scorrendo con «Annulla», che rimette anche
   l'esito e le fermate salvate.
+- **Una fermata si cerca dal cartello, non dal capolinea.** Chi aspetta
+  ha davanti il nome e il numero di palina, e sa raramente da dove a dove
+  va la sua linea. Dal 03/10 la ricerca del «+» trova anche le fermate
+  (`StopSearch`, su `fermate.json`: 7.043 pali, 800 KB, 170 KB compressi,
+  scaricato alla prima lettera e di nuovo solo se cambiano gli orari).
+  Toccandone una si sceglie linea e direzione e la fermata si salva, con
+  la linea se mancava: una fermata salvata risponde solo per una linea
+  seguita. GTT scrive «CASTELLO», non «piazza Castello»: le parole che
+  dicono il tipo di strada sono facoltative.
 - **`Dismissible` pretende che la riga sparisca subito.** Se al primo
   aggiornamento dello schermo la linea tolta è ancora nell'elenco, Flutter
   si ferma con un errore. Per questo `removeLine` toglie dalla memoria
@@ -720,7 +729,7 @@ Per non fraintendere quello che c'è in `config.dart`:
 ## 8. Come si lavora
 
 ```bash
-cd app && flutter test          # 388 test, devono passare tutti
+cd app && flutter test          # 397 test, devono passare tutti
 cd app && flutter analyze       # deve essere pulito
 ```
 
@@ -791,4 +800,4 @@ facendo gli screenshot troppo presto.
 
 ---
 
-*Ultimo aggiornamento: 1 ottobre 2026. 388 test.*
+*Ultimo aggiornamento: 3 ottobre 2026. 397 test.*

@@ -5,6 +5,7 @@ import '../models/notice.dart';
 import '../models/transit.dart';
 import '../pipeline/extractor.dart';
 import '../pipeline/stop_impact.dart';
+import '../pipeline/stop_search.dart';
 
 /// Il formato dei file che il job su GitHub pubblica e che l'app legge.
 ///
@@ -21,6 +22,10 @@ import '../pipeline/stop_impact.dart';
 ///   che ogni telefono scaricava per usarne poche centinaia di KB.
 /// - `stato/<linea>.json`: gli avvisi della linea e cosa comportano. Si
 ///   riscrive solo quando cambia qualcosa.
+/// - `fermate.json`: tutte le fermate, con le linee e le direzioni che ci
+///   passano, per cercarle per nome o numero di palina (dal 03/10/2026).
+///   Qualche centinaio di KB: l'app lo scarica solo quando si cerca una
+///   fermata, e di nuovo quando cambiano gli orari.
 ///
 /// Le date si scrivono in UTC con la «Z» e si rileggono in ora locale: il
 /// job gira su un server che non sta a Torino.
@@ -115,6 +120,99 @@ class FormatoPubblicato {
             ],
           ),
       ],
+    );
+  }
+
+  // ---------------------------------------------------------------- fermate
+
+  /// Tutte le fermate delle linee in [percorsiPerLinea] (routeId → i suoi
+  /// percorsi), con chi ci passa, e il capolinea di ogni direzione.
+  ///
+  /// Le varianti contano tutte: una fermata servita solo dalla corsa
+  /// limitata e' comunque una fermata della linea. Il capolinea invece e'
+  /// quello del percorso con piu' corse.
+  static Map<String, Object?> fermate(
+    Map<String, List<RouteShape>> percorsiPerLinea, {
+    required String? feed,
+  }) {
+    final fermate = <String, TransitStop>{};
+    final passaggi = <String, Set<(String, int)>>{};
+    final principali = <String, Map<int, RouteShape>>{};
+    for (final e in percorsiPerLinea.entries) {
+      for (final s in e.value) {
+        final perDirezione = principali.putIfAbsent(e.key, () => {});
+        final prima = perDirezione[s.directionId];
+        if (prima == null || s.tripCount > prima.tripCount) {
+          perDirezione[s.directionId] = s;
+        }
+        for (final f in s.stops) {
+          fermate[f.id] = f;
+          passaggi.putIfAbsent(f.id, () => {}).add((e.key, s.directionId));
+        }
+      }
+    }
+    return {
+      'versione': versione,
+      'feed': feed,
+      'capolinea': {
+        for (final e in principali.entries)
+          e.key: {
+            for (final d in e.value.entries) '${d.key}': d.value.headsign,
+          },
+      },
+      'fermate': {
+        for (final f in fermate.values)
+          f.id: {
+            ..._fermata(f),
+            'l': [
+              for (final (r, d) in passaggi[f.id]!) [r, d],
+            ],
+          },
+      },
+    };
+  }
+
+  /// [ordine] mette in ordine le linee di una fermata (di solito quello di
+  /// GTT, dall'indice): nel file non ce l'hanno.
+  static IndiceFermate leggiIndiceFermate(
+    Map<String, dynamic> j, {
+    int Function(String a, String b)? ordine,
+  }) {
+    final capolinea = <String, Map<int, String>>{};
+    final c = j['capolinea'];
+    if (c is Map) {
+      for (final e in c.entries) {
+        final dir = e.value;
+        if (dir is! Map) continue;
+        capolinea[e.key as String] = {
+          for (final d in dir.entries) ?int.tryParse('${d.key}'): '${d.value}',
+        };
+      }
+    }
+    final fermate = <FermataCercabile>[];
+    final f = j['fermate'];
+    if (f is Map) {
+      for (final e in f.entries) {
+        final v = e.value;
+        if (v is! Map) continue;
+        final stop = _leggiFermate({e.key: v})[e.key];
+        if (stop == null) continue;
+        final passaggi = [
+          for (final x in (v['l'] as List? ?? const []))
+            if (x is List && x.length == 2 && x[0] is String && x[1] is int)
+              (routeId: x[0] as String, directionId: x[1] as int),
+        ]..sort((a, b) {
+            final o = ordine?.call(a.routeId, b.routeId) ??
+                a.routeId.compareTo(b.routeId);
+            return o != 0 ? o : a.directionId.compareTo(b.directionId);
+          });
+        fermate.add(FermataCercabile(stop: stop, passaggi: passaggi));
+      }
+    }
+    return IndiceFermate(
+      feed: j['feed'] as String?,
+      fermate: fermate,
+      capolinea: capolinea,
     );
   }
 

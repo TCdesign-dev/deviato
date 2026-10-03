@@ -288,4 +288,42 @@ void main() {
     expect(FormatoPubblicato.nomeFile('10NU'), '10NU.json');
     expect(FormatoPubblicato.nomeFile('../x'), '___x.json');
   });
+
+  test('le fermate di tutta la rete, con chi ci passa e verso dove', () {
+    const altra = TransitLine(routeId: '68U', shortName: '68', sortOrder: 82);
+    final sessantotto = RouteShape(
+      shapeId: '68:0', routeId: '68U', directionId: 0, headsign: 'FREJUS',
+      points: const [GeoPoint(45.07, 7.66), GeoPoint(45.08, 7.70)],
+      stops: [f1, altrove], tripCount: 50,
+    );
+    // Una corsa limitata della 15 in andata, con meno corse: conta per le
+    // fermate, non per il capolinea.
+    final limitata = RouteShape(
+      shapeId: '15:0b', routeId: '15U', directionId: 0, headsign: 'LIMITATA',
+      points: const [GeoPoint(45.07, 7.66), GeoPoint(45.071, 7.666)],
+      stops: [f1], tripCount: 3,
+    );
+    final j = viaJson(FormatoPubblicato.fermate({
+      '15U': [andata, limitata, ritorno],
+      altra.routeId: [sessantotto],
+    }, feed: '20261003'));
+    // La 68 prima della 15, come se fosse l'ordine di GTT.
+    final r = FormatoPubblicato.leggiIndiceFermate(j,
+        ordine: (a, b) => a == b ? 0 : (a == '68U' ? -1 : 1));
+
+    expect(r.feed, '20261003');
+    expect(r.fermate.map((f) => f.stop.id), unorderedEquals(['S1', 'S2', 'S9']));
+    final s1 = r.fermate.firstWhere((f) => f.stop.id == 'S1');
+    expect(s1.stop.code, '100');
+    expect(s1.stop.name, 'Fermata 100 - SABOTINO');
+    expect(s1.passaggi, [
+      (routeId: '68U', directionId: 0),
+      (routeId: '15U', directionId: 0),
+      (routeId: '15U', directionId: 1),
+    ]);
+    expect(r.capolineaDi('15U', 0), 'SASSI');
+    expect(r.capolineaDi('15U', 1), 'BRISSOGNE');
+    expect(r.capolineaDi('68U', 0), 'FREJUS');
+    expect(r.capolineaDi('68U', 1), isNull);
+  });
 }

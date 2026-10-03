@@ -129,6 +129,17 @@ Future<void> main(List<String> args) async {
       scritti++;
     }
   }
+  // Tutte le fermate, per cercarle dall'app. Cambia solo con gli orari.
+  if (_scrivi(
+      uscita,
+      'fermate.json',
+      FormatoPubblicato.fermate({
+        for (final linea in index.lines.values)
+          if (index.shapesOf(linea.routeId).isNotEmpty)
+            linea.routeId: index.shapesOf(linea.routeId),
+      }, feed: index.feedVersion))) {
+    scritti++;
+  }
   for (final s in giro.stati.values) {
     if (_scrivi(uscita, 'stato/${FormatoPubblicato.nomeFile(s.line.routeId)}',
         FormatoPubblicato.stato(s))) {

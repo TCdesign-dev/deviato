@@ -8,6 +8,7 @@ import '../core/models/saved_stop.dart';
 import '../core/models/transit.dart';
 import '../core/pipeline/line_resolver.dart';
 import '../core/pipeline/stop_answer.dart';
+import '../core/pipeline/stop_search.dart';
 import '../core/pipeline/vehicle_watch.dart';
 import 'fonte_dati.dart';
 import 'settings.dart';
@@ -107,6 +108,85 @@ class AppRepository extends ChangeNotifier {
 
   /// Riprova a scaricare l'elenco delle linee, dalla ricerca.
   Future<void> retryCatalog() => refreshAll();
+
+  /// Tutte le fermate di GTT, per cercarle per nome o numero di palina.
+  /// null finche' non le si cerca: il file pesa qualche centinaio di KB,
+  /// e chi aggiunge solo linee non ne ha bisogno.
+  IndiceFermate? fermateRete;
+  bool caricandoFermate = false;
+  String? erroreFermate;
+  DateTime? _fermateTentate;
+
+  /// Carica le fermate: la copia sul telefono se e' degli orari di
+  /// adesso, se no dalla rete.
+  ///
+  /// La ricerca la chiama a ogni lettera: dopo un tentativo non riuscito
+  /// si riprova solo passato un minuto, o se lo chiede [forza] (il
+  /// pulsante «Riprova»).
+  Future<void> caricaFermate({bool forza = false}) async {
+    if (caricandoFermate) return;
+    if (fermateRete != null && fermateRete!.feed == _feed) return;
+    final prima = _fermateTentate;
+    if (!forza &&
+        prima != null &&
+        DateTime.now().difference(prima) < const Duration(minutes: 1)) {
+      return;
+    }
+    _fermateTentate = DateTime.now();
+    caricandoFermate = true;
+    erroreFermate = null;
+    notifyListeners();
+    // Le linee di una fermata nell'ordine in cui le mostra GTT.
+    final posto = {
+      for (final (i, l) in allLines.indexed) l.routeId: i,
+    };
+    int ordine(String a, String b) =>
+        (posto[a] ?? 1 << 20).compareTo(posto[b] ?? 1 << 20);
+    try {
+      var j = await _fonte.salvato('fermate.json');
+      if (j == null || (_feed != null && j['feed'] != _feed)) {
+        j = await _fonte.scarica('fermate.json') ?? j;
+      }
+      // Non pubblicato (un job di prima del 03/10): la ricerca resta
+      // sulle sole linee, senza messaggi.
+      if (j != null) {
+        fermateRete = FormatoPubblicato.leggiIndiceFermate(j, ordine: ordine);
+      }
+    } on FonteNonRaggiungibile catch (e) {
+      debugPrint('fermate: $e');
+      if (fermateRete == null) {
+        erroreFermate = 'Impossibile caricare le fermate. '
+            'Controlla la connessione e riprova.';
+      }
+    } finally {
+      caricandoFermate = false;
+      notifyListeners();
+    }
+  }
+
+  /// Salva [stop] per la linea [routeId] in direzione [directionId], e
+  /// aggiunge la linea se non c'e': una fermata salvata risponde solo per
+  /// una linea seguita. Falso se la linea non si e' potuta aggiungere.
+  Future<bool> salvaFermataCercata(
+    TransitStop stop,
+    String routeId,
+    int directionId,
+  ) async {
+    if (!(index?.lines.containsKey(routeId) ?? false)) {
+      final linea = allLines.where((l) => l.routeId == routeId).firstOrNull;
+      if (linea == null) return false;
+      await addLine(linea);
+      if (!(index?.lines.containsKey(routeId) ?? false)) return false;
+    }
+    final s = SavedStop(
+      routeId: routeId,
+      directionId: directionId,
+      stopId: stop.id,
+      stopCode: stop.code,
+    );
+    if (!isSaved(s)) await saveStop(s);
+    return true;
+  }
 
   /// Le linee appena aggiunte, mentre se ne scaricano percorsi e stato.
   final Map<String, TransitLine> _preparing = {};
