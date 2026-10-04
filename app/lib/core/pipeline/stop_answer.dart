@@ -97,7 +97,7 @@ class StopAnswer {
     if (poi.isNotEmpty) {
       DateTime? primo;
       for (final r in poi) {
-        final f = r.notice.validFrom;
+        final f = r.notice.inizioDaDire(status.checkedAt);
         if (f != null && (primo == null || f.isBefore(primo))) primo = f;
       }
       return StopAnswer(

@@ -86,13 +86,20 @@ class RiassuntoLinea extends StatelessWidget {
       );
     }
     if (attivi.isEmpty) {
+      // Avvisi ci sono, ma non adesso: in programma, in altri giorni od
+      // orari, o finiti e mai tolti da GTT.
       return _Riga(
         soloTitolo: parte == ParteRiassunto.stato,
         margine: parte == ParteRiassunto.stato ? margin : null,
         colore: colori.ok,
         icona: Icons.check_circle_outline,
         titolo: 'Percorso regolare',
-        dettaglio: 'C\'è una variazione in programma: trovi i dettagli $dove.',
+        dettaglio: status.scheduledReports.isNotEmpty
+            ? 'C\'è una variazione in programma: trovi i dettagli $dove.'
+            : status.otherTimeReports.isNotEmpty
+            ? 'C\'è una variazione in altri giorni o orari: trovi i '
+                  'dettagli $dove.'
+            : 'Nessun avviso di GTT in vigore su questa linea.',
       );
     }
 

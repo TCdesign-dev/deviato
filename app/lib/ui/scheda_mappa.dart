@@ -4,6 +4,7 @@ import 'package:flutter/rendering.dart';
 import '../core/deviation_service.dart';
 import '../core/models/notice.dart';
 import '../core/pipeline/closure_summary.dart';
+import 'quando_avviso.dart';
 import 'riassunto.dart';
 
 /// La scheda che galleggia in basso sulla mappa a tutto schermo.
@@ -399,14 +400,20 @@ class _Avvisi extends StatelessWidget {
 
   final LineStatus status;
 
+  /// Prima quelli in corso, poi quelli di altri giorni od orari, poi
+  /// quelli in programma, e in fondo quelli finiti che GTT non ha tolto.
   static List<RawNotice> _di(LineStatus status) {
     final visti = <String>{};
-    final attivi = <RawNotice>[], dopo = <RawNotice>[];
-    for (final r in status.reports) {
-      if (!visti.add(r.notice.id)) continue;
-      (r.notice.startsAfter(status.checkedAt) ? dopo : attivi).add(r.notice);
-    }
-    return [...attivi, ...dopo];
+    return [
+      for (final gruppo in [
+        status.activeReports,
+        status.otherTimeReports,
+        status.scheduledReports,
+        status.endedReports,
+      ])
+        for (final r in gruppo)
+          if (visti.add(r.notice.id)) r.notice,
+    ];
   }
 
   static int quanti(LineStatus status) => _di(status).length;
@@ -439,10 +446,6 @@ class _Avviso extends StatefulWidget {
 class _AvvisoState extends State<_Avviso> {
   var _aperto = false;
 
-  static String _data(DateTime d) =>
-      '${d.day.toString().padLeft(2, "0")}/'
-      '${d.month.toString().padLeft(2, "0")}';
-
   @override
   Widget build(BuildContext context) {
     final n = widget.notice;
@@ -453,20 +456,7 @@ class _AvvisoState extends State<_Avviso> {
     final titolo = n.headline != null && n.headline!.trim().isNotEmpty
         ? n.headline!.trim()
         : null;
-    final giorni = n.daysUntilStart(widget.ora);
-    final fine = n.endToShow;
-    final quando = [
-      if (giorni != null && giorni > 0 && n.validFrom != null)
-        'In vigore dal ${_data(n.validFrom!)} · '
-            '${switch (giorni) {
-              1 => 'domani',
-              2 => 'dopodomani',
-              _ => 'fra $giorni giorni',
-            }}'
-      else if (n.validFrom != null)
-        'Dal ${_data(n.validFrom!)}',
-      if (fine != null) 'fino al ${_data(fine)}',
-    ].join(' · ');
+    final quando = quandoAvviso(n, widget.ora);
     final lungo = corpo.length > 160;
 
     return Padding(

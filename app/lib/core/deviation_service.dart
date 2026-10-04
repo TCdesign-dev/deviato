@@ -16,6 +16,7 @@ import 'ricostruzione/ricostruzione_1.dart';
 import 'ricostruzione/ricostruzione_2.dart';
 import 'sources/alerts_source.dart';
 import 'sources/variazioni_source.dart';
+import 'text/periodo_avviso.dart';
 
 /// Quanto fidarsi di quello che il sistema dice.
 enum Confidence {
@@ -204,13 +205,37 @@ class LineStatus {
   /// La domanda dell'utente e' al presente — "la mia fermata e' servita?"
   /// — e rispondere contando una deviazione che comincia fra tre
   /// settimane sarebbe una risposta a un'altra domanda.
+  ///
+  /// Dal testo dell'avviso quando dice le date: non le variazioni che
+  /// devono ancora cominciare, ne' quelle finite che GTT non ha tolto, ne'
+  /// quelle di un altro giorno od orario («solo il sabato»).
   List<DeviationReport> get activeReports =>
-      reports.where((r) => !r.notice.startsAfter(checkedAt)).toList();
+      _nelloStato(StatoPeriodo.inCorso);
 
   /// Quello che comincera'. Non si nasconde: sapere in anticipo che dal
   /// 24 agosto la tua fermata salta e' utile. Si tiene solo separato.
   List<DeviationReport> get scheduledReports =>
-      reports.where((r) => r.notice.startsAfter(checkedAt)).toList();
+      _nelloStato(StatoPeriodo.inProgramma);
+
+  /// In vigore, ma non adesso: un altro giorno o un'altra ora («solo il
+  /// sabato, dalle 6 alle 15»). Si dice, non si conta.
+  List<DeviationReport> get otherTimeReports =>
+      _nelloStato(StatoPeriodo.fuoriOrario);
+
+  /// Finite secondo il testo, ma ancora pubblicate da GTT: il 04/10/2026
+  /// la 3106 aveva ancora gli avvisi delle sere dell'11, 14 e 15
+  /// settembre. Il testo resta leggibile, ma non contano.
+  List<DeviationReport> get endedReports => _nelloStato(StatoPeriodo.finito);
+
+  List<DeviationReport> _nelloStato(StatoPeriodo stato) => [
+    for (final r in reports)
+      if (switch (r.notice.statoAl(checkedAt)) {
+            StatoPeriodo.sconosciuto => StatoPeriodo.inCorso,
+            final s => s,
+          } ==
+          stato)
+        r,
+  ];
 
   /// Tutte le fermate non servite, da tutti gli avvisi attivi.
   /// Una linea puo' avere piu' deviazioni contemporanee (§10.14).

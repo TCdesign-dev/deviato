@@ -77,6 +77,32 @@ class PeriodoAvviso {
     return da <= a ? m >= da && m < a : m >= da || m < a;
   }
 
+  /// Quando vale dentro il periodo, se non sempre: «solo il sabato, dalle
+  /// 6:00 alle 15:00», «dalle 20:00 a fine servizio». null se vale tutto
+  /// il giorno, tutti i giorni.
+  String? get fascia {
+    String h(int m) =>
+        '${(m ~/ 60) % 24}:${(m % 60).toString().padLeft(2, '0')}';
+    final da = daMinuto, a = aMinuto;
+    final parti = <String>[
+      if (giornoSettimana case final g?) 'solo ${_conArticolo[g - 1]}',
+      if (giorni.length > 1)
+        'solo il ${giorni.map((d) => '${d.day}/${d.month}').join(' e il ')}',
+      if (da != null && a != null)
+        // «le corse serali dopo le 20»: fino a fine servizio, dopo
+        // mezzanotte.
+        a < da && a <= 3 * 60
+            ? 'dalle ${h(da)} a fine servizio'
+            : 'dalle ${h(da)} alle ${h(a)}',
+    ];
+    return parti.isEmpty ? null : parti.join(', ');
+  }
+
+  static const _conArticolo = [
+    'il lunedì', 'il martedì', 'il mercoledì', 'il giovedì', 'il venerdì',
+    'il sabato', 'la domenica',
+  ];
+
   /// Il periodo detto a parole, per il banco di prova.
   String get descrizione {
     if (!trovato) return 'date non trovate nel testo';
@@ -137,6 +163,13 @@ class PeriodoAvviso {
       // un giorno solo, fino a fine servizio (le 2 di notte, per stare
       // larghi).
       fine = primo.giorno.add(const Duration(hours: 26));
+    } else if (_unGiornoSolo(t, date)) {
+      // «Domenica 04 ottobre 2026 dalle ore 6.30 alle ore 23.30»: quel
+      // giorno, fino alla fine della fascia o del servizio.
+      final a = fascia?.$2;
+      fine = a != null && fascia!.$1 < a
+          ? primo.giorno.add(Duration(minutes: a))
+          : primo.giorno.add(const Duration(hours: 26));
     }
     return PeriodoAvviso(
       inizio: inizio,
@@ -291,6 +324,22 @@ class PeriodoAvviso {
     final m = RegExp(r"(nuove? (a )?comunicazion[ei]|cessate esigenze)").firstMatch(t);
     if (m == null) return false;
     return prima == null || m.start < prima;
+  }
+
+  /// Una data sola, senza niente prima che la apra («da», «dal», «a
+  /// partire dal») e senza «sino» dopo: e' quel giorno, non da quel giorno
+  /// in poi. Il 04/10/2026 la 15 diceva «Domenica 04 ottobre 2026 dalle ore
+  /// 6.30 alle ore 23.30 circa» e risultava deviata da allora per sempre.
+  static bool _unGiornoSolo(String t, List<_Data> date) {
+    if (date.length != 1) return false;
+    if (RegExp(r"\b(sino|fino)\b").hasMatch(t) || _nuoveComunicazioni(t)) {
+      return false;
+    }
+    final p = date.first.posizione;
+    final prima = t.substring(p < 40 ? 0 : p - 40, p);
+    return !RegExp(
+      r"(^|[^a-zà-ù'])(da|dal|dall'|dalla|dalle|dai|a partire|a decorrere|a far data)([^a-zà-ù]|$)",
+    ).hasMatch(prima);
   }
 
   /// «a termine del servizio di <data>» con una data sola: quella sera,

@@ -6,11 +6,13 @@ import '../core/models/saved_stop.dart';
 import '../core/models/transit.dart';
 import '../core/pipeline/stop_impact.dart';
 import '../core/text/display_names.dart';
+import '../core/text/periodo_avviso.dart';
 import '../data/app_repository.dart';
 import 'full_map_screen.dart';
 import 'line_badge.dart';
 import 'line_map.dart';
 import 'live_watch_card.dart';
+import 'quando_avviso.dart';
 import 'riassunto.dart';
 import 'theme.dart';
 
@@ -225,6 +227,8 @@ class _LineScreenState extends State<LineScreen> {
 
     final attivi = _perAvviso(status.activeReports);
     final futuri = _perAvviso(status.scheduledReports);
+    final altriOrari = _perAvviso(status.otherTimeReports);
+    final finiti = _perAvviso(status.endedReports);
 
     return Scaffold(
       appBar: AppBar(
@@ -338,8 +342,20 @@ class _LineScreenState extends State<LineScreen> {
             // ma non e' la risposta alla domanda di oggi.
             if (futuri.isNotEmpty) ...[
               const _Intestazione('In programma'),
-              for (final g in futuri)
-                _ReportCard(reports: g, status: status, daAvvenire: true),
+              for (final g in futuri) _ReportCard(reports: g, status: status),
+            ],
+            // In vigore, ma solo certi giorni od orari: adesso le fermate
+            // sono servite, e la scheda dice quando non lo saranno.
+            if (altriOrari.isNotEmpty) ...[
+              const _Intestazione('In altri giorni o orari'),
+              for (final g in altriOrari)
+                _ReportCard(reports: g, status: status),
+            ],
+            // Finiti secondo il loro testo, ma ancora pubblicati da GTT: in
+            // fondo, col testo e senza fermate non servite.
+            if (finiti.isNotEmpty) ...[
+              const _Intestazione('Terminati'),
+              for (final g in finiti) _ReportCard(reports: g, status: status),
             ],
           ],
         ),
@@ -458,29 +474,28 @@ String _data(DateTime d) =>
     '${d.day.toString().padLeft(2, "0")}/${d.month.toString().padLeft(2, "0")}';
 
 class _ReportCard extends StatelessWidget {
-  const _ReportCard({
-    required this.reports,
-    required this.status,
-    this.daAvvenire = false,
-  });
+  const _ReportCard({required this.reports, required this.status});
 
   /// Lo stesso avviso, una volta per direzione interessata.
   final List<DeviationReport> reports;
   final LineStatus status;
 
-  /// La variazione deve ancora cominciare.
-  final bool daAvvenire;
-
   DeviationReport get _primo => reports.first;
 
   @override
   Widget build(BuildContext context) {
+    final stato = _primo.notice.statoAl(status.checkedAt);
+    // Finito: resta il testo di GTT, ma le fermate che chiudeva non si
+    // elencano piu' come non servite.
+    final finito = stato == StatoPeriodo.finito;
     // Le direzioni in cui l'avviso non tocca niente non hanno niente da
     // dire, se in un'altra tocca qualcosa. Sulla 10N ogni avviso nomina
     // una fermata di UNA direzione: l'analisi dell'altra diceva «GTT nomina
     // la 422, che non risulta su questo percorso», e la scheda sembrava
     // contraddirsi — verificata in verde, e sotto un dubbio.
-    final conEffetto = reports.where((r) => r.skippedStops.isNotEmpty).toList();
+    final conEffetto = finito
+        ? const <DeviationReport>[]
+        : reports.where((r) => r.skippedStops.isNotEmpty).toList();
     final rilevanti = conEffetto.isNotEmpty ? conEffetto : reports;
     // Con piu' direzioni si mostra la piu' incerta: dire "verificata"
     // quando una delle due non lo e' sarebbe una promessa piu' grande del
@@ -496,8 +511,12 @@ class _ReportCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (daAvvenire)
-            _ScheduledStrip(notice: _primo.notice, now: status.checkedAt),
+          if (stato != StatoPeriodo.inCorso && stato != StatoPeriodo.sconosciuto)
+            _StrisciaQuando(
+              notice: _primo.notice,
+              now: status.checkedAt,
+              stato: stato,
+            ),
 
           // 1. La risposta, per ogni direzione.
           for (final r in conEffetto) ...[
@@ -511,7 +530,9 @@ class _ReportCard extends StatelessWidget {
               ),
             _SkippedStops(stops: r.skippedStops),
           ],
-          if (conEffetto.isEmpty && reports.any((r) => r.impact != null))
+          if (!finito &&
+              conEffetto.isEmpty &&
+              reports.any((r) => r.impact != null))
             const Padding(
               padding: EdgeInsets.fromLTRB(16, 12, 16, 0),
               child: Text(
@@ -526,44 +547,58 @@ class _ReportCard extends StatelessWidget {
           // 3. Quanto fidarsi, in fondo: e' un dettaglio della risposta,
           // non la risposta. Prima stava in cima, in una fascia colorata,
           // e la prima cosa che si leggeva era «Ricostruita e verificata».
-          _Affidabilita(report: peggiore),
+          // Di un avviso finito non c'e' piu' niente da verificare.
+          if (!finito) _Affidabilita(report: peggiore),
         ],
       ),
     );
   }
 }
 
-/// "Comincia fra 23 giorni": la data da sola fa fare il conto a mano.
-class _ScheduledStrip extends StatelessWidget {
-  const _ScheduledStrip({required this.notice, required this.now});
+/// Quando vale un avviso che non e' in corso adesso: «In vigore dal
+/// 05/10 · domani», «Solo il sabato, dalle 6:00 alle 15:00», «Terminato il
+/// 15/09». "Comincia fra 23 giorni": la data da sola fa fare il conto a
+/// mano.
+class _StrisciaQuando extends StatelessWidget {
+  const _StrisciaQuando({
+    required this.notice,
+    required this.now,
+    required this.stato,
+  });
 
   final RawNotice notice;
   final DateTime now;
+  final StatoPeriodo stato;
 
   @override
   Widget build(BuildContext context) {
-    final giorni = notice.daysUntilStart(now) ?? 0;
-    final quando = switch (giorni) {
-      1 => 'domani',
-      2 => 'dopodomani',
-      _ => 'fra $giorni giorni',
-    };
-    final d = notice.validFrom!;
-    final data = '${_data(d)}/${d.year}';
-    final blu = StatusColors.of(context).info;
+    final testo = quandoAvviso(notice, now);
+    if (testo.isEmpty) return const SizedBox.shrink();
+    final finito = stato == StatoPeriodo.finito;
+    final colore = finito
+        ? Theme.of(context).colorScheme.onSurfaceVariant
+        : StatusColors.of(context).info;
 
     return Container(
       width: double.infinity,
-      color: blu.withValues(alpha: 0.12),
+      color: colore.withValues(alpha: 0.12),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       child: Row(
         children: [
-          Icon(Icons.event_outlined, size: 18, color: blu),
+          Icon(
+            switch (stato) {
+              StatoPeriodo.finito => Icons.history,
+              StatoPeriodo.fuoriOrario => Icons.schedule,
+              _ => Icons.event_outlined,
+            },
+            size: 18,
+            color: colore,
+          ),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              'In vigore dal $data · $quando',
-              style: TextStyle(color: blu, fontWeight: FontWeight.w600),
+              testo,
+              style: TextStyle(color: colore, fontWeight: FontWeight.w600),
             ),
           ),
         ],

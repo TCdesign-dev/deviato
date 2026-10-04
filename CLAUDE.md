@@ -152,7 +152,8 @@ fuori linea di ogni mezzo con la corsa prima e dopo. Ogni
 deviazione dice se è nel suo periodo — in corso, ora fuori orario, in
 programma, finita — letto dal testo con `core/text/periodo_avviso.dart`
 (68 testi su 101 il 28/09; gli altri sono quasi tutti «non transita dalla
-fermata N», dove valgono le date del feed). L'app per ora non lo usa.
+fermata N», dove valgono le date del feed). Dal 04/10/2026 lo usa anche
+l'app (`RawNotice.periodo`, `statoAl`): vedi le trappole.
 
 **Cosa hanno detto i mezzi il 28/09** (15:10–15:30, prima misura vera):
 la 9 ha la deviazione **già negli orari** — i tram seguono la linea blu,
@@ -224,7 +225,7 @@ Non sono stime. Se li rimetti in discussione, rimisurali.
 | `active_period.start` negli alert | **161 su 161 nel passato** | idem |
 | Variazioni pubblicate da **entrambe** le fonti | **31 coppie** su 189 avvisi | `check_merge_offline.dart` |
 | Di queste, quelle in cui la data d'inizio cambia | **17** (fino a 3 mesi) | idem |
-| Test | **397** | `flutter test` |
+| Test | **409** | `flutter test` |
 | Somiglianza fra le vie nominate: coppie vere | **0,67 – 1,00** e ≥3 vie | idem |
 | Idem, coppie false | **0,67 con 2 vie**, o 3 vie a **0,38** | idem |
 | Data d'inizio estraibile a regex dal testo | **40%** — troppo poco | idem |
@@ -322,8 +323,21 @@ Ognuna di queste è costata tempo. Sono tutte silenziose: non danno errore.
 - **`active_period.start` degli alert è l'ora di PUBBLICAZIONE**, non
   l'inizio della variazione. Misurato l'01/08: 161 alert su 161 hanno lo
   start nel passato, e la 65 — il cui testo dice "dalle 8:00 di lunedì 3"
-  — risultava già attiva. La data vera d'inizio la dà solo la tabella
-  `/cms/variazioni`, che ce l'ha in colonna.
+  — risultava già attiva. La data vera d'inizio sta nella tabella
+  `/cms/variazioni`, in colonna, e **nel testo**: dal 04/10/2026 l'app
+  legge inizio, fine, giorni e fasce orarie dal testo (`RawNotice.periodo`
+  con `PeriodoAvviso`; con la tabella valgono le sue date). Quel giorno, su
+  97 avvisi pubblicati, il testo dava l'inizio in 96: cinque avvisi
+  annunciati per lunedì 5 risultavano già in corso (la 30 dava 23 fermate
+  non servite, la 65 quattro), sette erano finiti a metà settembre ma
+  ancora pubblicati (3106, 4108, 33, 4512), tre valevano solo certi giorni
+  od orari (il sabato sulla 3106 e la 3107, le corse dopo le 20 sulla
+  STAR 1). `LineStatus` li tiene separati — `activeReports`,
+  `scheduledReports`, `otherTimeReports`, `endedReports` — e solo i primi
+  contano: fermate non servite mostrate da 192 a 156. Il testo di quelli
+  finiti resta leggibile, sotto «Terminati». Una data sola senza «da» né
+  «sino» è quel giorno e basta («Domenica 04 ottobre dalle 6.30 alle
+  23.30», la 15), non da quel giorno in poi.
 - **Le due fonti datano cose diverse, non una giusta e una sbagliata.**
   La tabella dà l'inizio dei *lavori interi* (la 46: piazza Baldissera dal
   15/09/2025), l'alert descrive la *fase corrente* (dal 26/05/2026). Si
@@ -738,7 +752,7 @@ Per non fraintendere quello che c'è in `config.dart`:
 ## 8. Come si lavora
 
 ```bash
-cd app && flutter test          # 397 test, devono passare tutti
+cd app && flutter test          # 409 test, devono passare tutti
 cd app && flutter analyze       # deve essere pulito
 ```
 
@@ -809,4 +823,4 @@ facendo gli screenshot troppo presto.
 
 ---
 
-*Ultimo aggiornamento: 3 ottobre 2026. 397 test.*
+*Ultimo aggiornamento: 4 ottobre 2026. 409 test.*

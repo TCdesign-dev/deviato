@@ -94,7 +94,11 @@ void main() {
       final unito = NoticeMerge.dedupe([dalFeed, dallaTabella]).single;
       final primoAgosto = DateTime(2026, 8, 1, 14, 30);
 
-      expect(dalFeed.startsAfter(primoAgosto), isFalse, reason: 'il bug');
+      // Dal 04/10/2026 la data d'inizio si legge anche dal testo, e
+      // l'avviso del solo feed non risulta piu' gia' cominciato.
+      expect(dalFeed.startsAfter(primoAgosto), isTrue);
+      expect(dalFeed.validFrom!.isBefore(primoAgosto), isTrue,
+          reason: 'la data del feed resta quella di pubblicazione');
       expect(unito.startsAfter(primoAgosto), isTrue);
       expect(unito.daysUntilStart(primoAgosto), equals(2));
       expect(unito.validFrom, equals(DateTime(2026, 8, 3, 8, 0)));

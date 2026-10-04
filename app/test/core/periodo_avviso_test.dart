@@ -129,4 +129,42 @@ void main() {
     expect(p.stato(DateTime(2026, 10, 6, 12)), StatoPeriodo.inCorso);
     expect(p.stato(DateTime(2026, 10, 10, 12)), StatoPeriodo.finito);
   });
+
+  test('una data sola, senza «da» ne\' «sino»: quel giorno e basta', () {
+    // La 15 il 04/10/2026.
+    final p = leggi('Domenica 04 ottobre 2026 dalle ore 6.30 alle ore 23.30 '
+        'circa. Direzione piazza Coriolano (Sassi): da via Napione angolo…',
+        '2026-10-03');
+    expect(p.inizio, DateTime(2026, 10, 4));
+    expect(p.fine, DateTime(2026, 10, 4, 23, 30));
+    expect(p.stato(DateTime(2026, 10, 4, 12)), StatoPeriodo.inCorso);
+    expect(p.stato(DateTime(2026, 10, 4, 5)), StatoPeriodo.fuoriOrario);
+    expect(p.stato(DateTime(2026, 10, 5, 12)), StatoPeriodo.finito);
+    expect(p.fascia, 'dalle 6:30 alle 23:30');
+  });
+
+  test('«Da…» con una data sola resta aperto', () {
+    final p = leggi('Da lunedì 24 novembre 2025. Direzione via Goito…',
+        '2025-11-23');
+    expect(p.fine, isNull);
+    expect(p.fascia, isNull);
+    final q = leggi("Modifica d'esercizio da lunedi' 05 ottobre 2026. "
+        'corsa n. 3808B…', '2026-10-03');
+    expect(q.fine, isNull);
+  });
+
+  test('la fascia detta a parole', () {
+    expect(
+      leggi('Da sabato 23 Maggio e sino a sabato 7 novembre 2026 per tutte '
+              'le giornate del sabato dalle ore 6:00 alle ore 15:00 circa')
+          .fascia,
+      'solo il sabato, dalle 6:00 alle 15:00',
+    );
+    expect(
+      leggi("Mercoledi' 16 settembre dalle ore 10 e sino a nuove "
+              'comunicazioni le corse serali dopo ore 20.00.')
+          .fascia,
+      'dalle 20:00 a fine servizio',
+    );
+  });
 }

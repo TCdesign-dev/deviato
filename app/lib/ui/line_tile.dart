@@ -88,6 +88,13 @@ class LineTile extends StatelessWidget {
             .toSet()
             .length ??
         0;
+    // In vigore ma non adesso («solo il sabato»): adesso le fermate sono
+    // servite, e lo si dice senza nasconderlo.
+    final altri = status?.otherTimeReports
+            .map((r) => r.notice.id)
+            .toSet()
+            .length ??
+        0;
 
     String avvisi(int n) => '$n ${n == 1 ? "avviso" : "avvisi"}';
 
@@ -102,7 +109,13 @@ class LineTile extends StatelessWidget {
         Icons.event_outlined,
         'Variazione in programma',
       ),
-      final s when !s.hasDeviations => (
+      _ when attivi == 0 && altri > 0 => (
+        colori.info,
+        Icons.schedule,
+        'Variazione in altri orari',
+      ),
+      // Senza avvisi, o solo con avvisi finiti che GTT non ha tolto.
+      _ when attivi == 0 => (
         colori.ok,
         Icons.check_circle_outline,
         'Percorso regolare',
@@ -136,6 +149,7 @@ class LineTile extends StatelessWidget {
       ?fino,
       if (attivi > 0) avvisi(attivi),
       if (futuri > 0) '${avvisi(futuri)} in programma',
+      if (altri > 0) '${avvisi(altri)} in altri orari',
       if (_vecchio != null) 'aggiornata ${_vecchio!}',
     ].join(' · ');
 
