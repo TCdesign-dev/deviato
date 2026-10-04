@@ -618,6 +618,15 @@ Ognuna di queste è costata tempo. Sono tutte silenziose: non danno errore.
 - **`dart format` su tutta `lib/` riscrive quaranta file.** Il progetto
   non è formattato in modo uniforme: si formatta solo il file nuovo, o una
   modifica di tre righe diventa un diff di centinaia.
+- **Se GTT non risponde, il giro non pubblica e non fallisce.** Il
+  04/10/2026 dalle 9:13 il feed degli avvisi (`alerts.aspx`) dava 500
+  («Runtime Error») a ogni richiesta, mentre mezzi e passaggi andavano: il
+  job si fermava con un'eccezione, sei giri falliti di fila e una mail per
+  ognuno. Ora riprova tre volte a 20 s; poi scrive un `::warning::` e
+  finisce senza toccare niente, e la pubblicazione non riscrive il commit
+  se non c'è niente di nuovo. Restano online i dati di prima con la loro
+  ora: la spia del sito diventa arancione dopo 90 minuti, l'app dice
+  «aggiornate alle…». Non si pubblicano mai stati vecchi con un'ora nuova.
 - **Gli orari programmati di GitHub sono una promessa debole.** Nelle
   prime dodici ore, coi minuti 5/25/45, sono partiti **3 giri su 27**:
   nessun errore, nessun giro annullato, semplicemente non lanciati.

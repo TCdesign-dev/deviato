@@ -76,7 +76,22 @@ Future<void> main(List<String> args) async {
       '${index.stops.length} fermate');
 
   // 2. Gli avvisi.
-  final avvisi = <RawNotice>[...await AlertsSource().fetch()];
+  //
+  // Il 04/10/2026 dalle 9:13 il feed di GTT rispondeva 500 («Runtime
+  // Error») a ogni giro e il job si fermava con un'eccezione: sei giri
+  // falliti di fila, una mail per ognuno. Si riprova un paio di volte; se
+  // GTT continua a non rispondere il giro non pubblica niente — restano i
+  // dati di prima, con la loro ora, che sito e app mostrano — e finisce
+  // senza errore: da questa parte non c'e' niente da sistemare.
+  final List<RawNotice> avvisi;
+  try {
+    avvisi = [...await _conTentativi('avvisi di GTT', AlertsSource().fetch)];
+  } on Object catch (e) {
+    _log('::warning::Gli avvisi di GTT non rispondono (${_breve(e)}). '
+        'Questo giro non pubblica niente: restano i dati del giro prima.');
+    await stdout.flush();
+    exit(0);
+  }
   if (env['USA_TABELLA_VARIAZIONI'] == 'true') {
     avvisi.addAll(await VariazioniSource().fetch());
   }
@@ -218,5 +233,31 @@ String? _arg(List<String> args, String nome) {
 }
 
 String? _nonVuoto(String? s) => s == null || s.trim().isEmpty ? null : s;
+
+/// Prova [f] fino a [volte] volte, con [pausa] fra un tentativo e l'altro.
+Future<T> _conTentativi<T>(
+  String cosa,
+  Future<T> Function() f, {
+  int volte = 3,
+  Duration pausa = const Duration(seconds: 20),
+}) async {
+  for (var i = 1;; i++) {
+    try {
+      return await f();
+    } on Object catch (e) {
+      if (i >= volte) rethrow;
+      _log('$cosa: tentativo $i non riuscito (${_breve(e)}), si riprova');
+      await Future<void>.delayed(pausa);
+    }
+  }
+}
+
+/// La prima riga di un errore, senza la pagina HTML che GTT manda dietro.
+String _breve(Object e) {
+  final riga = '$e'.split('\n').first;
+  final html = riga.indexOf('<');
+  return (html > 0 ? riga.substring(0, html) : riga)
+      .replaceFirst(RegExp(r'[:\s]+$'), '');
+}
 
 void _log(String riga) => stdout.writeln(riga);
