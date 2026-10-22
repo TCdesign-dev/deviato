@@ -165,6 +165,57 @@ class AppRepository extends ChangeNotifier {
     }
   }
 
+  /// Le linee che non segui, lette per la schermata di una fermata:
+  /// percorsi e stato, tenuti per qualche minuto.
+  final Map<String, ({GtfsIndex index, LineStatus? stato, DateTime letto})>
+  _ospiti = {};
+
+  /// Cosa dire di [s] adesso, anche se la linea non la segui: se ne
+  /// scaricano percorsi e stato, qualche KB. null se non si puo' sapere
+  /// (linea sconosciuta, niente rete).
+  Future<StopAnswer?> rispostaPer(SavedStop s) async {
+    final idx = index;
+    if (idx != null && idx.lines.containsKey(s.routeId)) {
+      return StopAnswer.of(s, _statuses[s.routeId], idx);
+    }
+    final linea = allLines.where((l) => l.routeId == s.routeId).firstOrNull;
+    if (linea == null) return null;
+    var o = _ospiti[s.routeId];
+    if (o == null ||
+        DateTime.now().difference(o.letto) > const Duration(minutes: 10)) {
+      try {
+        final file = FormatoPubblicato.nomeFile(s.routeId);
+        final p = await _fonte.scarica('percorsi/$file');
+        if (p == null) return null;
+        final shapes = FormatoPubblicato.leggiPercorsi(p).shapes;
+        final gi = GtfsIndex(
+          feedVersion: _feed,
+          builtAt: DateTime.now(),
+          lines: {s.routeId: linea},
+          shapes: {s.routeId: shapes},
+          stops: {
+            for (final sh in shapes)
+              for (final f in sh.stops) f.id: f,
+          },
+        );
+        final st = await _fonte.scarica('stato/$file');
+        final stato = st == null
+            ? null
+            : FormatoPubblicato.leggiStato(
+                st,
+                gi,
+                controllata: generato ?? DateTime.now(),
+              );
+        o = (index: gi, stato: stato, letto: DateTime.now());
+        _ospiti[s.routeId] = o;
+      } on FonteNonRaggiungibile catch (e) {
+        debugPrint('linea ${s.routeId}: $e');
+        return null;
+      }
+    }
+    return StopAnswer.of(s, o.stato, o.index);
+  }
+
   /// Salva [stop] per la linea [routeId] in direzione [directionId], e
   /// aggiunge la linea se non c'e': una fermata salvata risponde solo per
   /// una linea seguita. Falso se la linea non si e' potuta aggiungere.

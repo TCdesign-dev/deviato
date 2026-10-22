@@ -51,8 +51,9 @@ class SavedStopsGroup extends StatelessWidget {
                     Expanded(
                       child: Text(
                         nome.replaceAll(' - ', ' – '),
-                        style: Theme.of(context).textTheme.bodySmall
-                            ?.copyWith(color: scheme.onSurfaceVariant),
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                        ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -100,50 +101,12 @@ class SavedStopRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final colori = StatusColors.of(context);
     final testo = Theme.of(context).textTheme;
     final secondario = scheme.onSurfaceVariant;
     final stop = answer.stop;
     final chiusa = answer.state == StopState.closed && !checking;
 
-    final (Color colore, IconData icona, String stato) = checking
-        ? (secondario, Icons.sync, 'Aggiornamento…')
-        : switch (answer.state) {
-            StopState.unknown => (
-              secondario,
-              Icons.help_outline,
-              'Tocca per aggiornare',
-            ),
-            StopState.served => (
-              colori.ok,
-              Icons.check_circle_outline,
-              'Servita',
-            ),
-            StopState.uncertain => (
-                colori.warning,
-                Icons.article_outlined,
-                'Avviso in corso: controlla i dettagli',
-              ),
-            StopState.closed => (
-              scheme.error,
-              Icons.do_not_disturb_on_outlined,
-              answer.until == null
-                  ? 'Non servita'
-                  : 'Non servita fino al ${_data(answer.until!)}',
-            ),
-            StopState.closesLater => (
-              colori.warning,
-              Icons.event_outlined,
-              answer.from == null
-                  ? 'Servita, chiuderà a breve'
-                  : 'Servita, chiude dal ${_data(answer.from!)}',
-            ),
-            StopState.notOnRoute => (
-              secondario,
-              Icons.wrong_location_outlined,
-              'Non è più su questa linea',
-            ),
-          };
+    final (colore, icona, stato) = statoFermata(context, answer, checking);
 
     final verso = answer.shape == null
         ? null
@@ -241,11 +204,61 @@ class SavedStopRow extends StatelessWidget {
       ),
     );
   }
-
-  static String _data(DateTime d) =>
-      '${d.day.toString().padLeft(2, "0")}/'
-      '${d.month.toString().padLeft(2, "0")}';
 }
+
+/// Colore, icona e parola di una fermata per una linea: «Servita», «Non
+/// servita fino al 09/10»… La usano la home e la schermata della fermata.
+(Color, IconData, String) statoFermata(
+  BuildContext context,
+  StopAnswer answer,
+  bool checking,
+) {
+  final scheme = Theme.of(context).colorScheme;
+  final colori = StatusColors.of(context);
+  final secondario = scheme.onSurfaceVariant;
+  return checking
+      ? (secondario, Icons.sync, 'Aggiornamento…')
+      : switch (answer.state) {
+          StopState.unknown => (
+            secondario,
+            Icons.help_outline,
+            'Tocca per aggiornare',
+          ),
+          StopState.served => (
+            colori.ok,
+            Icons.check_circle_outline,
+            'Servita',
+          ),
+          StopState.uncertain => (
+            colori.warning,
+            Icons.article_outlined,
+            'Avviso in corso: controlla i dettagli',
+          ),
+          StopState.closed => (
+            scheme.error,
+            Icons.do_not_disturb_on_outlined,
+            answer.until == null
+                ? 'Non servita'
+                : 'Non servita fino al ${_dataBreve(answer.until!)}',
+          ),
+          StopState.closesLater => (
+            colori.warning,
+            Icons.event_outlined,
+            answer.from == null
+                ? 'Servita, chiuderà a breve'
+                : 'Servita, chiude dal ${_dataBreve(answer.from!)}',
+          ),
+          StopState.notOnRoute => (
+            secondario,
+            Icons.wrong_location_outlined,
+            'Non è più su questa linea',
+          ),
+        };
+}
+
+String _dataBreve(DateTime d) =>
+    '${d.day.toString().padLeft(2, "0")}/'
+    '${d.month.toString().padLeft(2, "0")}';
 
 /// «Sali a Vibò, 180 m in linea d'aria», o le due fermate ai capi.
 ///

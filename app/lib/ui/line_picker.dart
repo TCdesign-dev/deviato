@@ -4,9 +4,9 @@ import '../core/models/transit.dart';
 import '../core/pipeline/line_search.dart';
 import '../core/pipeline/stop_search.dart';
 import '../core/text/display_names.dart';
-import '../core/models/saved_stop.dart';
 import '../data/app_repository.dart';
 import 'line_badge.dart';
+import 'stop_screen.dart';
 import 'theme.dart';
 
 /// Apre la ricerca delle linee, sopra la schermata da cui la si chiama.
@@ -44,9 +44,6 @@ class LinePicker extends StatefulWidget {
 class _LinePickerState extends State<LinePicker> {
   final _query = TextEditingController();
 
-  /// La fermata toccata: al posto dei risultati, le sue linee.
-  FermataCercabile? _fermata;
-
   @override
   void dispose() {
     _query.dispose();
@@ -60,23 +57,6 @@ class _LinePickerState extends State<LinePicker> {
     setState(() {});
   }
 
-  Future<void> _salva(FermataCercabile f, String routeId, int dir) async {
-    final messenger = ScaffoldMessenger.of(context);
-    final nome = DisplayNames.stop(f.stop);
-    Navigator.pop(context);
-    final ok = await widget.repo.salvaFermataCercata(f.stop, routeId, dir);
-    messenger.showSnackBar(
-      SnackBar(
-        content: Text(
-          ok
-              ? '$nome salvata nelle tue fermate'
-              : 'Impossibile salvare la fermata. Controlla la connessione '
-                    'e riprova.',
-        ),
-      ),
-    );
-  }
-
   void _add(TransitLine line) {
     // Il messaggio si prende prima di chiudere il foglio: dopo, questo
     // contesto non c'e' piu'.
@@ -88,27 +68,20 @@ class _LinePickerState extends State<LinePicker> {
     );
   }
 
+  /// Apre la fermata, chiudendo la ricerca.
+  void _apri(FermataCercabile f) {
+    final nav = Navigator.of(context);
+    nav.pop();
+    nav.push(
+      MaterialPageRoute<void>(
+        builder: (_) => StopScreen(repo: widget.repo, fermata: f),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final bottom = MediaQuery.viewInsetsOf(context).bottom;
-    final f = _fermata;
-    if (f != null) {
-      // Indietro, anche col gesto o col tasto del telefono, torna ai
-      // risultati e non chiude il foglio.
-      return PopScope(
-        canPop: false,
-        onPopInvokedWithResult: (fatto, _) {
-          if (!fatto) setState(() => _fermata = null);
-        },
-        child: Padding(
-          padding: EdgeInsets.only(bottom: bottom),
-          child: ListenableBuilder(
-            listenable: widget.repo,
-            builder: (context, _) => _lineeDellaFermata(context, f),
-          ),
-        ),
-      );
-    }
     return Padding(
       padding: EdgeInsets.only(bottom: bottom),
       child: Column(
@@ -312,107 +285,7 @@ class _LinePickerState extends State<LinePicker> {
               ),
             ),
       trailing: Icon(Icons.chevron_right, color: scheme.onSurfaceVariant),
-      onTap: () => setState(() => _fermata = f),
-    );
-  }
-
-  /// Le linee di una fermata, una riga per direzione: si sceglie quella
-  /// che si prende e la fermata si salva.
-  Widget _lineeDellaFermata(BuildContext context, FermataCercabile f) {
-    final repo = widget.repo;
-    final testo = Theme.of(context).textTheme;
-    final scheme = Theme.of(context).colorScheme;
-    final perId = {for (final l in repo.allLines) l.routeId: l};
-    return ListView(
-      padding: const EdgeInsets.only(bottom: 24),
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(4, 0, 16, 4),
-          child: Row(
-            children: [
-              IconButton(
-                icon: const Icon(Icons.arrow_back),
-                tooltip: 'Indietro',
-                onPressed: () => setState(() => _fermata = null),
-              ),
-              const SizedBox(width: 4),
-              Expanded(
-                child: Text.rich(
-                  TextSpan(
-                    children: [
-                      TextSpan(
-                        text: DisplayNames.stop(f.stop),
-                        style: testo.titleLarge,
-                      ),
-                      if (f.stop.code != null)
-                        TextSpan(
-                          text: '  ${f.stop.code}',
-                          style: testo.titleMedium?.copyWith(
-                            color: scheme.onSurfaceVariant,
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-          child: Text(
-            'Quale linea prendi? La fermata si salva nella home, con la '
-            'sua risposta.',
-            style: testo.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
-          ),
-        ),
-        for (final p in f.passaggi)
-          if (perId[p.routeId] case final l?)
-            _rigaPassaggio(f, l, p.directionId),
-      ],
-    );
-  }
-
-  Widget _rigaPassaggio(FermataCercabile f, TransitLine l, int dir) {
-    final repo = widget.repo;
-    final scheme = Theme.of(context).colorScheme;
-    final capolinea = repo.fermateRete?.capolineaDi(l.routeId, dir);
-    final salvata = repo.isSaved(
-      SavedStop(routeId: l.routeId, directionId: dir, stopId: f.stop.id),
-    );
-    return ListTile(
-      leading: SizedBox(
-        width: 60,
-        child: Align(
-          alignment: Alignment.centerLeft,
-          child: LineBadge(line: l, height: 32),
-        ),
-      ),
-      title: Text(
-        capolinea == null
-            ? 'Linea ${l.shortName}'
-            : 'verso ${DisplayNames.direction(capolinea, longName: l.longName)}',
-      ),
-      trailing: salvata
-          ? Semantics(
-              label: 'Già fra le tue fermate',
-              child: Icon(Icons.check, color: StatusColors.of(context).ok),
-            )
-          : Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.bookmark_add_outlined, color: scheme.primary),
-                const SizedBox(width: 6),
-                Text(
-                  'Salva',
-                  style: TextStyle(
-                    color: scheme.primary,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-      onTap: salvata ? null : () => _salva(f, l.routeId, dir),
+      onTap: () => _apri(f),
     );
   }
 

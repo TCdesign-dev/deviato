@@ -13,6 +13,7 @@ import 'package:gtt_deviazioni/data/app_repository.dart';
 import 'package:gtt_deviazioni/data/fonte_dati.dart';
 import 'package:gtt_deviazioni/data/settings.dart';
 import 'package:gtt_deviazioni/main.dart';
+import 'package:gtt_deviazioni/ui/stop_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Il sito del job, in memoria: si puo' spegnere la rete e contare cosa
@@ -162,7 +163,7 @@ void main() {
     expect(find.text('1 fermata non servita'), findsOneWidget);
   });
 
-  testWidgets('una fermata si cerca per numero di palina, e si salva',
+  testWidgets('una fermata si cerca per numero di palina, e si apre',
       (tester) async {
     final f = fonte();
     final repo = await repoWith({}, f);
@@ -180,40 +181,36 @@ void main() {
     expect(find.text('Fermate'), findsOneWidget);
     await tester.tap(find.textContaining('Sabotino'));
     await tester.pumpAndSettle();
-    // Le linee che ci passano, con la direzione.
-    expect(find.text('Quale linea prendi? La fermata si salva nella home, '
-        'con la sua risposta.'), findsOneWidget);
-    expect(find.text('verso Capolinea'), findsNWidgets(2));
-    expect(find.text('Salva'), findsNWidgets(2));
 
+    // La schermata della fermata: tutte le linee che ci passano, anche
+    // quelle che non segui, con lo stato di adesso.
+    expect(find.textContaining('Le linee che passano da qui'), findsOneWidget);
+    expect(find.text('verso Capolinea'), findsNWidgets(2));
+    expect(find.text('Non servita'), findsOneWidget); // la 55, sospesa
+    expect(find.text('Servita'), findsOneWidget); // la 65
+    expect(find.text('Passaggi in tempo reale, sul sito di GTT'),
+        findsOneWidget);
+
+    // Si salva: la linea si aggiunge, se no la fermata non avrebbe una
+    // risposta.
     await tester.tap(find.text('Salva').first);
     await tester.pumpAndSettle();
-    expect(find.text('Sabotino salvata nelle tue fermate'), findsOneWidget);
-    // La linea c'e' anche se non era fra le tue: senza, la fermata non
-    // avrebbe una risposta.
+    expect(find.text('Sabotino salvata nelle tue fermate, linea 55'),
+        findsOneWidget);
     expect(repo.settings.watchlist, contains('55'));
     expect(repo.savedStops.single.stopId, 'S1');
     expect(repo.savedStops.single.routeId, '55U');
+
+    await tester.pageBack();
+    await tester.pumpAndSettle();
     expect(find.text('Le tue fermate'), findsOneWidget);
   });
 
-  testWidgets('dalla fermata si torna ai risultati, senza chiudere',
-      (tester) async {
-    final repo = await repoWith({}, fonte());
-    await repo.initialise();
-    await tester.pumpWidget(GttApp(repo: repo));
-    await tester.pump();
-
-    await tester.tap(find.widgetWithText(FilledButton, 'Aggiungi una linea'));
-    await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextField), 'sabotino');
-    await tester.pumpAndSettle();
-    await tester.tap(find.textContaining('Sabotino'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('Indietro'));
-    await tester.pumpAndSettle();
-    expect(find.text('Fermate'), findsOneWidget);
-    expect(find.byType(TextField), findsOneWidget);
+  test('la pagina dei passaggi di GTT e\' quella dei loro QR', () {
+    expect(
+      StopScreen.paginaGtt('597').toString(),
+      'https://www.gtt.to.it/cms/percorari/arrivi?palina=597',
+    );
   });
 
   testWidgets('una linea si toglie scorrendo, e si rimette con Annulla',
