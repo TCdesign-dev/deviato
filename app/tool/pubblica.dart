@@ -46,6 +46,7 @@ import 'package:gtt_deviazioni/core/models/transit.dart';
 import 'package:gtt_deviazioni/core/publish/pubblicatore.dart';
 import 'package:gtt_deviazioni/core/ricostruzione/ricostruzione.dart';
 import 'package:gtt_deviazioni/core/sources/alerts_source.dart';
+import 'package:gtt_deviazioni/core/sources/scioperi_mit.dart';
 import 'package:gtt_deviazioni/core/sources/variazioni_source.dart';
 
 /// Il testo d'attribuzione che la licenza di GTT chiede.
@@ -74,6 +75,32 @@ Future<void> main(List<String> args) async {
   final index = await parser.build(await parser.allShortNames());
   _log('orari ${index.feedVersion}: ${index.lines.length} linee, '
       '${index.stops.length} fermate');
+
+  // 1b. Gli scioperi che possono fermare bus e tram, dal calendario del
+  // Ministero dei Trasporti. Prima degli avvisi: si pubblicano anche
+  // quando GTT non risponde. Se il Ministero non risponde resta il file di
+  // prima.
+  try {
+    final oggi = DateTime.now();
+    final scioperi = [
+      for (final s in await _conTentativi(
+        'scioperi',
+        ScioperiMit().scarica,
+        volte: 2,
+      ))
+        if (s.riguardaGtt && s.nonFinitoIl(oggi)) s,
+    ]..sort((a, b) => a.giorniTpl.inizio.compareTo(b.giorniTpl.inizio));
+    _scrivi(uscita, 'scioperi.json', {
+      'versione': FormatoPubblicato.versione,
+      'fonte': 'Ministero delle Infrastrutture e dei Trasporti, '
+          'scioperi.mit.gov.it',
+      'scioperi': [for (final s in scioperi) s.toJson()],
+    });
+    _log('scioperi che toccano GTT: ${scioperi.length}');
+  } on Object catch (e) {
+    _log('::warning::Il calendario degli scioperi non risponde '
+        '(${_breve(e)}): resta quello di prima.');
+  }
 
   // 2. Gli avvisi.
   //

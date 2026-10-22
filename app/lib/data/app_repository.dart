@@ -10,6 +10,7 @@ import '../core/pipeline/line_resolver.dart';
 import '../core/pipeline/stop_answer.dart';
 import '../core/pipeline/stop_search.dart';
 import '../core/pipeline/vehicle_watch.dart';
+import '../core/sources/scioperi_mit.dart';
 import 'fonte_dati.dart';
 import 'settings.dart';
 
@@ -355,7 +356,27 @@ class AppRepository extends ChangeNotifier {
   }
 
   /// L'ultimo stato scaricato, dal telefono.
+  /// Gli scioperi in calendario che possono fermare bus e tram di GTT,
+  /// dal file che il job prende dal Ministero dei Trasporti.
+  List<Sciopero> scioperi = const [];
+
+  /// Legge `scioperi.json` con [leggi]. Senza file (un job di prima del
+  /// 22/10/2026) o senza rete restano quelli che c'erano.
+  Future<void> _caricaScioperi(
+    Future<Map<String, dynamic>?> Function(String) leggi,
+  ) async {
+    try {
+      final j = await leggi('scioperi.json');
+      final elenco = j?['scioperi'];
+      if (elenco is! List) return;
+      scioperi = [for (final x in elenco) ?Sciopero.fromJson(x)];
+    } on FonteNonRaggiungibile catch (e) {
+      debugPrint('scioperi: $e');
+    }
+  }
+
   Future<void> _caricaSalvati() async {
+    await _caricaScioperi(_fonte.salvato);
     final ind = await _fonte.salvato('indice.json');
     if (ind == null) return;
     await _applica(ind, (p) => _fonte.salvato(p));
@@ -376,6 +397,7 @@ class AppRepository extends ChangeNotifier {
         throw const FonteNonRaggiungibile('indice non pubblicato');
       }
       await _applica(ind, (p) => _fonte.scarica(p), rete: true);
+      await _caricaScioperi(_fonte.scarica);
       offline = false;
       error = null;
       state = LoadState.ready;

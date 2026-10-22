@@ -8,6 +8,7 @@ import 'line_screen.dart';
 import 'line_tile.dart';
 import 'logo.dart';
 import 'saved_stop_card.dart';
+import 'scioperi.dart';
 import 'info_screen.dart';
 
 /// La home: le fermate che usi, e sotto le linee.
@@ -110,6 +111,7 @@ class HomeScreen extends StatelessWidget {
         children: [
           if (repo.error != null)
             _ErrorBanner(message: repo.error!, onClose: repo.clearError),
+          ScioperoBanner(scioperi: repo.scioperi, oggi: DateTime.now()),
 
           if (fermate.isNotEmpty) ...[
             const _SectionTitle('Le tue fermate'),

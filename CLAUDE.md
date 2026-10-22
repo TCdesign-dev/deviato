@@ -225,7 +225,7 @@ Non sono stime. Se li rimetti in discussione, rimisurali.
 | `active_period.start` negli alert | **161 su 161 nel passato** | idem |
 | Variazioni pubblicate da **entrambe** le fonti | **31 coppie** su 189 avvisi | `check_merge_offline.dart` |
 | Di queste, quelle in cui la data d'inizio cambia | **17** (fino a 3 mesi) | idem |
-| Test | **409** | `flutter test` |
+| Test | **420** | `flutter test` |
 | Somiglianza fra le vie nominate: coppie vere | **0,67 – 1,00** e ≥3 vie | idem |
 | Idem, coppie false | **0,67 con 2 vie**, o 3 vie a **0,38** | idem |
 | Data d'inizio estraibile a regex dal testo | **40%** — troppo poco | idem |
@@ -494,6 +494,18 @@ Ognuna di queste è costata tempo. Sono tutte silenziose: non danno errore.
   la linea se mancava: una fermata salvata risponde solo per una linea
   seguita. GTT scrive «CASTELLO», non «piazza Castello»: le parole che
   dicono il tipo di strada sono facoltative.
+- **Gli scioperi stanno tutti in un posto solo, ed è il Ministero.**
+  Dal 22/10/2026 il job legge il calendario pubblico
+  scioperi.mit.gov.it (`sources/scioperi_mit.dart`, la tabella
+  `scioperiLarge`, colonne cercate per nome) e pubblica `scioperi.json`
+  con quelli che possono fermare GTT: trasporto locale nazionale o in
+  Piemonte, generali nazionali, o che citano GTT. **Le note contano**: dei
+  tre scioperi generali del 30/10 due escludevano i trasporti. E il giorno
+  del trasporto locale può essere diverso da quello dello sciopero («CUB
+  20–21/11 … *TPL: intera prestazione del 21/11»: `giorniTpl`). Si legge
+  prima degli avvisi di GTT, così si pubblica anche quando GTT è giù.
+  L'app lo mostra in cima alla home solo entro sette giorni. Idea presa da
+  un fork del 15/10 (`caccapuzz-klipper/deviato`); il codice è nostro.
 - **`Dismissible` pretende che la riga sparisca subito.** Se al primo
   aggiornamento dello schermo la linea tolta è ancora nell'elenco, Flutter
   si ferma con un errore. Per questo `removeLine` toglie dalla memoria
@@ -758,7 +770,7 @@ Per non fraintendere quello che c'è in `config.dart`:
 ## 8. Come si lavora
 
 ```bash
-cd app && flutter test          # 409 test, devono passare tutti
+cd app && flutter test          # 420 test, devono passare tutti
 cd app && flutter analyze       # deve essere pulito
 ```
 
@@ -829,4 +841,4 @@ facendo gli screenshot troppo presto.
 
 ---
 
-*Ultimo aggiornamento: 4 ottobre 2026. 409 test.*
+*Ultimo aggiornamento: 22 ottobre 2026. 420 test.*
