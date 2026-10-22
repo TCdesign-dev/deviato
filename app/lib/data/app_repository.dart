@@ -5,8 +5,10 @@ import 'package:flutter/foundation.dart';
 import '../core/deviation_service.dart';
 import '../core/io/formato_pubblicato.dart';
 import '../core/models/saved_stop.dart';
+import '../core/models/tragitto.dart';
 import '../core/models/transit.dart';
 import '../core/pipeline/line_resolver.dart';
+import '../core/pipeline/risposta_tragitto.dart';
 import '../core/pipeline/stop_answer.dart';
 import '../core/pipeline/stop_search.dart';
 import '../core/pipeline/vehicle_watch.dart';
@@ -178,43 +180,115 @@ class AppRepository extends ChangeNotifier {
     if (idx != null && idx.lines.containsKey(s.routeId)) {
       return StopAnswer.of(s, _statuses[s.routeId], idx);
     }
-    final linea = allLines.where((l) => l.routeId == s.routeId).firstOrNull;
-    if (linea == null) return null;
-    var o = _ospiti[s.routeId];
-    if (o == null ||
-        DateTime.now().difference(o.letto) > const Duration(minutes: 10)) {
-      try {
-        final file = FormatoPubblicato.nomeFile(s.routeId);
-        final p = await _fonte.scarica('percorsi/$file');
-        if (p == null) return null;
-        final shapes = FormatoPubblicato.leggiPercorsi(p).shapes;
-        final gi = GtfsIndex(
-          feedVersion: _feed,
-          builtAt: DateTime.now(),
-          lines: {s.routeId: linea},
-          shapes: {s.routeId: shapes},
-          stops: {
-            for (final sh in shapes)
-              for (final f in sh.stops) f.id: f,
-          },
-        );
-        final st = await _fonte.scarica('stato/$file');
-        final stato = st == null
-            ? null
-            : FormatoPubblicato.leggiStato(
-                st,
-                gi,
-                controllata: generato ?? DateTime.now(),
-              );
-        o = (index: gi, stato: stato, letto: DateTime.now());
-        _ospiti[s.routeId] = o;
-      } on FonteNonRaggiungibile catch (e) {
-        debugPrint('linea ${s.routeId}: $e');
-        return null;
-      }
-    }
+    final o = await _ospite(s.routeId);
+    if (o == null) return null;
     return StopAnswer.of(s, o.stato, o.index);
   }
+
+  /// Percorsi e stato di una linea che non segui, scaricati e tenuti per
+  /// dieci minuti. null senza rete o per una linea sconosciuta.
+  Future<({GtfsIndex index, LineStatus? stato, DateTime letto})?> _ospite(
+    String routeId,
+  ) async {
+    final linea = allLines.where((l) => l.routeId == routeId).firstOrNull;
+    if (linea == null) return null;
+    final o = _ospiti[routeId];
+    if (o != null &&
+        DateTime.now().difference(o.letto) < const Duration(minutes: 10)) {
+      return o;
+    }
+    try {
+      final file = FormatoPubblicato.nomeFile(routeId);
+      final p = await _fonte.scarica('percorsi/$file');
+      if (p == null) return null;
+      final shapes = FormatoPubblicato.leggiPercorsi(p).shapes;
+      final gi = GtfsIndex(
+        feedVersion: _feed,
+        builtAt: DateTime.now(),
+        lines: {routeId: linea},
+        shapes: {routeId: shapes},
+        stops: {
+          for (final sh in shapes)
+            for (final f in sh.stops) f.id: f,
+        },
+      );
+      final st = await _fonte.scarica('stato/$file');
+      final stato = st == null
+          ? null
+          : FormatoPubblicato.leggiStato(
+              st,
+              gi,
+              controllata: generato ?? DateTime.now(),
+            );
+      return _ospiti[routeId] = (
+        index: gi,
+        stato: stato,
+        letto: DateTime.now(),
+      );
+    } on FonteNonRaggiungibile catch (e) {
+      debugPrint('linea $routeId: $e');
+      return null;
+    }
+  }
+
+  /// I percorsi principali di una linea, una per direzione, per scegliere
+  /// dove salire e dove scendere: dalla memoria se la segui, se no
+  /// scaricati.
+  Future<List<RouteShape>?> percorsiPrincipali(String routeId) async {
+    final idx = index;
+    final GtfsIndex gi;
+    if (idx != null && idx.lines.containsKey(routeId)) {
+      gi = idx;
+    } else {
+      final o = await _ospite(routeId);
+      if (o == null) return null;
+      gi = o.index;
+    }
+    return [
+      for (final d in [0, 1]) ?gi.mainShape(routeId, d),
+    ];
+  }
+
+  // ------------------------------------------------------------ tragitti
+
+  List<Tragitto> get tragitti => settings.tragitti;
+
+  /// Salva [t] (nuovo o modificato) e aggiunge le sue linee a quelle
+  /// seguite: senza, non ci sarebbe il loro stato da dire.
+  Future<void> salvaTragitto(Tragitto t) async {
+    final altri = [
+      for (final x in settings.tragitti)
+        if (x.id != t.id) x,
+    ];
+    final i = settings.tragitti.indexWhere((x) => x.id == t.id);
+    await settings.setTragitti([
+      ...altri.take(i < 0 ? altri.length : i),
+      t,
+      ...altri.skip(i < 0 ? altri.length : i),
+    ]);
+    notifyListeners();
+    for (final r in t.linee) {
+      if (index?.lines.containsKey(r) ?? false) continue;
+      final linea = allLines.where((l) => l.routeId == r).firstOrNull;
+      if (linea != null) await addLine(linea);
+    }
+  }
+
+  Future<void> rimuoviTragitto(String id) async {
+    await settings.setTragitti([
+      for (final x in settings.tragitti)
+        if (x.id != id) x,
+    ]);
+    notifyListeners();
+  }
+
+  /// Com'e' messo [t] adesso, con gli esiti delle linee seguite.
+  RispostaTragitto rispostaTragitto(Tragitto t) => RispostaTragitto.of(
+    t,
+    (s) => index?.lines.containsKey(s.routeId) ?? false
+        ? answerFor(s)
+        : null,
+  );
 
   /// Salva [stop] per la linea [routeId] in direzione [directionId], e
   /// aggiunge la linea se non c'e': una fermata salvata risponde solo per

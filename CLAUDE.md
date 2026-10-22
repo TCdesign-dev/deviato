@@ -225,7 +225,7 @@ Non sono stime. Se li rimetti in discussione, rimisurali.
 | `active_period.start` negli alert | **161 su 161 nel passato** | idem |
 | Variazioni pubblicate da **entrambe** le fonti | **31 coppie** su 189 avvisi | `check_merge_offline.dart` |
 | Di queste, quelle in cui la data d'inizio cambia | **17** (fino a 3 mesi) | idem |
-| Test | **422** | `flutter test` |
+| Test | **430** | `flutter test` |
 | Somiglianza fra le vie nominate: coppie vere | **0,67 – 1,00** e ≥3 vie | idem |
 | Idem, coppie false | **0,67 con 2 vie**, o 3 vie a **0,38** | idem |
 | Data d'inizio estraibile a regex dal testo | **40%** — troppo poco | idem |
@@ -521,6 +521,27 @@ Ognuna di queste è costata tempo. Sono tutte silenziose: non danno errore.
   sul telefono (detto in `NSCameraUsageDescription` e nell'informativa).
   Sul simulatore iOS non c'è fotocamera: la lettura vera si prova su un
   telefono.
+- **Chi cambia linea ha più fermate da guardare, e conta anche dove
+  scende.** Dal 22/10/2026 ci sono i **tragitti** (`models/tragitto.dart`):
+  da una a quattro tratte, ognuna linea + direzione + fermata dove si sale
+  + fermata dove si scende. In home stanno sopra le fermate, con una riga
+  sola: «Tutto servito» o il primo intoppo nell'ordine del viaggio
+  (`pipeline/risposta_tragitto.dart`: prima una fermata non servita, poi
+  un avviso non letto, poi una chiusura in arrivo). Si creano dal «+»
+  (`ui/editor_tragitto.dart`) a passi: linea, direzione — saltata se ce
+  n'è una sola —, dove sali, dove scendi (solo dopo la salita). Al cambio
+  propone prima le linee che passano dalla fermata dove si scende, poi
+  quelle entro 300 m, e fra le fermate quelle vicine. Salvare un tragitto
+  aggiunge le sue linee a quelle seguite: senza, non avrebbero uno stato;
+  eliminarlo non le toglie. Un nome proposto («Sabotino – Regina
+  Margherita») segue le fermate se le si cambia. Idea presa dallo stesso
+  fork degli scioperi; il modello è nostro.
+- **Chiedere i dati in `initState` può avvisare durante la costruzione.**
+  `caricaFermate` fa `notifyListeners` subito, e chi lo chiama mentre la
+  schermata si sta costruendo manda in errore il `ListenableBuilder` di
+  sopra («setState() called during build»). Lo ha trovato il test dei
+  tragitti, non il simulatore: si chiama dopo il primo disegno
+  (`addPostFrameCallback`).
 - **`Dismissible` pretende che la riga sparisca subito.** Se al primo
   aggiornamento dello schermo la linea tolta è ancora nell'elenco, Flutter
   si ferma con un errore. Per questo `removeLine` toglie dalla memoria
@@ -785,7 +806,7 @@ Per non fraintendere quello che c'è in `config.dart`:
 ## 8. Come si lavora
 
 ```bash
-cd app && flutter test          # 422 test, devono passare tutti
+cd app && flutter test          # 430 test, devono passare tutti
 cd app && flutter analyze       # deve essere pulito
 ```
 
@@ -856,4 +877,4 @@ facendo gli screenshot troppo presto.
 
 ---
 
-*Ultimo aggiornamento: 22 ottobre 2026. 422 test.*
+*Ultimo aggiornamento: 22 ottobre 2026. 430 test.*

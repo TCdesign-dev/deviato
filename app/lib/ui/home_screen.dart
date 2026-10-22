@@ -9,6 +9,7 @@ import 'line_tile.dart';
 import 'logo.dart';
 import 'saved_stop_card.dart';
 import 'scioperi.dart';
+import 'tragitti.dart';
 import 'info_screen.dart';
 
 /// La home: le fermate che usi, e sotto le linee.
@@ -112,6 +113,12 @@ class HomeScreen extends StatelessWidget {
           if (repo.error != null)
             _ErrorBanner(message: repo.error!, onClose: repo.clearError),
           ScioperoBanner(scioperi: repo.scioperi, oggi: DateTime.now()),
+
+          if (repo.tragitti.isNotEmpty) ...[
+            const _SectionTitle('I tuoi tragitti'),
+            for (final t in repo.tragitti)
+              TragittoCard(repo: repo, tragitto: t),
+          ],
 
           if (fermate.isNotEmpty) ...[
             const _SectionTitle('Le tue fermate'),

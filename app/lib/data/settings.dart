@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/models/saved_stop.dart';
+import '../core/models/tragitto.dart';
 
 /// Le poche cose che l'app deve ricordare: le linee e le fermate di chi la
 /// usa.
@@ -16,6 +17,7 @@ class Settings {
   static const _kWatchlist = 'watchlist';
   static const _kSavedStops = 'fermate_salvate';
   static const _kStopsHintSeen = 'suggerimento_fermate_visto';
+  static const _kTragitti = 'tragitti';
 
   final SharedPreferences _prefs;
 
@@ -73,6 +75,24 @@ class Settings {
 
   Future<void> removeSavedStop(SavedStop stop) =>
       setSavedStops(savedStops.where((s) => !s.same(stop)).toList());
+
+  /// I tragitti, nell'ordine in cui sono stati creati. Uno illeggibile si
+  /// salta, come per le fermate.
+  List<Tragitto> get tragitti => [
+        for (final raw in _prefs.getStringList(_kTragitti) ?? const [])
+          ?_tragitto(raw),
+      ];
+
+  Future<void> setTragitti(List<Tragitto> t) => _prefs.setStringList(
+      _kTragitti, [for (final x in t) jsonEncode(x.toJson())]);
+
+  static Tragitto? _tragitto(String raw) {
+    try {
+      return Tragitto.fromJson(jsonDecode(raw));
+    } on FormatException {
+      return null;
+    }
+  }
 
   static SavedStop? _decode(String raw) {
     try {

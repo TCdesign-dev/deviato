@@ -5,6 +5,7 @@ import '../core/pipeline/line_search.dart';
 import '../core/pipeline/stop_search.dart';
 import '../core/text/display_names.dart';
 import '../data/app_repository.dart';
+import 'editor_tragitto.dart';
 import 'line_badge.dart';
 import 'scanner_fermata.dart';
 import 'stop_screen.dart';
@@ -105,6 +106,17 @@ class _LinePickerState extends State<LinePicker> {
     );
   }
 
+  /// Chiude la ricerca e apre un tragitto nuovo.
+  void _nuovoTragitto() {
+    final nav = Navigator.of(context);
+    nav.pop();
+    nav.push(
+      MaterialPageRoute<void>(
+        builder: (_) => EditorTragitto(repo: widget.repo),
+      ),
+    );
+  }
+
   /// Apre la fermata, chiudendo la ricerca.
   void _apri(FermataCercabile f) {
     final nav = Navigator.of(context);
@@ -157,6 +169,20 @@ class _LinePickerState extends State<LinePicker> {
                   onPressed: _scansiona,
                   icon: const Icon(Icons.qr_code_scanner),
                   label: const Text('Inquadra il QR della fermata'),
+                ),
+              ),
+            ),
+          // Chi cambia linea ha due o tre fermate da tenere d'occhio, e
+          // anche quella dove scende.
+          if (_query.text.isEmpty)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(8, 0, 16, 4),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  onPressed: _nuovoTragitto,
+                  icon: const Icon(Icons.route),
+                  label: const Text('Nuovo tragitto, anche con cambi'),
                 ),
               ),
             ),

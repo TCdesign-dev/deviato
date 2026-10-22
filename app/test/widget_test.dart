@@ -44,14 +44,16 @@ void main() {
   final fermata = TransitStop(
       id: 'S1', code: '100', name: 'Fermata 100 - SABOTINO',
       position: const GeoPoint(45.07, 7.665));
+  var fermate = [fermata];
   RouteShape shape(String route) => RouteShape(
         shapeId: '$route:0', routeId: route, directionId: 0,
         headsign: 'CAPOLINEA',
         points: const [GeoPoint(45.07, 7.66), GeoPoint(45.07, 7.69)],
-        stops: [fermata], tripCount: 10,
+        stops: fermate, tripCount: 10,
       );
 
   /// Quello che il job pubblica per la 55 (una fermata sospesa) e la 65.
+  /// Ci passano le [fermate] di adesso: la sola Sabotino, se non si dice.
   _Fonte fonte() {
     final f = _Fonte();
     final linee = [_l55, _l65];
@@ -385,6 +387,144 @@ void main() {
     await repo.refreshAll();
     expect(f.scaricati.where((p) => p == 'percorsi/55U.json').length, 1);
     expect(f.scaricati.where((p) => p == 'stato/55U.json').length, 2);
+  });
+
+  group('tragitti', () {
+    // Sabotino, Porta Nuova e Molinette, a 800 m l'una dall'altra, per
+    // tutte e due le linee. Sulla 55 Sabotino e' sospesa.
+    setUp(() => fermate = [
+          fermata,
+          const TransitStop(id: 'S2', code: '200',
+              name: 'Fermata 200 - PORTA NUOVA',
+              position: GeoPoint(45.07, 7.675)),
+          const TransitStop(id: 'S3', code: '300',
+              name: 'Fermata 300 - MOLINETTE',
+              position: GeoPoint(45.07, 7.685)),
+        ]);
+    tearDown(() => fermate = [fermata]);
+
+    testWidgets('si crea dal +, con un cambio, e dice il primo intoppo',
+        (tester) async {
+      final repo = await repoWith({}, fonte());
+      await repo.initialise();
+      await tester.pumpWidget(GttApp(repo: repo));
+      await tester.pump();
+
+      await tester.tap(find.widgetWithText(FilledButton, 'Aggiungi una linea'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Nuovo tragitto, anche con cambi'));
+      await tester.pumpAndSettle();
+      expect(find.text('Nuovo tragitto'), findsOneWidget);
+
+      // La prima linea: la 55, da Sabotino a Porta Nuova. Ha una
+      // direzione sola, e la direzione non si chiede.
+      await tester.tap(find.text('Aggiungi una linea'));
+      await tester.pumpAndSettle();
+      expect(find.text('Che linea prendi?'), findsOneWidget);
+      await tester.tap(find.text('via Moncalieri (Grugliasco) – corso Farini'));
+      await tester.pumpAndSettle();
+      expect(find.text('Dove sali?'), findsOneWidget);
+      // Al capolinea non si sale.
+      expect(find.textContaining('Molinette'), findsNothing);
+      await tester.tap(find.textContaining('Sabotino'));
+      await tester.pumpAndSettle();
+      expect(find.text('Dove scendi?'), findsOneWidget);
+      await tester.tap(find.textContaining('Porta Nuova').last);
+      await tester.pumpAndSettle();
+      expect(find.text('Sali a Sabotino'), findsOneWidget);
+      expect(find.text('Scendi a Porta Nuova'), findsOneWidget);
+
+      // Il cambio: prima le linee che passano da dove si scende, e fra
+      // le fermate quella dove si e' scesi.
+      await tester.tap(find.text('Aggiungi un cambio'));
+      await tester.pumpAndSettle();
+      expect(find.text('Passano da Porta Nuova o vicino'), findsOneWidget);
+      await tester.tap(find.text('via Servais – corso Bolzano').first);
+      await tester.pumpAndSettle();
+      expect(find.text('Vicino a dove scendi'), findsOneWidget);
+      await tester.tap(find.text('La fermata dove scendi'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.textContaining('Molinette'));
+      await tester.pumpAndSettle();
+      expect(find.text('Cambio'), findsOneWidget);
+
+      await tester.enterText(find.byType(TextField), 'Casa – lavoro');
+      await tester.tap(find.text('Salva'));
+      await tester.pumpAndSettle();
+
+      // In home, con le sue linee aggiunte: senza, non avrebbe uno stato.
+      expect(find.text('I tuoi tragitti'), findsOneWidget);
+      expect(find.text('Casa – lavoro'), findsOneWidget);
+      expect(repo.settings.watchlist, containsAll(['55', '65']));
+      expect(
+        find.text('Linea 55: non ferma a Sabotino · sali a Porta Nuova'),
+        findsOneWidget,
+      );
+
+      // Il dettaglio, tratta per tratta; e si elimina.
+      await tester.tap(find.text('Casa – lavoro'));
+      await tester.pumpAndSettle();
+      expect(find.text('Non servita'), findsOneWidget);
+      expect(find.text('Servita'), findsNWidgets(3));
+      expect(find.text('Cambio'), findsOneWidget);
+      await tester.tap(find.byTooltip('Elimina'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(TextButton, 'Elimina'));
+      await tester.pumpAndSettle();
+      expect(find.text('I tuoi tragitti'), findsNothing);
+      expect(repo.tragitti, isEmpty);
+      // Le linee restano.
+      expect(repo.settings.watchlist, containsAll(['55', '65']));
+    });
+
+    testWidgets('senza nome si chiama da dove a dove', (tester) async {
+      final repo = await repoWith({}, fonte());
+      await repo.initialise();
+      await tester.pumpWidget(GttApp(repo: repo));
+      await tester.pump();
+      await tester.tap(find.widgetWithText(FilledButton, 'Aggiungi una linea'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Nuovo tragitto, anche con cambi'));
+      await tester.pumpAndSettle();
+      // Senza tratte non si salva.
+      expect(
+        tester.widget<TextButton>(find.widgetWithText(TextButton, 'Salva'))
+            .onPressed,
+        isNull,
+      );
+      await tester.tap(find.text('Aggiungi una linea'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('via Servais – corso Bolzano'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.textContaining('Porta Nuova'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.textContaining('Molinette'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Salva'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Porta Nuova – Molinette'), findsOneWidget);
+      expect(find.text('Tutto servito'), findsOneWidget);
+
+      // Cambiate le fermate, il nome proposto le segue.
+      await tester.tap(find.text('Porta Nuova – Molinette'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Modifica'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Rimuovi questa linea'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Aggiungi una linea'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('via Servais – corso Bolzano').last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.textContaining('Sabotino'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.textContaining('Molinette'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Salva'));
+      await tester.pumpAndSettle();
+      expect(find.text('Sabotino – Molinette'), findsOneWidget);
+    });
   });
 
   test('la stessa linea non si aggiunge due volte', () async {
