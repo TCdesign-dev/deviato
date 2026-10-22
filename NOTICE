@@ -1,0 +1,22 @@
+DeviaTo
+Copyright 2026 Tommaso Costanza
+https://deviato.it - https://github.com/TCdesign-dev/deviato
+
+Questo software è stato creato da Tommaso Costanza ed è distribuito con
+la Licenza Apache, versione 2.0 (file LICENSE). Chi lo ridistribuisce,
+anche in parte o modificato, o distribuisce un'opera derivata, deve
+riportare questo avviso con il nome dell'autore, come richiede la
+sezione 4(d) della licenza.
+
+This software was created by Tommaso Costanza and is licensed under the
+Apache License, Version 2.0 (see LICENSE). Anyone who redistributes it,
+in whole or in part, modified or not, or distributes a work derived from
+it, must include this notice with the author's name, as required by
+Section 4(d) of the License.
+
+Dati e mappe / Data and maps
+- Dati di trasporto: GTT S.p.A. - Gruppo Torinese Trasporti, dati aperti
+  (https://www.gtt.to.it/gtt_gtfs_license.html), solo per uso non
+  commerciale.
+- Mappe: (c) contributori di OpenStreetMap (ODbL), (c) CARTO.
+La licenza Apache riguarda il codice, non i dati.

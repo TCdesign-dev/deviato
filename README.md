@@ -6,7 +6,7 @@
 DeviaTo li trasforma in una mappa e risponde a una domanda sola:
 la mia fermata è ancora servita?**
 
-[![Licenza: MIT](https://img.shields.io/badge/licenza-MIT-blue.svg)](LICENSE)
+[![Licenza: Apache 2.0](https://img.shields.io/badge/licenza-Apache%202.0-blue.svg)](LICENSE)
 [![Piattaforme](https://img.shields.io/badge/piattaforme-iOS%20%7C%20Android-lightgrey.svg)](#-scaricala)
 [![Flutter](https://img.shields.io/badge/Flutter-Dart%203.12+-02569B.svg)](https://flutter.dev)
 [![Test](https://img.shields.io/badge/test-409-brightgreen.svg)](#-sviluppo)
@@ -413,5 +413,7 @@ l'intestazione `X-Client-Id` che FOSSGIS chiede alle app pubblicate.
 
 DeviaTo non è un'app di GTT e non è collegata a GTT.
 
-Il codice è distribuito con licenza **MIT** — vedi [`LICENSE`](LICENSE). La
-licenza riguarda il codice, non i dati.
+Il codice è distribuito con licenza **Apache 2.0** — vedi [`LICENSE`](LICENSE) —
+e chi lo ridistribuisce, anche modificato, deve citare l'autore
+riportando il file [`NOTICE`](NOTICE). La licenza riguarda il codice, non i
+dati.
