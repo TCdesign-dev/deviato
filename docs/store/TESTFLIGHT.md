@@ -68,7 +68,26 @@ No login is needed. To try it: tap +, pick a line (for example 10N or 15), then 
 
 ## 4. Cosa testare (per ogni build)
 
-**Build 1.0.0 (15)** — quella da dare ai tester (dell'01/10, caricata
+**Build 1.0.0 (16)** — quella da dare ai tester (caricata su TestFlight
+il 22/10; AAB versionCode 16 per il Play Store, vedi l'avviso su ML Kit
+in `PLAY.md`). Cosa provare:
+
+- dal «+» si cercano anche le **fermate**, per nome o numero di palina;
+  toccandone una si apre la schermata della fermata, con tutte le linee
+  che ci passano, se adesso fermano, «Salva», e in fondo i passaggi in
+  tempo reale sul sito di GTT;
+- **«Inquadra il QR della fermata»**, sempre dal «+»: va provato su un
+  telefono vero, davanti a una palina (il simulatore non ha fotocamera).
+  Il permesso della fotocamera si chiede solo lì;
+- **«Nuovo tragitto, anche con cambi»**: linea, direzione, dove sali,
+  dove scendi, poi un cambio; in home una riga dice «Tutto servito» o il
+  primo intoppo;
+- gli **scioperi** in cima alla home, nei sette giorni prima (quello del
+  30/10 compare dal 23/10);
+- le **date lette dal testo** degli avvisi: in programma, «in altri
+  giorni o orari», «Terminati».
+
+**Build 1.0.0 (15)** (dell'01/10, caricata
 su TestFlight il 02/10; AAB versionCode 15 per il Play Store. Il primo
 caricamento rispondeva «You do not have required contracts» e poi «PLA
 Update available»: Apple aveva aggiornato l'accordo per sviluppatori, e

@@ -56,6 +56,16 @@ di dati utente richiesti?» → **No**. Il perché, se serve spiegarlo:
 
 È la stessa cosa che dice l'informativa sul sito.
 
+⚠️ **Dalla build 16 su Android non è più vero del tutto.** Il QR si legge
+con ML Kit di Google (via `mobile_scanner`), che secondo Google manda ai
+suoi server, per diagnostica e statistiche d'uso, informazioni sul
+dispositivo e sull'app, un identificativo e misure di prestazione (non le
+immagini). Fonte: developers.google.com/ml-kit/android-data-disclosure.
+Finché resta ML Kit, la risposta qui sopra va cambiata (dati raccolti:
+info e prestazioni dell'app, ID dispositivo; scopo statistiche e
+diagnostica; non condivisi; cifrati in transito) e l'informativa va
+aggiornata. Su iPhone il lettore è quello di Apple e non manda niente.
+
 **Stato di commerciante (DSA, Unione Europea)**: la Console chiede se
 pubblichi come commerciante. Per un'app gratuita, senza entrate, fatta da
 un privato, la risposta di solito è **non commerciante**: la decisione è
@@ -131,7 +141,8 @@ telefono no.
    Play**: accettare. La chiave `~/deviato-upload.jks` resta quella di
    caricamento; la chiave di firma la tiene Google.
 3. Carica `app/build/app/outputs/bundle/release/app-release.aab`
-   (versionCode 14 il 30/09, 15 l'01/10). Nome release: `1.0.0 (15)`.
+   (versionCode 14 il 30/09, 15 l'01/10, 16 il 22/10). Nome release:
+   `1.0.0 (16)`.
 4. Note di rilascio, per la prima:
 
    ```text
@@ -145,6 +156,14 @@ telefono no.
    ```text
    <it-IT>
    Sulla mappa a tutto schermo i comandi stanno nella scheda in basso, che si può ridurre per vedere meglio la mappa.
+   </it-IT>
+   ```
+
+   Per la 16:
+
+   ```text
+   <it-IT>
+   Cerca una fermata per nome o numero di palina, o inquadra il QR sulla palina. Nuovi i tragitti, anche con cambi: una riga ti dice se le tue fermate sono servite. In cima alla home gli scioperi dei prossimi giorni.
    </it-IT>
    ```
 
