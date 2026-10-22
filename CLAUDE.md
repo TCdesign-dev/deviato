@@ -225,7 +225,7 @@ Non sono stime. Se li rimetti in discussione, rimisurali.
 | `active_period.start` negli alert | **161 su 161 nel passato** | idem |
 | Variazioni pubblicate da **entrambe** le fonti | **31 coppie** su 189 avvisi | `check_merge_offline.dart` |
 | Di queste, quelle in cui la data d'inizio cambia | **17** (fino a 3 mesi) | idem |
-| Test | **420** | `flutter test` |
+| Test | **422** | `flutter test` |
 | Somiglianza fra le vie nominate: coppie vere | **0,67 – 1,00** e ≥3 vie | idem |
 | Idem, coppie false | **0,67 con 2 vie**, o 3 vie a **0,38** | idem |
 | Data d'inizio estraibile a regex dal testo | **40%** — troppo poco | idem |
@@ -506,6 +506,21 @@ Ognuna di queste è costata tempo. Sono tutte silenziose: non danno errore.
   prima degli avvisi di GTT, così si pubblica anche quando GTT è giù.
   L'app lo mostra in cima alla home solo entro sette giorni. Idea presa da
   un fork del 15/10 (`caccapuzz-klipper/deviato`); il codice è nostro.
+- **Il QR sulla palina dice il numero della fermata.** GTT non lo
+  documenta; decodificato dal suo tutorial il 22/10/2026:
+  `http://www.gtt.to.it/cms/percorari/arrivi?palina=597`
+  (`pipeline/qr_fermata.dart`). Dal «+» si inquadra
+  (`ui/scanner_fermata.dart`, pacchetto `mobile_scanner`, solo QR) e si
+  apre la schermata della fermata (`ui/stop_screen.dart`), che dice per
+  ogni linea se adesso ferma — anche le linee non seguite, lette al volo
+  con `AppRepository.rispostaPer` — e in fondo apre quella pagina di GTT
+  per i passaggi in tempo reale. Su Android il riconoscimento è la
+  versione di Google Play scaricata al primo uso
+  (`useUnbundled` in `gradle.properties`: +600 KB invece di 3–10 MB). Il
+  permesso della fotocamera si chiede solo al tocco; le immagini restano
+  sul telefono (detto in `NSCameraUsageDescription` e nell'informativa).
+  Sul simulatore iOS non c'è fotocamera: la lettura vera si prova su un
+  telefono.
 - **`Dismissible` pretende che la riga sparisca subito.** Se al primo
   aggiornamento dello schermo la linea tolta è ancora nell'elenco, Flutter
   si ferma con un errore. Per questo `removeLine` toglie dalla memoria
@@ -770,7 +785,7 @@ Per non fraintendere quello che c'è in `config.dart`:
 ## 8. Come si lavora
 
 ```bash
-cd app && flutter test          # 420 test, devono passare tutti
+cd app && flutter test          # 422 test, devono passare tutti
 cd app && flutter analyze       # deve essere pulito
 ```
 
@@ -841,4 +856,4 @@ facendo gli screenshot troppo presto.
 
 ---
 
-*Ultimo aggiornamento: 22 ottobre 2026. 420 test.*
+*Ultimo aggiornamento: 22 ottobre 2026. 422 test.*

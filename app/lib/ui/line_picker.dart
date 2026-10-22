@@ -6,6 +6,7 @@ import '../core/pipeline/stop_search.dart';
 import '../core/text/display_names.dart';
 import '../data/app_repository.dart';
 import 'line_badge.dart';
+import 'scanner_fermata.dart';
 import 'stop_screen.dart';
 import 'theme.dart';
 
@@ -68,6 +69,42 @@ class _LinePickerState extends State<LinePicker> {
     );
   }
 
+  /// Chiude la ricerca, inquadra il QR e apre la fermata letta.
+  Future<void> _scansiona() async {
+    final nav = Navigator.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    final repo = widget.repo;
+    nav.pop();
+    final palina = await nav.push<String>(
+      MaterialPageRoute(builder: (_) => const ScannerFermata()),
+    );
+    if (palina == null) return;
+    await repo.caricaFermate(forza: repo.fermateRete == null);
+    final trovate = [
+      for (final f in repo.fermateRete?.fermate ?? const <FermataCercabile>[])
+        if (f.stop.code == palina) f,
+    ];
+    if (trovate.isEmpty) {
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            repo.fermateRete == null
+                ? 'Impossibile caricare le fermate. Controlla la '
+                      'connessione e riprova.'
+                : 'La fermata $palina non risulta fra quelle di GTT. '
+                      'Prova a cercarla per nome.',
+          ),
+        ),
+      );
+      return;
+    }
+    nav.push(
+      MaterialPageRoute<void>(
+        builder: (_) => StopScreen(repo: repo, fermata: trovate.first),
+      ),
+    );
+  }
+
   /// Apre la fermata, chiudendo la ricerca.
   void _apri(FermataCercabile f) {
     final nav = Navigator.of(context);
@@ -109,6 +146,20 @@ class _LinePickerState extends State<LinePicker> {
               ),
             ),
           ),
+          // Il QR sulla palina: alla fermata e' il modo piu' rapido, e non
+          // serve sapere come si chiama.
+          if (_query.text.isEmpty)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(8, 0, 16, 4),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  onPressed: _scansiona,
+                  icon: const Icon(Icons.qr_code_scanner),
+                  label: const Text('Inquadra il QR della fermata'),
+                ),
+              ),
+            ),
           Expanded(
             child: ListenableBuilder(
               listenable: widget.repo,

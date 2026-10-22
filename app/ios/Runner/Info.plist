@@ -33,6 +33,8 @@
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
+	<key>NSCameraUsageDescription</key>
+	<string>Legge il QR code sulla palina della fermata GTT, per aprirla. Le immagini restano sul telefono e non vengono salvate né inviate.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>Ti mostra sulla mappa della linea, così vedi quale fermata ti conviene. La posizione resta sul telefono e non viene inviata a nessuno.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>

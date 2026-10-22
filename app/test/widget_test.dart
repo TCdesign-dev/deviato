@@ -173,12 +173,15 @@ void main() {
 
     await tester.tap(find.widgetWithText(FilledButton, 'Aggiungi una linea'));
     await tester.pumpAndSettle();
+    expect(find.text('Inquadra il QR della fermata'), findsOneWidget);
     await tester.enterText(find.byType(TextField), '100');
     await tester.pumpAndSettle();
     // Il file delle fermate si scarica alla prima lettera, una volta.
     expect(f.scaricati.where((p) => p == 'fermate.json'), hasLength(1));
 
     expect(find.text('Fermate'), findsOneWidget);
+    // Cercando, il QR lascia il posto ai risultati.
+    expect(find.text('Inquadra il QR della fermata'), findsNothing);
     await tester.tap(find.textContaining('Sabotino'));
     await tester.pumpAndSettle();
 
