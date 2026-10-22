@@ -641,6 +641,12 @@ Ognuna di queste è costata tempo. Sono tutte silenziose: non danno errore.
   se non c'è niente di nuovo. Restano online i dati di prima con la loro
   ora: la spia del sito diventa arancione dopo 90 minuti, l'app dice
   «aggiornate alle…». Non si pubblicano mai stati vecchi con un'ora nuova.
+  **Ma in silenzio non si accorge nessuno**: dal 20/10 alle 23:20 il feed
+  è rimasto giù un giorno e mezzo e il job, verde a ogni giro, non
+  pubblicava. Dal 22/10, passate sei ore dall'ultima pubblicazione, il
+  calcolo scrive `gtt_giu.txt` e il workflow apre la segnalazione «Gli
+  avvisi di GTT non rispondono» sul repository (una mail sola); quando GTT
+  torna la chiude da solo.
 - **Gli orari programmati di GitHub sono una promessa debole.** Nelle
   prime dodici ore, coi minuti 5/25/45, sono partiti **3 giri su 27**:
   nessun errore, nessun giro annullato, semplicemente non lanciati.

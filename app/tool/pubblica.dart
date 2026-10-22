@@ -89,6 +89,7 @@ Future<void> main(List<String> args) async {
   } on Object catch (e) {
     _log('::warning::Gli avvisi di GTT non rispondono (${_breve(e)}). '
         'Questo giro non pubblica niente: restano i dati del giro prima.');
+    _segnalaSeDura(uscita, env, _breve(e));
     await stdout.flush();
     exit(0);
   }
@@ -185,6 +186,47 @@ Future<void> main(List<String> args) async {
     _log('linee con errori: ${giro.errori.length}');
   }
 }
+
+/// Da quante ore GTT non risponde, se oltre [GttConfig] non si tace piu'.
+///
+/// Dal 20/10/2026 alle 23:20 il feed degli avvisi ha dato 500 per un
+/// giorno e mezzo: il job, fatto per non fallire per un guasto di GTT, ha
+/// smesso di pubblicare senza che nessuno se ne accorgesse. Passate
+/// [_oreDiSilenzio] ore dall'ultima pubblicazione scrive il file
+/// `gtt_giu.txt` nella cartella del repository: il workflow apre una
+/// segnalazione su GitHub (una mail, non una a giro) e la chiude quando
+/// GTT torna.
+void _segnalaSeDura(Directory uscita, Map<String, String> env, String errore) {
+  final cartella = env['GITHUB_WORKSPACE'];
+  if (cartella == null) return;
+  final f = File('${uscita.path}/indice.json');
+  if (!f.existsSync()) return;
+  final DateTime ultima;
+  try {
+    ultima = FormatoPubblicato.leggiIndice(
+      jsonDecode(f.readAsStringSync()) as Map<String, dynamic>,
+    ).generato;
+  } on Object {
+    return;
+  }
+  final ore = DateTime.now().difference(ultima).inHours;
+  if (ore < _oreDiSilenzio) return;
+  String due(int n) => n.toString().padLeft(2, '0');
+  final quando = '${due(ultima.day)}/${due(ultima.month)} alle '
+      '${due(ultima.hour)}:${due(ultima.minute)}';
+  File('$cartella/gtt_giu.txt').writeAsStringSync(
+    'Il feed degli avvisi di GTT (alerts.aspx) non risponde: $errore.\n\n'
+    'I dati di DeviaTo sono fermi all\'ultima pubblicazione, del $quando '
+    '($ore ore fa). App e sito mostrano quell\'ora; il job continua a '
+    'provare ogni mezz\'ora e questa segnalazione si chiude da sola quando '
+    'GTT torna a rispondere.\n\n'
+    'Non c\'e\' niente da sistemare nel codice: e\' un guasto di GTT. Se '
+    'dura, si puo\' segnalare a GTT (contatto dei dati aperti nel '
+    'feed_info: campagna.a@gtt.to.it).',
+  );
+}
+
+const _oreDiSilenzio = 6;
 
 /// Gli stati del giro precedente, riletti con i percorsi di oggi. Un
 /// avviso agganciato a un percorso sparito si perde, e si rilegge.

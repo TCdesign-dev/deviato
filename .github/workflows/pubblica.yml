@@ -29,6 +29,8 @@ on:
 
 permissions:
   contents: write
+  # Per aprire e chiudere la segnalazione quando GTT non risponde da ore.
+  issues: write
 
 # Mai due giri insieme: il secondo leggerebbe lo stato mentre il primo lo
 # scrive.
@@ -86,7 +88,24 @@ jobs:
           LLM_MAX_RICHIESTE: ${{ vars.LLM_MAX_RICHIESTE }}
           USA_TABELLA_VARIAZIONI: ${{ vars.USA_TABELLA_VARIAZIONI }}
           ALGORITMO_PERCORSI: ${{ vars.ALGORITMO_PERCORSI }}
-        run: dart run tool/pubblica.dart --uscita ../sito/v1 --gtfs ../.gtfs
+        run: dart run tool/pubblica.dart --uscita ../sito/v1 --gtfs ../.gtfs 2>&1 | tee "$RUNNER_TEMP/calcolo.log"; exit "${PIPESTATUS[0]}"
+
+      # GTT non risponde da piu' di sei ore (il calcolo ha scritto
+      # gtt_giu.txt): una segnalazione sul repository, una volta sola, e
+      # GitHub manda una mail. Quando GTT torna si chiude da sola.
+      - name: Segnalazione se GTT non risponde
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          titolo="Gli avvisi di GTT non rispondono"
+          aperta=$(gh issue list --state open --search "\"$titolo\" in:title" --json number --jq '.[0].number // empty')
+          if [ -f gtt_giu.txt ]; then
+            if [ -z "$aperta" ]; then
+              gh issue create --title "$titolo" --body-file gtt_giu.txt
+            fi
+          elif [ -n "$aperta" ] && ! grep -q "non rispondono" "$RUNNER_TEMP/calcolo.log" 2>/dev/null; then
+            gh issue close "$aperta" --comment "GTT risponde di nuovo: dati pubblicati il $(date '+%d/%m alle %H:%M')."
+          fi
 
       # Il sito dell'app (web/) sta accanto ai dati: la pagina principale
       # e la privacy all'indirizzo di base, i dati sotto v1/.
