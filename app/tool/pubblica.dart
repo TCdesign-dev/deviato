@@ -33,6 +33,7 @@
 //
 // Scrive solo i file cambiati: i percorsi cambiano con gli orari nuovi, gli
 // stati quando cambiano gli avvisi. L'indice ogni volta, con l'ora del giro.
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -158,6 +159,20 @@ Future<void> main(List<String> args) async {
   final precedenti = _leggiPrecedenti(uscita, index);
   _log('esiti precedenti: ${precedenti.length} linee');
 
+  // 3b. Le linee in quarantena. Il 28/10 un giro dopo l'altro si e'
+  // fermato sulla stessa linea finche' il job non e' stato interrotto, e
+  // nessuna linea si aggiornava piu'. Il giro scrive su quale linea sta
+  // lavorando (`giro.json`); se il workflow lo interrompe li', il giro dopo
+  // per un giorno aggiorna quella linea col solo testo degli avvisi, e le
+  // altre vanno avanti.
+  final quarantena = _Quarantena.leggi(uscita);
+  for (final e in quarantena.linee.entries) {
+    final nome = index.lines[e.key]?.shortName ?? e.key;
+    _log('::warning::Linea $nome col solo testo degli avvisi fino al '
+        '${_quando(e.value.add(_Quarantena.durata))}: il suo calcolo si era '
+        'bloccato.');
+  }
+
   // 4. Il calcolo, con un tetto di richieste e di tempo.
   final chiave = env['OPENROUTER_API_KEY'] ?? '';
   final LlmClient modello = chiave.isEmpty
@@ -190,8 +205,29 @@ Future<void> main(List<String> args) async {
     scadenzaCambioAlgoritmo: scadenza,
     scadenzaGiro: scadenzaGiro,
   );
-  final giro = await Pubblicatore(index: index, service: service)
-      .calcola(avvisi: avvisi, precedenti: precedenti, log: _log);
+  // Una riga ogni due minuti su dove si e' arrivati: se il giro non
+  // finisce, il log dice dove si e' fermato.
+  var fase = '', lineaInCorso = '';
+  var dal = DateTime.now();
+  final sentinella = Timer.periodic(const Duration(minutes: 2), (_) {
+    _log('in corso: linea $lineaInCorso, $fase '
+        '(da ${DateTime.now().difference(dal).inSeconds} s)');
+  });
+  final giro = await Pubblicatore(index: index, service: service).calcola(
+    avvisi: avvisi,
+    precedenti: precedenti,
+    log: _log,
+    soloTesto: quarantena.linee.keys.toSet(),
+    inizio: (l) {
+      lineaInCorso = l.shortName;
+      fase = '';
+      dal = DateTime.now();
+      quarantena.inCorso(uscita, l.routeId);
+    },
+    fase: (l, f) => fase = f,
+  );
+  sentinella.cancel();
+  quarantena.finito(uscita);
 
   // 5. I file.
   var scritti = 0;
@@ -323,6 +359,65 @@ Map<String, LineStatus> _leggiPrecedenti(Directory uscita, GtfsIndex index) {
 }
 
 /// Scrive [contenuto] se e' diverso da quello che c'e'. Vero se ha scritto.
+String _quando(DateTime t) {
+  String due(int n) => n.toString().padLeft(2, '0');
+  return '${due(t.day)}/${due(t.month)} alle ${due(t.hour)}:${due(t.minute)}';
+}
+
+/// `giro.json`: la linea su cui il giro sta lavorando, e quelle che da un
+/// giorno si aggiornano col solo testo perche' il loro calcolo si era
+/// bloccato. Sta accanto ai dati, nel ramo pubblicato: e' l'unico posto che
+/// il giro dopo ritrova.
+class _Quarantena {
+  _Quarantena(this.linee);
+
+  static const durata = Duration(hours: 24);
+
+  /// route_id -> da quando.
+  final Map<String, DateTime> linee;
+
+  static File _file(Directory uscita) => File('${uscita.path}/giro.json');
+
+  static _Quarantena leggi(Directory uscita) {
+    final linee = <String, DateTime>{};
+    final f = _file(uscita);
+    if (f.existsSync()) {
+      try {
+        final j = jsonDecode(f.readAsStringSync()) as Map<String, dynamic>;
+        for (final e in ((j['bloccate'] as Map?) ?? const {}).entries) {
+          final quando = DateTime.tryParse('${e.value}');
+          if (quando != null) linee['${e.key}'] = quando.toLocal();
+        }
+        // Il giro prima si e' fermato qui: non ha mai finito la linea.
+        final ferma = j['inCorso'];
+        if (ferma is String) linee[ferma] = DateTime.now();
+      } on Object {
+        // Un file rovinato non deve fermare il giro.
+      }
+    }
+    linee.removeWhere(
+        (_, quando) => DateTime.now().difference(quando) > durata);
+    return _Quarantena(linee);
+  }
+
+  void inCorso(Directory uscita, String routeId) =>
+      _scriviGiro(uscita, inCorso: routeId);
+
+  void finito(Directory uscita) => _scriviGiro(uscita);
+
+  void _scriviGiro(Directory uscita, {String? inCorso}) {
+    final f = _file(uscita);
+    f.parent.createSync(recursive: true);
+    f.writeAsStringSync(jsonEncode({
+      'inCorso': ?inCorso,
+      'bloccate': {
+        for (final e in linee.entries)
+          e.key: e.value.toUtc().toIso8601String(),
+      },
+    }));
+  }
+}
+
 bool _scrivi(Directory base, String percorso, Map<String, Object?> contenuto) {
   final f = File('${base.path}/$percorso');
   final testo = jsonEncode(contenuto);

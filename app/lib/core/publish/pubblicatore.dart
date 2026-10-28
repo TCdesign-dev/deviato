@@ -45,10 +45,17 @@ class Pubblicatore {
   final GtfsIndex index;
   final DeviationService service;
 
+  /// [soloTesto]: le linee da non ricalcolare (vedi
+  /// [DeviationService.statusOf]). [inizio] si chiama prima di ogni linea,
+  /// [fase] a ogni passo dentro la linea: servono a dire dove si e'
+  /// fermato un giro che non finisce.
   Future<GiroPubblicazione> calcola({
     required List<RawNotice> avvisi,
     Map<String, LineStatus> precedenti = const {},
     void Function(String riga)? log,
+    Set<String> soloTesto = const {},
+    void Function(TransitLine linea)? inizio,
+    void Function(TransitLine linea, String fase)? fase,
   }) async {
     final linee = index.lines.values.toList()..sort(TransitLine.compare);
     final stati = <String, LineStatus>{};
@@ -56,11 +63,14 @@ class Pubblicatore {
 
     for (final linea in linee) {
       final orologio = Stopwatch()..start();
+      inizio?.call(linea);
       try {
         stati[linea.routeId] = await service.statusOf(
           linea,
           allNotices: avvisi,
           previous: precedenti[linea.routeId],
+          soloTesto: soloTesto.contains(linea.routeId),
+          onProgress: fase == null ? null : (f) => fase(linea, f),
         );
         // Il 28/10 due giri di fila hanno superato i 25 minuti senza dire
         // una riga fra «algoritmo dei percorsi» e l'annullamento: le linee

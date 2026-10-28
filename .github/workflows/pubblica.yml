@@ -88,7 +88,19 @@ jobs:
           LLM_MAX_RICHIESTE: ${{ vars.LLM_MAX_RICHIESTE }}
           USA_TABELLA_VARIAZIONI: ${{ vars.USA_TABELLA_VARIAZIONI }}
           ALGORITMO_PERCORSI: ${{ vars.ALGORITMO_PERCORSI }}
-        run: dart run tool/pubblica.dart --uscita ../sito/v1 --gtfs ../.gtfs 2>&1 | tee "$RUNNER_TEMP/calcolo.log"; exit "${PIPESTATUS[0]}"
+        # Un tetto al calcolo sotto quello del job (25 minuti): il 28/10 un
+        # giro dopo l'altro si e' fermato sulla stessa linea, il job veniva
+        # annullato e non si pubblicava niente. Fermato qui, il passo non
+        # fallisce: si pubblica quello che c'e', compreso `giro.json` con la
+        # linea su cui si era fermato, che il giro dopo mette in quarantena.
+        run: |
+          timeout --kill-after=30s 21m dart run tool/pubblica.dart --uscita ../sito/v1 --gtfs ../.gtfs 2>&1 | tee "$RUNNER_TEMP/calcolo.log"
+          stato="${PIPESTATUS[0]}"
+          if [ "$stato" = 124 ] || [ "$stato" = 137 ]; then
+            echo "::warning::Il calcolo ha superato i 21 minuti ed e' stato fermato: la linea su cui era fermo va in quarantena per un giorno."
+            exit 0
+          fi
+          exit "$stato"
 
       # GTT non risponde da piu' di sei ore (il calcolo ha scritto
       # gtt_giu.txt): una segnalazione sul repository, una volta sola, e

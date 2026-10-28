@@ -397,11 +397,15 @@ class DeviationService {
   ///
   /// [previous] e' l'esito precedente della stessa linea: gli avvisi che
   /// non sono cambiati da allora non si rileggono (vedi [_giaLetto]).
+  ///
+  /// Con [soloTesto] non si rifa' nessun percorso: come oltre la
+  /// [scadenzaGiro], per una linea il cui calcolo si e' bloccato.
   Future<LineStatus> statusOf(
     TransitLine line, {
     List<RawNotice>? allNotices,
     LineStatus? previous,
     void Function(String phase)? onProgress,
+    bool soloTesto = false,
   }) async {
     final andata = index.mainShape(line.routeId, 0);
     final ritorno = index.mainShape(line.routeId, 1);
@@ -455,7 +459,7 @@ class DeviationService {
         continue;
       }
 
-      final oltre = _oltreLaScadenza;
+      final oltre = soloTesto || _oltreLaScadenza;
       if (oltre) {
         rimandati++;
         final vecchi = prima?.toList() ?? const <DeviationReport>[];

@@ -722,6 +722,19 @@ Ognuna di queste è costata tempo. Sono tutte silenziose: non danno errore.
   dopo rifà il percorso senza chiedere di nuovo il modello. Il log dice
   quanti avvisi sono stati rimandati, e quali linee hanno preso più di
   30 s (in locale, senza modello: la 3429 tre minuti, la 50 un minuto).
+  (4) **Non bastava**: col codice nuovo il giro si è fermato lo stesso,
+  dopo «linea 1C: 55 s» ventidue minuti di silenzio. Era **una linea
+  sola** a non finire, e la scadenza si guarda solo fra un avviso e
+  l'altro. Le chiamate di rete hanno tutte il loro tempo massimo, quindi è
+  un calcolo che con certe letture non finisce più (non trovato: in locale,
+  senza le letture nuove del modello, non succede). Tre difese: il workflow
+  ferma il calcolo a 21 minuti (`timeout`) e il passo non fallisce; il
+  giro scrive in `giro.json`, accanto ai dati, la linea su cui sta
+  lavorando, e se viene fermato lì il giro dopo per **24 ore** aggiorna
+  quella linea col solo testo degli avvisi (`::warning::` nel log), e le
+  altre vanno avanti; ogni due minuti il log dice linea e fase in corso
+  («linea 3429, Avviso 1 di 3 · ricerca di «via Caluso» (da 106 s)»), così
+  il prossimo blocco dice dove sta.
   **E nell'app i dati vecchi ora si vedono**: il job scrive `salute.json`
   (se gli avvisi di GTT rispondevano, e quando) anche nei giri che non
   pubblicano, e la home mostra in cima «Dati non aggiornati da…» passate
