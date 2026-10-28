@@ -98,13 +98,20 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           titolo="Gli avvisi di GTT non rispondono"
-          aperta=$(gh issue list --state open --search "\"$titolo\" in:title" --json number --jq '.[0].number // empty')
+          # L'elenco, non la ricerca di GitHub: il 22/10 la ricerca non ha
+          # trovato la #1, aperta da sei ore, e il giro ne ha aperta
+          # un'altra; tornato GTT si e' chiusa solo quella. Si guardano
+          # tutte le aperte con quel titolo, e si chiudono tutte.
+          aperte=$(gh issue list --state open --limit 100 --json number,title \
+            --jq ".[] | select(.title == \"$titolo\") | .number")
           if [ -f gtt_giu.txt ]; then
-            if [ -z "$aperta" ]; then
+            if [ -z "$aperte" ]; then
               gh issue create --title "$titolo" --body-file gtt_giu.txt
             fi
-          elif [ -n "$aperta" ] && ! grep -q "non rispondono" "$RUNNER_TEMP/calcolo.log" 2>/dev/null; then
-            gh issue close "$aperta" --comment "GTT risponde di nuovo: dati pubblicati il $(date '+%d/%m alle %H:%M')."
+          elif [ -n "$aperte" ] && ! grep -q "non rispondono" "$RUNNER_TEMP/calcolo.log" 2>/dev/null; then
+            for n in $aperte; do
+              gh issue close "$n" --comment "GTT risponde di nuovo: dati pubblicati il $(date '+%d/%m alle %H:%M')."
+            done
           fi
 
       # Il sito dell'app (web/) sta accanto ai dati: la pagina principale

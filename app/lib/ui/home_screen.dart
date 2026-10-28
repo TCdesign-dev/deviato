@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../core/models/saved_stop.dart';
 import '../core/models/transit.dart';
 import '../data/app_repository.dart';
+import 'dati_vecchi_banner.dart';
 import 'line_picker.dart';
 import 'line_screen.dart';
 import 'line_tile.dart';
@@ -112,6 +113,7 @@ class HomeScreen extends StatelessWidget {
         children: [
           if (repo.error != null)
             _ErrorBanner(message: repo.error!, onClose: repo.clearError),
+          DatiVecchiBanner(stato: repo.datiVecchi, ora: DateTime.now()),
           ScioperoBanner(scioperi: repo.scioperi, oggi: DateTime.now()),
 
           if (repo.tragitti.isNotEmpty) ...[

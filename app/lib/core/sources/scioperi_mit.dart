@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:html/parser.dart' as html;
 
 import '../net/gtt_http.dart';
@@ -156,8 +158,14 @@ class ScioperiMit {
   static const url = 'https://scioperi.mit.gov.it/mit2/public/scioperi';
 
   /// Tutti gli scioperi in calendario.
+  ///
+  /// La pagina e' UTF-8 ma il Ministero dichiara `text/html` senza la
+  /// codifica, e in quel caso il client la legge come latin-1: «Modalità»
+  /// diventava «ModalitÃ », la colonna non si trovava, e dal 22 al 28/10
+  /// le modalita' sono uscite vuote («Bus e tram: .») e il CUB del
+  /// 20–21/11 fermava bus e tram due giorni invece di uno.
   Future<List<Sciopero>> scarica() async =>
-      leggi(await _http.getText(url, timeout: const Duration(seconds: 30)));
+      leggi(utf8.decode(await _http.getBytes(url), allowMalformed: true));
 
   /// Gli scioperi della tabella grande (`scioperiLarge`): la pagina ne ha
   /// anche una per il telefono, con le stesse righe.
@@ -175,7 +183,9 @@ class ScioperiMit {
       for (final th in tabella.querySelectorAll('th'))
         th.text.replaceAll('*', '').trim().toLowerCase(),
     ];
-    int col(String nome) => intestazione.indexOf(nome);
+    // Per l'inizio del nome: «modalit» trova «modalità» anche se un giorno
+    // l'accento arrivasse scritto in un altro modo.
+    int col(String nome) => intestazione.indexWhere((h) => h.startsWith(nome));
     final cInizio = col('inizio'), cFine = col('fine');
     if (cInizio < 0 || cFine < 0) return const [];
 
@@ -201,7 +211,7 @@ class ScioperiMit {
           sindacati: c('sindacati'),
           settore: c('settore'),
           categoria: c('categoria'),
-          modalita: c('modalità'),
+          modalita: c('modalit'),
           rilevanza: c('rilevanza'),
           note: c('note'),
           regione: c('regione'),

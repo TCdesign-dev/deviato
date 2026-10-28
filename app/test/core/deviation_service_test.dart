@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gtt_deviazioni/core/deviation_service.dart';
 import 'package:gtt_deviazioni/core/geo/projection.dart';
@@ -28,6 +30,37 @@ class _LlmSpento implements LlmClient {
 }
 
 /// Photon che non trova niente, senza rete.
+/// Un LLM che legge l'avviso, ma ci mette un po': la scadenza del giro
+/// passa mentre risponde.
+class _LlmLento implements LlmClient {
+  _LlmLento(this.attesa);
+
+  final Duration attesa;
+  int richieste = 0;
+
+  @override
+  String get name => 'lento';
+
+  @override
+  Future<String> complete(String prompt,
+      {Map<String, dynamic>? jsonSchema}) async {
+    richieste++;
+    await Future<void>.delayed(attesa);
+    return jsonEncode({
+      'deviations': [
+        {
+          'lines': ['T'],
+          'deviation_type': 'deviazione',
+          'detach_point': {'street': 'via Roma'},
+          'via_sequence': [
+            {'street': 'via Po'},
+          ],
+        },
+      ],
+    });
+  }
+}
+
 class _GeocoderVuoto extends Geocoder {
   @override
   Future<GeocodeResult> locate(String toponym,
@@ -645,6 +678,82 @@ void main() {
       ).statusOf(linea, allNotices: [avviso()], previous: conLettura());
       expect(llm.richieste, isZero);
       expect(status.reports.every((r) => r.algoritmo == 1), isTrue);
+    });
+
+    test('passata la scadenza del giro, un avviso da rifare tiene '
+        'l\'esito di prima', () async {
+      // Il 28/10, tornato GTT dopo sei giorni, due giri di fila hanno
+      // superato i 25 minuti rifacendo i percorsi rimasti indietro, e non
+      // hanno pubblicato niente. Passata la scadenza non si rifa' nulla:
+      // nemmeno dalla lettura salvata, che non chiede il modello ma
+      // passa da Photon, Overpass e Valhalla.
+      final llm = _LlmSpento();
+      final servizio = DeviationService(
+        index: index,
+        llm: llm,
+        algoritmo: AlgoritmoPercorsi.secondo,
+        scadenzaGiro: DateTime(2000),
+      );
+      final prima = conLettura(algoritmo: 2, retryable: true);
+      final status = await servizio.statusOf(linea,
+          allNotices: [avviso()], previous: prima);
+      expect(llm.richieste, isZero);
+      expect(servizio.rimandati, equals(1));
+      expect(status.reports.length, equals(prima.reports.length));
+      expect(status.reports.every((r) => r.retryable), isTrue);
+      expect(status.reports.first.letture.single.type,
+          DeviationType.sostituzioneModale);
+    });
+
+    test('passata la scadenza del giro, un avviso nuovo resta col solo '
+        'testo, da leggere al giro dopo', () async {
+      final llm = _LlmSpento();
+      // Lo stesso algoritmo degli esiti di prima: col cambio di algoritmo
+      // vale un'altra regola, che tiene il vecchio disegno.
+      final servizio = DeviationService(
+        index: index,
+        llm: llm,
+        scadenzaGiro: DateTime(2000),
+      );
+      // Il testo e' cambiato: l'esito vecchio direbbe un'altra cosa.
+      final status = await servizio.statusOf(linea,
+          allNotices: [avviso(testo: 'Linea T deviata in via Po.')],
+          previous: precedente(retryable: false));
+      expect(llm.richieste, isZero);
+      expect(servizio.rimandati, equals(1));
+      expect(status.reports, isNotEmpty);
+      for (final r in status.reports) {
+        expect(r.notice.text, contains('via Po'));
+        expect(r.confidence, Confidence.soloTesto);
+        expect(r.retryable, isTrue);
+        expect(r.whyIncomplete, contains('sarà letto a breve'));
+      }
+    });
+
+    test('letto col modello dopo la scadenza, il percorso aspetta il giro '
+        'dopo, con la lettura salvata', () async {
+      // Una lettura col modello gratuito puo' durare tre minuti: cominciata
+      // un attimo prima della scadenza, non deve trascinarsi dietro anche
+      // le vie, Photon e Valhalla.
+      final llm = _LlmLento(const Duration(milliseconds: 80));
+      final servizio = DeviationService(
+        index: index,
+        llm: llm,
+        algoritmo: AlgoritmoPercorsi.secondo,
+        geocoder: _GeocoderVuoto(),
+        vie: ViePerNome(http: _OverpassGiu(), pausa: Duration.zero),
+        scadenzaGiro: DateTime.now().add(const Duration(milliseconds: 20)),
+      );
+      final status = await servizio.statusOf(linea, allNotices: [avviso()]);
+      expect(llm.richieste, equals(1));
+      expect(servizio.rimandati, equals(1));
+      expect(status.reports, isNotEmpty);
+      for (final r in status.reports) {
+        expect(r.confidence, Confidence.soloTesto);
+        expect(r.retryable, isTrue);
+        // La lettura resta: il giro dopo la riusa senza chiedere.
+        expect(r.letture.single.viaSequence, ['via Po']);
+      }
     });
 
     test('passando al secondo, se le vie non rispondono resta il vecchio',

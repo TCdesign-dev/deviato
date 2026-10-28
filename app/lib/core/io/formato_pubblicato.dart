@@ -26,6 +26,10 @@ import '../pipeline/stop_search.dart';
 ///   passano, per cercarle per nome o numero di palina (dal 03/10/2026).
 ///   Qualche centinaio di KB: l'app lo scarica solo quando si cerca una
 ///   fermata, e di nuovo quando cambiano gli orari.
+/// - `salute.json`: se all'ultimo giro gli avvisi di GTT rispondevano, e
+///   quando e' stato (dal 28/10/2026). Quando GTT non risponde il giro non
+///   pubblica gli stati, e l'indice resta quello di prima: questo file si
+///   riscrive lo stesso, e l'app dice perche' i dati sono vecchi.
 ///
 /// Le date si scrivono in UTC con la «Z» e si rileggono in ora locale: il
 /// job gira su un server che non sta a Torino.
@@ -66,6 +70,27 @@ class FormatoPubblicato {
                 _leggiLinea(l),
             ]..sort(TransitLine.compare),
           );
+
+  // ---------------------------------------------------------------- salute
+
+  static Map<String, Object?> salute({
+    required bool avvisiGtt,
+    required DateTime controllato,
+  }) =>
+      {
+        'versione': versione,
+        'avvisiGtt': avvisiGtt ? 'ok' : 'nonRispondono',
+        'controllato': _data(controllato),
+      };
+
+  /// null se il file non e' di questo formato.
+  static ({bool avvisiGtt, DateTime controllato})? leggiSalute(
+    Map<String, dynamic> j,
+  ) {
+    final stato = j['avvisiGtt'], quando = _leggiData(j['controllato']);
+    if (stato is! String || quando == null) return null;
+    return (avvisiGtt: stato == 'ok', controllato: quando);
+  }
 
   // -------------------------------------------------------------- percorsi
 

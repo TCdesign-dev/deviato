@@ -8,6 +8,7 @@ import '../core/models/saved_stop.dart';
 import '../core/models/tragitto.dart';
 import '../core/models/transit.dart';
 import '../core/pipeline/line_resolver.dart';
+import '../core/pipeline/dati_vecchi.dart';
 import '../core/pipeline/risposta_tragitto.dart';
 import '../core/pipeline/stop_answer.dart';
 import '../core/pipeline/stop_search.dart';
@@ -500,8 +501,42 @@ class AppRepository extends ChangeNotifier {
     }
   }
 
+  /// Com'erano le fonti all'ultimo giro del job (`salute.json`): se gli
+  /// avvisi di GTT rispondevano, e quando. null senza file (un job di
+  /// prima del 28/10/2026).
+  ({bool avvisiGtt, DateTime controllato})? salute;
+
+  Future<void> _caricaSalute(
+    Future<Map<String, dynamic>?> Function(String) leggi,
+  ) async {
+    try {
+      final j = await leggi('salute.json');
+      if (j != null) salute = FormatoPubblicato.leggiSalute(j);
+    } on FonteNonRaggiungibile catch (e) {
+      debugPrint('salute: $e');
+    }
+  }
+
+  /// I dati pubblicati sono troppo vecchi per fidarsi: da quando, e se e'
+  /// perche' gli avvisi di GTT non arrivano. null se sono freschi, e senza
+  /// rete: lo dice gia' l'errore, con l'ora dei dati.
+  ({DateTime da, bool gttGiu})? get datiVecchi {
+    final g = generato;
+    if (g == null || offline || !DatiVecchi.sono(g, DateTime.now())) {
+      return null;
+    }
+    final s = salute;
+    // Solo se il job l'ha visto DOPO l'ultima pubblicazione: un «ok» di
+    // allora non dice niente, un «non rispondono» di dopo si'.
+    return (
+      da: g,
+      gttGiu: s != null && !s.avvisiGtt && s.controllato.isAfter(g),
+    );
+  }
+
   Future<void> _caricaSalvati() async {
     await _caricaScioperi(_fonte.salvato);
+    await _caricaSalute(_fonte.salvato);
     final ind = await _fonte.salvato('indice.json');
     if (ind == null) return;
     await _applica(ind, (p) => _fonte.salvato(p));
@@ -523,6 +558,7 @@ class AppRepository extends ChangeNotifier {
       }
       await _applica(ind, (p) => _fonte.scarica(p), rete: true);
       await _caricaScioperi(_fonte.scarica);
+      await _caricaSalute(_fonte.scarica);
       offline = false;
       error = null;
       state = LoadState.ready;

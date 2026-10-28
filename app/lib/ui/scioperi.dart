@@ -102,8 +102,12 @@ String descriviSciopero(Sciopero s) {
   final tipo = s.settore.toLowerCase().contains('trasporto pubblico locale')
       ? 'Trasporto locale'
       : s.settore;
-  return '$tipo, ${s.sindacati}. Bus e tram: '
-      '${_frase(s.modalitaTpl, maiuscola: false)}.';
+  // Senza modalita' (il Ministero non sempre le scrive) niente «Bus e
+  // tram: .».
+  final come = _frase(s.modalitaTpl, maiuscola: false);
+  return come.isEmpty
+      ? '$tipo, ${s.sindacati}.'
+      : '$tipo, ${s.sindacati}. Bus e tram: $come.';
 }
 
 /// Il calendario del Ministero lo scrive in maiuscolo: «DURATA E

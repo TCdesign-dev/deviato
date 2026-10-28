@@ -54,10 +54,10 @@ void main() {
 
   /// Quello che il job pubblica per la 55 (una fermata sospesa) e la 65.
   /// Ci passano le [fermate] di adesso: la sola Sabotino, se non si dice.
-  _Fonte fonte() {
+  _Fonte fonte({DateTime? generato}) {
     final f = _Fonte();
     final linee = [_l55, _l65];
-    final generato = DateTime(2026, 9, 26, 18, 40);
+    generato ??= DateTime(2026, 9, 26, 18, 40);
     f.pubblicati['indice.json'] = _json(FormatoPubblicato.indice(
         feed: '20260922', generato: generato, linee: linee, fonte: 'GTT'));
     f.pubblicati['fermate.json'] = _json(FormatoPubblicato.fermate(
@@ -301,9 +301,82 @@ void main() {
     await tester.pumpWidget(GttApp(repo: repo));
     await tester.pump();
 
-    expect(find.textContaining('alle 18:40'), findsOneWidget);
+    expect(find.text('Aggiornate il 26/9 alle 18:40'), findsOneWidget);
     expect(find.text('Aggiorna'), findsNothing);
     expect(find.text('Riprova'), findsNothing);
+  });
+
+  group('dati vecchi', () {
+    testWidgets('la home dice da quando non si aggiornano', (tester) async {
+      // I dati di prova sono del 26/09: per l'app di oggi, vecchi.
+      final repo = await repoWith({'watchlist': <String>['55']}, fonte());
+      await repo.initialise();
+      await tester.pumpWidget(GttApp(repo: repo));
+      await tester.pump();
+
+      expect(find.text('Dati non aggiornati dal 26/09 alle 18:40'),
+          findsOneWidget);
+      expect(find.textContaining('potrebbero essere cambiate'),
+          findsOneWidget);
+      // Che sia colpa di GTT non si sa: non si dice.
+      expect(find.textContaining('GTT non arrivano'), findsNothing);
+      expect(find.text('Variazioni sul sito di GTT'), findsNothing);
+    });
+
+    testWidgets('se il job ha visto GTT giu\', lo dice', (tester) async {
+      final f = fonte();
+      f.pubblicati['salute.json'] = _json(FormatoPubblicato.salute(
+          avvisiGtt: false, controllato: DateTime(2026, 9, 27, 9, 13)));
+      final repo = await repoWith({'watchlist': <String>['55']}, f);
+      await repo.initialise();
+      await tester.pumpWidget(GttApp(repo: repo));
+      await tester.pump();
+
+      expect(find.text('Gli avvisi di GTT non arrivano dal 26/09 alle 18:40'),
+          findsOneWidget);
+      expect(find.text('Variazioni sul sito di GTT'), findsOneWidget);
+    });
+
+    testWidgets('un «non rispondono» di prima dell\'ultima pubblicazione '
+        'non conta', (tester) async {
+      final f = fonte();
+      f.pubblicati['salute.json'] = _json(FormatoPubblicato.salute(
+          avvisiGtt: false, controllato: DateTime(2026, 9, 26, 12, 0)));
+      final repo = await repoWith({'watchlist': <String>['55']}, f);
+      await repo.initialise();
+      await tester.pumpWidget(GttApp(repo: repo));
+      await tester.pump();
+
+      expect(find.text('Dati non aggiornati dal 26/09 alle 18:40'),
+          findsOneWidget);
+    });
+
+    testWidgets('con dati freschi niente avviso', (tester) async {
+      final repo = await repoWith({'watchlist': <String>['55']},
+          fonte(generato: DateTime.now().subtract(const Duration(minutes: 10))));
+      await repo.initialise();
+      await tester.pumpWidget(GttApp(repo: repo));
+      await tester.pump();
+
+      expect(find.textContaining('Dati non aggiornati'), findsNothing);
+      expect(find.textContaining('GTT non arrivano'), findsNothing);
+    });
+
+    testWidgets('senza rete basta l\'errore, con l\'ora dei dati',
+        (tester) async {
+      final f = fonte();
+      final prima = await repoWith({'watchlist': <String>['55']}, f);
+      await prima.initialise();
+      f.rete = false;
+      final repo = AppRepository(prima.settings, fonte: f);
+      await repo.initialise();
+      await tester.pumpWidget(GttApp(repo: repo));
+      await tester.pump();
+
+      expect(find.text('Nessuna connessione: dati delle 18:40.'),
+          findsOneWidget);
+      expect(find.textContaining('Dati non aggiornati'), findsNothing);
+    });
   });
 
   testWidgets('dal dettaglio si apre la mappa a tutto schermo, e si torna',

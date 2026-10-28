@@ -1,8 +1,11 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:gtt_deviazioni/core/net/gtt_http.dart';
 import 'package:gtt_deviazioni/core/sources/scioperi_mit.dart';
 import 'package:gtt_deviazioni/ui/scioperi.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 
 /// Il calendario degli scioperi del Ministero, com'era il 22/10/2026.
 void main() {
@@ -10,6 +13,39 @@ void main() {
     File('test/fixtures/scioperi_mit.html').readAsStringSync(),
   );
   final perGtt = tutti.where((s) => s.riguardaGtt).toList();
+
+  test('dalla rete: la pagina e\' UTF-8 anche se non lo dichiara', () async {
+    // Il Ministero risponde `text/html` senza charset: letta come
+    // latin-1, «Modalità» non era piu' il nome della colonna, e dal 22 al
+    // 28/10 le modalita' sono uscite tutte vuote.
+    final pagina = File('test/fixtures/scioperi_mit.html').readAsBytesSync();
+    final mit = ScioperiMit(
+      http: GttHttp(
+        client: MockClient((_) async => http.Response.bytes(pagina, 200,
+            headers: {'content-type': 'text/html'})),
+      ),
+    );
+    final dalla = await mit.scarica();
+    final cub = dalla.firstWhere((s) => s.sindacati.startsWith('CUB TRASPORTI'));
+    expect(cub.modalita, isNotEmpty);
+    expect(cub.giorniTpl.inizio, DateTime(2026, 11, 21));
+  });
+
+  test('senza modalita\' la frase non resta a meta\'', () {
+    final s = Sciopero(
+      inizio: DateTime(2026, 10, 30),
+      fine: DateTime(2026, 10, 30),
+      sindacati: 'USB',
+      settore: 'Generale',
+      categoria: '',
+      modalita: '',
+      rilevanza: 'Nazionale',
+      note: '',
+      regione: 'Italia',
+      provincia: 'Tutte',
+    );
+    expect(descriviSciopero(s), 'Generale, USB.');
+  });
 
   test('si leggono tutte le righe, colonne per nome', () {
     expect(tutti, hasLength(27));

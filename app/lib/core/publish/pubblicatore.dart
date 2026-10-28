@@ -55,12 +55,20 @@ class Pubblicatore {
     final errori = <String>[];
 
     for (final linea in linee) {
+      final orologio = Stopwatch()..start();
       try {
         stati[linea.routeId] = await service.statusOf(
           linea,
           allNotices: avvisi,
           previous: precedenti[linea.routeId],
         );
+        // Il 28/10 due giri di fila hanno superato i 25 minuti senza dire
+        // una riga fra «algoritmo dei percorsi» e l'annullamento: le linee
+        // lente si scrivono, cosi' il log dice dove va il tempo.
+        if (orologio.elapsed >= const Duration(seconds: 30)) {
+          log?.call('linea ${linea.shortName}: '
+              '${orologio.elapsed.inSeconds} s');
+        }
       } on Object catch (e) {
         // Una linea senza percorsi nel GTFS, o un guasto su un avviso: le
         // altre vanno avanti. L'esito vecchio, se c'era, resta pubblicato.

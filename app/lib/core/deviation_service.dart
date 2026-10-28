@@ -260,6 +260,7 @@ class DeviationService {
     this.algoritmo = AlgoritmoPercorsi.primo,
     int rilettureCambioAlgoritmo = 5,
     this.scadenzaCambioAlgoritmo,
+    this.scadenzaGiro,
     ViePerNome? vie,
   })  : _rilettureConcesse = rilettureCambioAlgoritmo,
         _extractor = NoticeExtractor(llm: llm),
@@ -298,6 +299,26 @@ class DeviationService {
   /// OpenStreetMap, e un giro che supera il limite del job non pubblica
   /// niente: il successivo ricomincerebbe da capo, e cosi' ogni volta.
   final DateTime? scadenzaCambioAlgoritmo;
+
+  /// Dopo quest'ora non si comincia piu' nessun avviso da rifare: chi
+  /// resta tiene l'esito di prima, se il testo e' lo stesso, o il solo
+  /// testo «in lettura». Il 28/10, tornato GTT dopo sei giorni, due giri
+  /// di fila hanno superato i 25 minuti del job rifacendo i percorsi dei
+  /// 42 avvisi rimasti indietro, e non hanno pubblicato niente: la
+  /// scadenza delle letture col modello non bastava, perche' rifare un
+  /// percorso da una lettura salvata non passa dal modello.
+  final DateTime? scadenzaGiro;
+
+  /// Gli avvisi lasciati al giro dopo per la [scadenzaGiro].
+  int rimandati = 0;
+
+  bool get _oltreLaScadenza =>
+      scadenzaGiro != null && DateTime.now().isAfter(scadenzaGiro!);
+
+  static const _inCoda = ExtractionResult(
+    status: ExtractionStatus.error,
+    detail: LlmConBudget.inCoda,
+  );
   final NoticeExtractor _extractor;
   final AlertsSource _alerts;
   final VariazioniSource _variazioni;
@@ -434,19 +455,48 @@ class DeviationService {
         continue;
       }
 
+      final oltre = _oltreLaScadenza;
+      if (oltre) {
+        rimandati++;
+        final vecchi = prima?.toList() ?? const <DeviationReport>[];
+        if (vecchi.isNotEmpty && _stessoAvviso(vecchi.first.notice, notice)) {
+          reports.addAll(vecchi);
+          continue;
+        }
+      }
+
       // Il testo si legge UNA volta, qualunque sia il numero di direzioni.
       // Prima si leggeva per ogni direzione: un avviso che valeva per
       // andata e ritorno costava due richieste, e la 10N coi suoi sedici
       // avvisi ne consumava trentadue delle cinquanta giornaliere.
       onProgress?.call('$quale · lettura');
       final chiave = '${notice.id}\u0000${notice.fullText}';
-      var extraction = _letture[chiave] ?? _letturaSalvata(notice, previous);
+      // Oltre la scadenza nemmeno la lettura salvata: rifare il percorso e'
+      // proprio il lavoro che non c'e' piu' tempo di fare. Resta il testo,
+      // con le fermate sospese che GTT scrive col numero.
+      var extraction =
+          oltre ? _inCoda : _letture[chiave] ?? _letturaSalvata(notice, previous);
       if (extraction == null) {
         letture++;
         extraction = await _extractor.extract(notice);
         if (extraction.status != ExtractionStatus.error) {
           _letture[chiave] = extraction;
         }
+      }
+      // Letto col modello, ma intanto la scadenza e' passata: il percorso
+      // si fa al giro dopo, che trovera' la lettura salvata e non chiedera'
+      // di nuovo. Una lettura puo' durare tre minuti, e cominciarla un
+      // attimo prima della scadenza non deve allungare il giro.
+      if (!oltre && extraction.isUsable && _oltreLaScadenza) {
+        rimandati++;
+        for (final s in direzioni) {
+          final r = await _ricostruzione.analizza(notice, s, _inCoda);
+          reports.add(r.completato(
+            algoritmo: algoritmo.numero,
+            letture: extraction.deviations,
+          ));
+        }
+        continue;
       }
       // Riletto solo per passare all'altro algoritmo, ma il modello non ha
       // risposto (quota finita): meglio l'esito vecchio che il solo testo.
@@ -534,12 +584,7 @@ class DeviationService {
         prima.any((r) => r.algoritmo != algoritmo)) {
       return null;
     }
-    final n = prima.first.notice;
-    final uguale = n.text == notice.text &&
-        n.headline == notice.headline &&
-        n.validFrom == notice.validFrom &&
-        n.validUntil == notice.validUntil;
-    if (!uguale) return null;
+    if (!_stessoAvviso(prima.first.notice, notice)) return null;
     final idPrima = {for (final r in prima) r.shape.shapeId};
     final idOra = {for (final s in direzioni) s.shapeId};
     if (bastaUnaParte) {
@@ -549,6 +594,13 @@ class DeviationService {
     }
     return prima;
   }
+
+  /// Stesso avviso, stesso testo, stesse date.
+  static bool _stessoAvviso(RawNotice a, RawNotice b) =>
+      a.text == b.text &&
+      a.headline == b.headline &&
+      a.validFrom == b.validFrom &&
+      a.validUntil == b.validUntil;
 
   /// La lettura di [notice] salvata dal controllo precedente, se il testo
   /// e' lo stesso.

@@ -69,7 +69,8 @@ mezz'ora di giorno, ogni ora la sera e una volta nel cuore della notte:
 scarica il GTFS del giorno, legge gli avvisi, calcola lo stato di
 **tutte** le linee e pubblica quattro tipi di file JSON sul ramo `gh-pages`
 (`indice.json`, `percorsi/<linea>.json`, `stato/<linea>.json` e, dal
-03/10/2026, `fermate.json`, formato in `core/io/formato_pubblicato.dart`). L'app li scarica — qualche KB — e ne
+03/10/2026, `fermate.json`; dal 22/10 `scioperi.json` e dal 28/10
+`salute.json`, formato in `core/io/formato_pubblicato.dart`). L'app li scarica — qualche KB — e ne
 tiene una copia per quando non c'è rete. Niente chiavi sul telefono, niente
 24 MB di orari, niente quota per utente: le richieste al modello dipendono
 dagli avvisi nuovi di GTT (una ventina al giorno), non da quante persone
@@ -225,7 +226,7 @@ Non sono stime. Se li rimetti in discussione, rimisurali.
 | `active_period.start` negli alert | **161 su 161 nel passato** | idem |
 | Variazioni pubblicate da **entrambe** le fonti | **31 coppie** su 189 avvisi | `check_merge_offline.dart` |
 | Di queste, quelle in cui la data d'inizio cambia | **17** (fino a 3 mesi) | idem |
-| Test | **430** | `flutter test` |
+| Test | **446** | `flutter test` |
 | Somiglianza fra le vie nominate: coppie vere | **0,67 – 1,00** e ≥3 vie | idem |
 | Idem, coppie false | **0,67 con 2 vie**, o 3 vie a **0,38** | idem |
 | Data d'inizio estraibile a regex dal testo | **40%** — troppo poco | idem |
@@ -506,6 +507,13 @@ Ognuna di queste è costata tempo. Sono tutte silenziose: non danno errore.
   prima degli avvisi di GTT, così si pubblica anche quando GTT è giù.
   L'app lo mostra in cima alla home solo entro sette giorni. Idea presa da
   un fork del 15/10 (`caccapuzz-klipper/deviato`); il codice è nostro.
+  **La pagina è UTF-8 ma il Ministero dichiara `text/html` senza
+  codifica**, e il client HTTP in quel caso legge latin-1: «Modalità»
+  diventava «ModalitÃ », la colonna non si trovava, e dal 22 al 28/10 le
+  modalità sono uscite vuote («Bus e tram: .») e il CUB del 20–21/11
+  fermava bus e tram due giorni. Il test leggeva il file già in UTF-8 e
+  non se ne accorgeva: ora si decodifica sempre UTF-8, le colonne si
+  cercano per inizio del nome, e un test passa dal client HTTP.
 - **Il QR sulla palina dice il numero della fermata.** GTT non lo
   documenta; decodificato dal suo tutorial il 22/10/2026:
   `http://www.gtt.to.it/cms/percorari/arrivi?palina=597`
@@ -695,6 +703,33 @@ Ognuna di queste è costata tempo. Sono tutte silenziose: non danno errore.
   calcolo scrive `gtt_giu.txt` e il workflow apre la segnalazione «Gli
   avvisi di GTT non rispondono» sul repository (una mail sola); quando GTT
   torna la chiude da solo.
+  **Il 28/10, tornato GTT dopo sei giorni, tre problemi in più.** (1) Dal
+  23/10 non rispondeva nemmeno il sito con gli orari: lo scaricamento
+  andava in errore e il giro con lui, **115 giri falliti**, una mail per
+  ognuno. Ora, se gli orari non si scaricano, si usano quelli della cache
+  del job (il giorno prima) con un `::warning::`; senza nessuna copia il
+  giro finisce come quando mancano gli avvisi. (2) La segnalazione si
+  cercava con la ricerca di GitHub, che una volta non ha trovato la #1
+  aperta: ne è nata una #2, e tornato GTT si è chiusa solo quella. Ora si
+  guarda l'elenco delle aperte e si chiudono tutte quelle col titolo. (3)
+  Il primo giro ha rifatto 120 avvisi e ne ha lasciati 42 da ritentare;
+  i due giri dopo hanno superato i 25 minuti senza pubblicare niente,
+  perché la scadenza (`MINUTI_MAX`) fermava le letture col modello ma non
+  la ricostruzione dei percorsi. Ora quattro minuti dopo non si comincia
+  più nessun avviso (`DeviationService.scadenzaGiro`): chi resta tiene
+  l'esito di prima se il testo è lo stesso, o il solo testo «in lettura»,
+  e una lettura finita dopo la scadenza si salva nell'esito, così il giro
+  dopo rifà il percorso senza chiedere di nuovo il modello. Il log dice
+  quanti avvisi sono stati rimandati, e quali linee hanno preso più di
+  30 s (in locale, senza modello: la 3429 tre minuti, la 50 un minuto).
+  **E nell'app i dati vecchi ora si vedono**: il job scrive `salute.json`
+  (se gli avvisi di GTT rispondevano, e quando) anche nei giri che non
+  pubblicano, e la home mostra in cima «Dati non aggiornati da…» passate
+  due ore di giorno o quattro di notte (`pipeline/dati_vecchi.dart`: di
+  notte fra le 3:13 e le 6:13 passano tre ore di regola), o «Gli avvisi
+  di GTT non arrivano da…» col link alla pagina variazioni di GTT se il
+  job li ha visti giù dopo l'ultima pubblicazione. Senza rete basta
+  l'errore che c'era già, con l'ora dei dati.
 - **Gli orari programmati di GitHub sono una promessa debole.** Nelle
   prime dodici ore, coi minuti 5/25/45, sono partiti **3 giri su 27**:
   nessun errore, nessun giro annullato, semplicemente non lanciati.
@@ -806,7 +841,7 @@ Per non fraintendere quello che c'è in `config.dart`:
 ## 8. Come si lavora
 
 ```bash
-cd app && flutter test          # 430 test, devono passare tutti
+cd app && flutter test          # 446 test, devono passare tutti
 cd app && flutter analyze       # deve essere pulito
 ```
 
@@ -877,4 +912,4 @@ facendo gli screenshot troppo presto.
 
 ---
 
-*Ultimo aggiornamento: 22 ottobre 2026. 430 test.*
+*Ultimo aggiornamento: 28 ottobre 2026. 446 test.*

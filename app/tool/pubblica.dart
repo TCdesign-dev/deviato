@@ -13,6 +13,9 @@
 //   MINUTI_MAX              dopo quanti minuti non si iniziano altre letture,
 //                           ne' si rifanno avvisi col nuovo algoritmo
 //                           (predefinito 12): il job deve poter pubblicare.
+//                           Quattro minuti dopo non si rifa' piu' nessun
+//                           percorso: gli avvisi rimasti tengono l'esito di
+//                           prima, o il solo testo, fino al giro dopo.
 //   ALGORITMO_PERCORSI      "1" (predefinito) o "2": quale algoritmo
 //                           ricostruisce i percorsi deviati. Il primo e'
 //                           quello in servizio fino al 28/09/2026, il
@@ -62,15 +65,37 @@ Future<void> main(List<String> args) async {
   // 1. Gli orari di oggi.
   // Una riga per fase, non una per blocco scaricato: il registro di
   // GitHub ne mostrava decine uguali.
+  //
+  // Dal 23 al 28/10/2026 il sito di GTT non rispondeva: lo scaricamento
+  // andava in errore e il giro con lui, 115 volte di fila, una mail per
+  // ognuna. Gli orari cambiano di rado e la cache del job ha quelli del
+  // giorno prima: si usano quelli, e lo si dice.
   String? ultimaFase;
-  await GtfsDownloader(directory: gtfsDir).ensureAvailable(
-    maxAge: const Duration(hours: 20),
-    onProgress: (p, f) {
-      if (p == ultimaFase) return;
-      ultimaFase = p;
-      _log(p);
-    },
-  );
+  final orari = GtfsDownloader(directory: gtfsDir);
+  try {
+    await orari.ensureAvailable(
+      maxAge: const Duration(hours: 20),
+      onProgress: (p, f) {
+        if (p == ultimaFase) return;
+        ultimaFase = p;
+        _log(p);
+      },
+    );
+  } on GtfsDownloadException catch (e) {
+    final quando = orari.isPresent ? orari.lastDownload : null;
+    if (quando == null) {
+      _log('::warning::Gli orari di GTT non si scaricano (${_breve(e)}) e '
+          'non ce n\'e\' una copia: questo giro non pubblica niente.');
+      _segnalaSeDura(uscita, env, _breve(e));
+      _scrivi(uscita, 'salute.json',
+          FormatoPubblicato.salute(avvisiGtt: false, controllato: DateTime.now()));
+      await stdout.flush();
+      exit(0);
+    }
+    _log('::warning::Gli orari di GTT non si scaricano (${_breve(e)}): si '
+        'usano quelli scaricati il ${quando.day}/${quando.month} alle '
+        '${quando.hour}:${quando.minute.toString().padLeft(2, '0')}.');
+  }
   final parser = GtfsParser(directory: gtfsDir);
   final index = await parser.build(await parser.allShortNames());
   _log('orari ${index.feedVersion}: ${index.lines.length} linee, '
@@ -117,6 +142,10 @@ Future<void> main(List<String> args) async {
     _log('::warning::Gli avvisi di GTT non rispondono (${_breve(e)}). '
         'Questo giro non pubblica niente: restano i dati del giro prima.');
     _segnalaSeDura(uscita, env, _breve(e));
+    // Gli stati restano quelli di prima, e l'indice con la sua ora: l'app
+    // vede dati vecchi, e da qui sa perche'.
+    _scrivi(uscita, 'salute.json',
+        FormatoPubblicato.salute(avvisiGtt: false, controllato: DateTime.now()));
     await stdout.flush();
     exit(0);
   }
@@ -140,6 +169,10 @@ Future<void> main(List<String> args) async {
         );
   final scadenza = inizio.add(
       Duration(minutes: int.tryParse(env['MINUTI_MAX'] ?? '') ?? 12));
+  // Il job ha 25 minuti in tutto: i preparativi ne prendono uno, un avviso
+  // gia' cominciato puo' durarne tre o quattro (Overpass, Photon e
+  // Valhalla a tempo massimo), poi i file e la pubblicazione.
+  final scadenzaGiro = scadenza.add(const Duration(minutes: 4));
   final llm = LlmConBudget(
     modello,
     maxRichieste: int.tryParse(env['LLM_MAX_RICHIESTE'] ?? '') ?? 40,
@@ -147,18 +180,18 @@ Future<void> main(List<String> args) async {
   );
   final algoritmo = AlgoritmoPercorsi.daTesto(env['ALGORITMO_PERCORSI']);
   _log('algoritmo dei percorsi: ${algoritmo.numero}');
-  final giro = await Pubblicatore(
+  final service = DeviationService(
     index: index,
-    service: DeviationService(
-      index: index,
-      llm: llm,
-      algoritmo: algoritmo,
-      rilettureCambioAlgoritmo:
-          int.tryParse(env['RILETTURE_CAMBIO_ALGORITMO'] ?? '') ?? 5,
-      // Anche il cambio di algoritmo si ferma: il resto al giro dopo.
-      scadenzaCambioAlgoritmo: scadenza,
-    ),
-  ).calcola(avvisi: avvisi, precedenti: precedenti, log: _log);
+    llm: llm,
+    algoritmo: algoritmo,
+    rilettureCambioAlgoritmo:
+        int.tryParse(env['RILETTURE_CAMBIO_ALGORITMO'] ?? '') ?? 5,
+    // Anche il cambio di algoritmo si ferma: il resto al giro dopo.
+    scadenzaCambioAlgoritmo: scadenza,
+    scadenzaGiro: scadenzaGiro,
+  );
+  final giro = await Pubblicatore(index: index, service: service)
+      .calcola(avvisi: avvisi, precedenti: precedenti, log: _log);
 
   // 5. I file.
   var scritti = 0;
@@ -202,12 +235,15 @@ Future<void> main(List<String> args) async {
       fonte: _fonte,
     ),
   );
+  _scrivi(uscita, 'salute.json',
+      FormatoPubblicato.salute(avvisiGtt: true, controllato: DateTime.now()));
 
   _log('fatto in ${DateTime.now().difference(inizio).inSeconds} s: '
       '${giro.stati.length} linee, ${giro.avvisi} avvisi, '
       '${llm.richieste} richieste al modello, '
       '${giro.daRitentare} da ritentare, '
       '$scritti file cambiati'
+      '${service.rimandati > 0 ? ", ${service.rimandati} rimandati al giro dopo" : ""}'
       '${llm.fermoPer != null ? ", modello fermo: ${llm.fermoPer}" : ""}');
   if (giro.errori.isNotEmpty) {
     _log('linee con errori: ${giro.errori.length}');
