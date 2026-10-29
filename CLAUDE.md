@@ -226,7 +226,7 @@ Non sono stime. Se li rimetti in discussione, rimisurali.
 | `active_period.start` negli alert | **161 su 161 nel passato** | idem |
 | Variazioni pubblicate da **entrambe** le fonti | **31 coppie** su 189 avvisi | `check_merge_offline.dart` |
 | Di queste, quelle in cui la data d'inizio cambia | **17** (fino a 3 mesi) | idem |
-| Test | **446** | `flutter test` |
+| Test | **448** | `flutter test` |
 | Somiglianza fra le vie nominate: coppie vere | **0,67 – 1,00** e ≥3 vie | idem |
 | Idem, coppie false | **0,67 con 2 vie**, o 3 vie a **0,38** | idem |
 | Data d'inizio estraibile a regex dal testo | **40%** — troppo poco | idem |
@@ -743,6 +743,21 @@ Ognuna di queste è costata tempo. Sono tutte silenziose: non danno errore.
   di GTT non arrivano da…» col link alla pagina variazioni di GTT se il
   job li ha visti giù dopo l'ultima pubblicazione. Senza rete basta
   l'errore che c'era già, con l'ora dei dati.
+- **Un modello gratuito può sparire, e le letture falliscono in
+  silenzio.** Il 29/10/2026 `nvidia/nemotron-3-super-120b-a12b:free` non
+  c'era più su OpenRouter (resta solo a pagamento, 0,30 $ / 2,40 $ per
+  milione di token): ogni lettura falliva, ogni giro ne ritentava 33-38, e
+  38 avvisi restavano col solo testo di GTT («Non è stato possibile
+  leggere l'avviso») mentre il job era verde. Ora un modello sparito (404,
+  «No endpoints found», «not a valid model») ferma le letture del giro al
+  primo rifiuto, come la quota finita (`LlmConBudget.modelloSparito`), il
+  log lo dice con un `::warning::`, e il workflow apre la segnalazione «Il
+  modello che legge gli avvisi non risponde», che si chiude al primo giro
+  che legge. Il modello si cambia con la variabile `LLM_MODELLO`, senza
+  toccare il codice. Dal 29/10 il log scrive anche ogni fase che dura più
+  di 20 s («lento: linea 5137, ricerca di «via Busano»: 95 s»): la 5137
+  e la 3429, lunghi avvisi extraurbani, prendevano otto-dieci minuti a
+  giro.
 - **Gli orari programmati di GitHub sono una promessa debole.** Nelle
   prime dodici ore, coi minuti 5/25/45, sono partiti **3 giri su 27**:
   nessun errore, nessun giro annullato, semplicemente non lanciati.
@@ -854,7 +869,7 @@ Per non fraintendere quello che c'è in `config.dart`:
 ## 8. Come si lavora
 
 ```bash
-cd app && flutter test          # 446 test, devono passare tutti
+cd app && flutter test          # 448 test, devono passare tutti
 cd app && flutter analyze       # deve essere pulito
 ```
 
@@ -925,4 +940,4 @@ facendo gli screenshot troppo presto.
 
 ---
 
-*Ultimo aggiornamento: 28 ottobre 2026. 446 test.*
+*Ultimo aggiornamento: 29 ottobre 2026. 448 test.*

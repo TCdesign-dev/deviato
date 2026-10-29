@@ -26,6 +26,9 @@ class LlmConBudget implements LlmClient {
   final DateTime? scadenza;
 
   int richieste = 0;
+
+  /// Le richieste a cui il modello ha risposto.
+  int riuscite = 0;
   LlmException? _fermo;
 
   /// Perche' ha smesso, se ha smesso per un errore del fornitore.
@@ -51,20 +54,35 @@ class LlmConBudget implements LlmClient {
     }
     richieste++;
     try {
-      return await _interno.complete(prompt, jsonSchema: jsonSchema);
+      final r = await _interno.complete(prompt, jsonSchema: jsonSchema);
+      riuscite++;
+      return r;
     } on LlmException catch (e) {
       if (_definitivoPerOggi(e)) _fermo = e;
       rethrow;
     }
   }
 
-  /// Quota del giorno finita, chiave rifiutata o credito esaurito.
+  /// Quota del giorno finita, chiave rifiutata, credito esaurito, o il
+  /// modello che non c'e' piu'.
   static bool _definitivoPerOggi(LlmException e) {
     final t = '${e.statusCode ?? ""} ${e.detail}';
     return t.contains('free-models-per-day') ||
         e.statusCode == 401 ||
         e.statusCode == 402 ||
-        e.statusCode == 403;
+        e.statusCode == 403 ||
+        modelloSparito(e);
+  }
+
+  /// Il modello non esiste piu' presso il fornitore. Il 29/10/2026
+  /// `nemotron-3-super:free` era sparito da OpenRouter: ogni lettura
+  /// tornava un errore, ogni giro ne ritentava una quarantina, e 38 avvisi
+  /// restavano col solo testo di GTT senza che nessuno se ne accorgesse.
+  static bool modelloSparito(LlmException e) {
+    final t = e.detail.toLowerCase();
+    return e.statusCode == 404 ||
+        t.contains('no endpoints found') ||
+        t.contains('not a valid model');
   }
 }
 

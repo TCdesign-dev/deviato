@@ -37,6 +37,28 @@ void main() {
     expect(f.chiamate, 0);
   });
 
+  test('il modello non c\'e\' piu\': smette al primo rifiuto', () async {
+    // Il 29/10/2026 nemotron-3-super:free era sparito da OpenRouter, e ogni
+    // giro chiedeva una quarantina di letture che fallivano tutte.
+    final f = _Finto(LlmException('finto',
+        '{"error":{"message":"No endpoints found for nvidia/x:free."}}',
+        statusCode: 404));
+    final llm = LlmConBudget(f, maxRichieste: 40);
+    await expectLater(llm.complete('a'), throwsA(isA<LlmException>()));
+    await expectLater(llm.complete('b'), throwsA(isA<LlmException>()));
+    expect(f.chiamate, 1);
+    expect(LlmConBudget.modelloSparito(llm.fermoPer!), isTrue);
+    expect(llm.riuscite, 0);
+  });
+
+  test('conta le letture riuscite', () async {
+    final llm = LlmConBudget(_Finto(), maxRichieste: 5);
+    await llm.complete('a');
+    await llm.complete('b');
+    expect(llm.riuscite, 2);
+    expect(llm.fermoPer, isNull);
+  });
+
   test('quota del giorno finita: smette subito, con lo stesso errore', () async {
     // Le altre richieste fallirebbero tutte allo stesso modo: chiederle
     // costa tempo e basta.

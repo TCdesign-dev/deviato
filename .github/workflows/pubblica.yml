@@ -103,9 +103,10 @@ jobs:
           exit "$stato"
 
       # GTT non risponde da piu' di sei ore (il calcolo ha scritto
-      # gtt_giu.txt): una segnalazione sul repository, una volta sola, e
-      # GitHub manda una mail. Quando GTT torna si chiude da sola.
-      - name: Segnalazione se GTT non risponde
+      # gtt_giu.txt), o il modello non c'e' piu' (modello_giu.txt): una
+      # segnalazione sul repository, una volta sola, e GitHub manda una
+      # mail. Quando torna tutto a posto si chiude da sola.
+      - name: Segnalazione se GTT o il modello non rispondono
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -123,6 +124,21 @@ jobs:
           elif [ -n "$aperte" ] && ! grep -q "non rispondono" "$RUNNER_TEMP/calcolo.log" 2>/dev/null; then
             for n in $aperte; do
               gh issue close "$n" --comment "GTT risponde di nuovo: dati pubblicati il $(date '+%d/%m alle %H:%M')."
+            done
+          fi
+          # Lo stesso per il modello che legge gli avvisi: il 29/10 quello
+          # gratuito era sparito da OpenRouter e le letture fallivano in
+          # silenzio da almeno un giorno.
+          titolo="Il modello che legge gli avvisi non risponde"
+          aperte=$(gh issue list --state open --limit 100 --json number,title \
+            --jq ".[] | select(.title == \"$titolo\") | .number")
+          if [ -f modello_giu.txt ]; then
+            if [ -z "$aperte" ]; then
+              gh issue create --title "$titolo" --body-file modello_giu.txt
+            fi
+          elif [ -n "$aperte" ] && [ -f modello_ok.txt ]; then
+            for n in $aperte; do
+              gh issue close "$n" --comment "Il modello legge di nuovo gli avvisi ($(date '+%d/%m alle %H:%M'))."
             done
           fi
 

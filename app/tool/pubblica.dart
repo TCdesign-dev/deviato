@@ -208,7 +208,7 @@ Future<void> main(List<String> args) async {
   // Una riga ogni due minuti su dove si e' arrivati: se il giro non
   // finisce, il log dice dove si e' fermato.
   var fase = '', lineaInCorso = '';
-  var dal = DateTime.now();
+  var dal = DateTime.now(), faseDal = DateTime.now();
   final sentinella = Timer.periodic(const Duration(minutes: 2), (_) {
     _log('in corso: linea $lineaInCorso, $fase '
         '(da ${DateTime.now().difference(dal).inSeconds} s)');
@@ -221,10 +221,20 @@ Future<void> main(List<String> args) async {
     inizio: (l) {
       lineaInCorso = l.shortName;
       fase = '';
-      dal = DateTime.now();
+      dal = faseDal = DateTime.now();
       quarantena.inCorso(uscita, l.routeId);
     },
-    fase: (l, f) => fase = f,
+    // Le fasi lente si scrivono con la loro durata: il 29/10 la 5137
+    // prendeva dieci minuti a giro, e dalla sola riga ogni due minuti non
+    // si capiva se il tempo andasse in Photon, in Overpass o nel modello.
+    fase: (l, f) {
+      final durata = DateTime.now().difference(faseDal);
+      if (fase.isNotEmpty && durata >= const Duration(seconds: 20)) {
+        _log('lento: linea ${l.shortName}, $fase: ${durata.inSeconds} s');
+      }
+      fase = f;
+      faseDal = DateTime.now();
+    },
   );
   sentinella.cancel();
   quarantena.finito(uscita);
@@ -283,6 +293,36 @@ Future<void> main(List<String> args) async {
       '${llm.fermoPer != null ? ", modello fermo: ${llm.fermoPer}" : ""}');
   if (giro.errori.isNotEmpty) {
     _log('linee con errori: ${giro.errori.length}');
+  }
+  _segnalaModello(llm, env);
+}
+
+/// Il modello che legge gli avvisi non c'e' piu': lo si dice nel log, e
+/// il workflow apre una segnalazione sul repository (una mail sola), come
+/// quando GTT non risponde. Si chiude da sola al primo giro che legge.
+void _segnalaModello(LlmConBudget llm, Map<String, String> env) {
+  final cartella = env['GITHUB_WORKSPACE'];
+  final fermo = llm.fermoPer;
+  if (fermo != null && LlmConBudget.modelloSparito(fermo)) {
+    _log('::warning::Il modello ${llm.name} non risponde piu\' '
+        '(${_breve(fermo)}): gli avvisi nuovi restano col solo testo. '
+        'Va cambiato LLM_MODELLO nelle variabili del repository.');
+    if (cartella != null) {
+      File('$cartella/modello_giu.txt').writeAsStringSync(
+        'Il modello che legge gli avvisi, `${llm.name}`, non risponde piu\': '
+        '`${_breve(fermo)}`.\n\n'
+        'Gli avvisi nuovi restano col solo testo di GTT finche\' non lo si '
+        'cambia: Settings › Secrets and variables › Actions › Variables, '
+        '`LLM_MODELLO`. I modelli gratuiti con output strutturato:\n\n'
+        '```\ncurl -s https://openrouter.ai/api/v1/models | jq -r \'.data[] '
+        '| select(.id|endswith(":free")) '
+        '| select(.supported_parameters|index("response_format")) | .id\'\n```\n\n'
+        'Questa segnalazione si chiude da sola al primo giro che legge un '
+        'avviso.\n',
+      );
+    }
+  } else if (cartella != null && llm.riuscite > 0) {
+    File('$cartella/modello_ok.txt').writeAsStringSync('ok\n');
   }
 }
 
