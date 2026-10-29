@@ -16,6 +16,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:gtt_deviazioni/core/config.dart';
 import 'package:gtt_deviazioni/core/llm/gemini_client.dart';
 import 'package:gtt_deviazioni/core/llm/llm_client.dart';
 import 'package:gtt_deviazioni/core/llm/openai_compatible_client.dart';
@@ -39,7 +40,7 @@ Future<void> main(List<String> args) async {
         exit(1);
       }
       llm = OpenAiCompatibleClient.openRouter(
-          apiKey: key, model: model ?? 'nvidia/nemotron-3-super-120b-a12b:free');
+          apiKey: key, model: model ?? GttConfig.llmModelloPredefinito);
     case 'groq':
       final key = Platform.environment['GROQ_API_KEY'];
       if (key == null || key.isEmpty) {

@@ -337,9 +337,26 @@ ${notice.fullText}
 
       final parsed = _tryParse(raw);
       if (parsed != null) {
+        // Il modello sceglie fra le parole del testo, non le inventa: una
+        // deviazione con una via che il testo non contiene si scarta.
+        // Rileggere non serve, a temperatura zero tornerebbe uguale.
+        final buone = [
+          for (final d in parsed)
+            if (vieNonNelTesto(d, notice.fullText).isEmpty) d,
+        ];
+        if (buone.isEmpty) {
+          final inventate = {
+            for (final d in parsed) ...vieNonNelTesto(d, notice.fullText),
+          };
+          return ExtractionResult(
+            status: ExtractionStatus.parseFailed,
+            detail: '$vieNonNelTestoMarcatore: ${inventate.join(', ')}',
+            attempts: attempt,
+          );
+        }
         return ExtractionResult(
             status: ExtractionStatus.ok,
-            deviations: parsed,
+            deviations: buone,
             attempts: attempt);
       }
     }
@@ -350,6 +367,75 @@ ${notice.fullText}
       attempts: 2,
     );
   }
+
+  /// Come comincia il `detail` di una lettura scartata dal controllo.
+  static const vieNonNelTestoMarcatore = 'vie non presenti nel testo';
+
+  /// Le vie di [d] che [testo] non contiene.
+  ///
+  /// Il controllo che rende il modello sostituibile. Il 29/10/2026 quello
+  /// misurato (34 su 34, nessuna via inventata) e' sparito da OpenRouter e
+  /// si e' passati a uno gratuito mai misurato; gemma-4-26b, provato a
+  /// luglio, aveva inventato «corso Marradoncelli» fondendo due nomi. Si
+  /// guarda ogni parola che conta del nome — non «via», «corso», «del» —
+  /// nel testo, con accenti e abbreviazioni di GTT sciolti («c.so»,
+  /// «p.za»); numeri e numeri romani non contano («XX Settembre» o
+  /// «20 settembre»), e un'iniziale puntata («V. Emanuele») vale per il
+  /// nome intero. Sulle 666 vie delle 83 letture pubblicate il 29/10 col
+  /// modello di prima, non ne ha scartata nessuna.
+  static List<String> vieNonNelTesto(ParsedDeviation d, String testo) {
+    final t = ' ${_normalizza(testo)} ';
+    final grezzo = testo.toLowerCase();
+    return [
+      for (final via in [?d.detachCrossStreet, ...d.allToponyms])
+        if (!_nelTesto(via, t, grezzo)) via,
+    ];
+  }
+
+  static bool _nelTesto(String via, String testo, String grezzo) {
+    final parole = _normalizza(via).split(' ');
+    for (var i = 0; i < parole.length; i++) {
+      final w = parole[i];
+      if (w.length < 3 || _generiche.contains(w)) continue;
+      if (RegExp(r'^(\d+|[ivxlc]+)$').hasMatch(w)) continue;
+      if (testo.contains(w)) continue;
+      // «V. Emanuele»: l'iniziale col punto vale per il nome, ma solo se
+      // nel testo la segue la parola dopo. Un «v.» qualunque farebbe
+      // passare ogni parola con la v.
+      if (i + 1 < parole.length &&
+          RegExp('(^|[^a-z])${w[0]}\\.\\s*${RegExp.escape(parole[i + 1])}')
+              .hasMatch(grezzo)) {
+        continue;
+      }
+      return false;
+    }
+    return true;
+  }
+
+  static String _normalizza(String s) {
+    var t = s.toLowerCase().replaceAll('’', "'");
+    const accenti = {
+      'à': 'a', 'á': 'a', 'è': 'e', 'é': 'e', 'ì': 'i', 'í': 'i',
+      'ò': 'o', 'ó': 'o', 'ù': 'u', 'ú': 'u',
+    };
+    t = t.split('').map((c) => accenti[c] ?? c).join();
+    for (final (da, a) in const [
+      (r'\bc\.?\s?so\b', 'corso'),
+      (r'\bp\.?\s?z?za\b', 'piazza'),
+      (r'\bl\.?\s?go\b', 'largo'),
+      (r'\bv\.?\s?le\b', 'viale'),
+      (r'\bstr\.', 'strada'),
+    ]) {
+      t = t.replaceAll(RegExp(da), a);
+    }
+    return t.replaceAll(RegExp(r'[^a-z0-9]+'), ' ').trim();
+  }
+
+  static const _generiche = {
+    'via', 'corso', 'piazza', 'piazzale', 'largo', 'strada', 'viale',
+    'vicolo', 'lungo', 'ponte', 'rotonda', 'del', 'della', 'dello', 'dei',
+    'degli', 'delle', 'per', 'sul', 'sulla', 'angolo', 'fermata',
+  };
 
   /// null se la risposta non e' utilizzabile.
   static List<ParsedDeviation>? _tryParse(String raw) {

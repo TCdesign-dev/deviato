@@ -711,6 +711,10 @@ class DeviationService {
         detail.contains('TimeoutException')) {
       return 'Servizio non raggiungibile. Controlla la connessione.';
     }
+    if (detail.contains(NoticeExtractor.vieNonNelTestoMarcatore)) {
+      return 'Le vie lette non tornano col testo di GTT: vale il testo '
+          'originale.';
+    }
     if (r.status == ExtractionStatus.parseFailed) {
       return 'L\'avviso non descrive un percorso ricostruibile.';
     }

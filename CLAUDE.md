@@ -219,6 +219,8 @@ Non sono stime. Se li rimetti in discussione, rimisurali.
 | Vie estranee alla linea | **1342 m** o più | idem (controllo) |
 | Copertura alias nomi linea | **98,4%** (63/64) | test Dart |
 | Estrazione LLM (nemotron-3-super:free) | 34/34, **0 toponimi inventati** | `eval_extractor.dart` |
+| Idem sul campo, letture pubblicate al 29/10 | **666 vie su 666** presenti nel testo | controllo di `vieNonNelTesto` |
+| Avvisi con lo schema «da … per … percorso normale» | **17 su 118** (29/10) | regola semplice, a mano |
 | Quota gratuita OpenRouter | **50 richieste/giorno** in totale | misurato sul campo |
 | Avvisi di **sola fermata sospesa** | **14 su 198** | conteggio sul feed |
 | Aggiornamento del feed posizioni | **~20 s** | polling allineato |
@@ -226,7 +228,7 @@ Non sono stime. Se li rimetti in discussione, rimisurali.
 | `active_period.start` negli alert | **161 su 161 nel passato** | idem |
 | Variazioni pubblicate da **entrambe** le fonti | **31 coppie** su 189 avvisi | `check_merge_offline.dart` |
 | Di queste, quelle in cui la data d'inizio cambia | **17** (fino a 3 mesi) | idem |
-| Test | **448** | `flutter test` |
+| Test | **451** | `flutter test` |
 | Somiglianza fra le vie nominate: coppie vere | **0,67 – 1,00** e ≥3 vie | idem |
 | Idem, coppie false | **0,67 con 2 vie**, o 3 vie a **0,38** | idem |
 | Data d'inizio estraibile a regex dal testo | **40%** — troppo poco | idem |
@@ -754,7 +756,20 @@ Ognuna di queste è costata tempo. Sono tutte silenziose: non danno errore.
   log lo dice con un `::warning::`, e il workflow apre la segnalazione «Il
   modello che legge gli avvisi non risponde», che si chiude al primo giro
   che legge. Il modello si cambia con la variabile `LLM_MODELLO`, senza
-  toccare il codice. Dal 29/10 il log scrive anche ogni fase che dura più
+  toccare il codice. Dal 29/10 il predefinito è il suo successore
+  gratuito, `nvidia/nemotron-3.5-super-vl:free` (scelta di Tommaso),
+  **non misurato**. Per questo c'è un controllo che non dipende dal
+  modello (`NoticeExtractor.vieNonNelTesto`): ogni via di una lettura deve
+  stare nel testo di GTT, con accenti e abbreviazioni sciolti («c.so»,
+  «p.za»), numeri e romani ignorati e l'iniziale puntata valida solo se la
+  segue la parola dopo («V. Emanuele»). Una deviazione con una via che il
+  testo non nomina si scarta; se non ne resta nessuna l'avviso resta col
+  solo testo e non si ritenta (a temperatura zero tornerebbe uguale).
+  Sulle 666 vie delle 122 deviazioni pubblicate col modello di prima non
+  ne scarta nessuna. Il modello resta solo per il passo testo → elenco di
+  vie: tutto il resto è codice nostro, e la lettura si fa una volta per
+  testo e si riusa. Un lettore a regole come quello delle date (96 su 97)
+  coprirebbe pochi avvisi: lo schema fisso lo seguono 17 su 118. Dal 29/10 il log scrive anche ogni fase che dura più
   di 20 s («lento: linea 5137, ricerca di «via Busano»: 95 s»): la 5137
   e la 3429, lunghi avvisi extraurbani, prendevano otto-dieci minuti a
   giro.
@@ -869,7 +884,7 @@ Per non fraintendere quello che c'è in `config.dart`:
 ## 8. Come si lavora
 
 ```bash
-cd app && flutter test          # 448 test, devono passare tutti
+cd app && flutter test          # 451 test, devono passare tutti
 cd app && flutter analyze       # deve essere pulito
 ```
 
@@ -940,4 +955,4 @@ facendo gli screenshot troppo presto.
 
 ---
 
-*Ultimo aggiornamento: 29 ottobre 2026. 448 test.*
+*Ultimo aggiornamento: 29 ottobre 2026. 451 test.*

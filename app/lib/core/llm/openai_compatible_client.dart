@@ -73,7 +73,7 @@ class OpenAiCompatibleClient implements LlmClient {
   ///              | .id'
   factory OpenAiCompatibleClient.openRouter({
     required String apiKey,
-    String model = 'nvidia/nemotron-3-super-120b-a12b:free',
+    String model = GttConfig.llmModelloPredefinito,
     http.Client? client,
   }) =>
       OpenAiCompatibleClient(

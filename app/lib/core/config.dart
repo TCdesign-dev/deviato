@@ -74,9 +74,14 @@ class GttConfig {
     defaultValue: 'https://tcdesign-dev.github.io/deviato/v1/',
   );
 
-  /// Il modello che legge gli avvisi. Scelto per misura sui 34 avvisi
-  /// annotati: 34 su 34 estratti, nessun toponimo inventato.
-  static const llmModelloPredefinito = 'nvidia/nemotron-3-super-120b-a12b:free';
+  /// Il modello che legge gli avvisi. Fino al 28/10/2026 era
+  /// `nvidia/nemotron-3-super-120b-a12b:free`, scelto per misura sui 34
+  /// avvisi annotati (34 su 34, nessun toponimo inventato), poi sparito da
+  /// OpenRouter: resta solo a pagamento. Questo, il suo successore gratuito,
+  /// non e' stato misurato; le vie che inventasse le scarta
+  /// `NoticeExtractor.vieNonNelTesto`. Si cambia senza toccare il codice
+  /// con la variabile `LLM_MODELLO` del job.
+  static const llmModelloPredefinito = 'nvidia/nemotron-3.5-super-vl:free';
 
   // ------------------------------------------------------------ geografia
 

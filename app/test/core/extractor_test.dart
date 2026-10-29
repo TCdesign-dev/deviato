@@ -73,8 +73,10 @@ void main() {
           {
             'deviation_type': 'deviazione',
             'direction_desc': 'via Ponchielli',
+            // Una via del testo: quelle che il testo non nomina si
+            // scartano (vedi sotto).
             'via_sequence': [
-              {'street': 'via Ventimiglia'}
+              {'street': 'via Ferrero'}
             ],
           },
         ]
@@ -83,6 +85,87 @@ void main() {
       expect(r.deviations.length, equals(2));
       expect(r.deviations[0].type, equals(DeviationType.limitazione));
       expect(r.deviations[1].type, equals(DeviationType.deviazione));
+    });
+  });
+
+  group('Le vie devono stare nel testo', () {
+    String lettura(List<String> vie) => jsonEncode({
+          'deviations': [
+            {
+              'deviation_type': 'deviazione',
+              'detach_point': {'street': 'via Pininfarina'},
+              'via_sequence': [
+                for (final v in vie) {'street': v}
+              ],
+            }
+          ]
+        });
+
+    test('una via inventata scarta la lettura, senza ritentare', () async {
+      // gemma-4-26b, a luglio: «corso Marradoncelli», fuso da due nomi.
+      final llm = _FakeLlm([lettura(['via Ferrero', 'corso Marradoncelli'])]);
+      final r = await NoticeExtractor(llm: llm).extract(notice);
+      expect(r.status, ExtractionStatus.parseFailed);
+      expect(r.detail, contains('corso Marradoncelli'));
+      expect(llm.calls, 1);
+    });
+
+    test('di due deviazioni resta quella che torna col testo', () async {
+      final json = jsonEncode({
+        'deviations': [
+          {
+            'deviation_type': 'deviazione',
+            'via_sequence': [
+              {'street': 'via Ferrero'}
+            ],
+          },
+          {
+            'deviation_type': 'deviazione',
+            'via_sequence': [
+              {'street': 'via Inesistente'}
+            ],
+          },
+        ]
+      });
+      final r = await NoticeExtractor(llm: _FakeLlm([json])).extract(notice);
+      expect(r.status, ExtractionStatus.ok);
+      expect(r.deviations.single.viaSequence, ['via Ferrero']);
+    });
+
+    test('abbreviazioni, accenti, numeri e iniziali di GTT passano', () {
+      const testo = 'Da c.so V. Emanuele II angolo p.za Solferino, deviata '
+          'in via XX Settembre, Lungo Po Cadorna, via Nizza, Piazza Carlo '
+          'Felice, percorso normale. Fermata 123 sospesa.';
+      final d = ParsedDeviation.fromJson({
+        'deviation_type': 'deviazione',
+        'detach_point': {
+          'street': 'corso Vittorio Emanuele II',
+          'cross_street': 'piazza Solferino',
+        },
+        'via_sequence': [
+          {'street': 'via Venti Settembre'},
+          {'street': 'lungo Po Luigi Cadorna'},
+          {'street': 'via Nizza'},
+          {'street': 'piazza Carlo Felice'},
+        ],
+      });
+      // «Venti» e «Luigi» non sono nel testo: si scartano...
+      expect(NoticeExtractor.vieNonNelTesto(d, testo),
+          ['via Venti Settembre', 'lungo Po Luigi Cadorna']);
+      // ...mentre i nomi come li scrive GTT, abbreviati, passano.
+      final giusta = ParsedDeviation.fromJson({
+        'deviation_type': 'deviazione',
+        'detach_point': {
+          'street': 'corso Vittorio Emanuele II',
+          'cross_street': 'piazza Solferino',
+        },
+        'via_sequence': [
+          {'street': 'via XX Settembre'},
+          {'street': 'lungo Po Cadorna'},
+          {'street': 'via Nizza'},
+        ],
+      });
+      expect(NoticeExtractor.vieNonNelTesto(giusta, testo), isEmpty);
     });
   });
 
