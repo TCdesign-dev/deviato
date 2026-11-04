@@ -198,6 +198,31 @@ void main() {
       expect(http.calls, equals(2));
     });
   });
+
+  group('Quando Photon non risponde', () {
+    test('dopo tre ricerche senza risposta non lo si chiama piu\'', () async {
+      // Il 29/10/2026 dai server di GitHub ogni ricerca aspettava il tempo
+      // massimo: la 1C ne faceva undici di fila, cinque minuti per niente.
+      final http = _FailingHttp(null);
+      final g = Geocoder(http: http);
+      for (final via in ['via Roma', 'via Po', 'via Garibaldi', 'via Cernaia']) {
+        final r = await g.locate(via, near: shape);
+        expect(r.status, GeocodeStatus.error);
+      }
+      expect(http.calls, Geocoder.maxSenzaRisposta);
+      expect(g.giu, isTrue);
+    });
+
+    test('una richiesta sbagliata non conta: Photon ha risposto', () async {
+      final http = _FailingHttp(400);
+      final g = Geocoder(http: http);
+      for (final via in ['via Roma', 'via Po', 'via Garibaldi', 'via Cernaia']) {
+        await g.locate(via, near: shape);
+      }
+      expect(http.calls, 4);
+      expect(g.giu, isFalse);
+    });
+  });
 }
 
 /// GttHttp finto: restituisce sempre lo stesso corpo e conta le chiamate.
@@ -215,7 +240,14 @@ class _FakeHttp extends GttHttp {
 }
 
 class _FailingHttp extends GttHttp {
+  _FailingHttp([this.stato = 503]);
+
+  final int? stato;
+  int calls = 0;
+
   @override
-  Future<String> getTextPolite(String url, {Duration? timeout}) async =>
-      throw GttHttpException(url, 503, 'servizio non disponibile');
+  Future<String> getTextPolite(String url, {Duration? timeout}) async {
+    calls++;
+    throw GttHttpException(url, stato, 'servizio non disponibile');
+  }
 }

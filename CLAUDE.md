@@ -228,7 +228,7 @@ Non sono stime. Se li rimetti in discussione, rimisurali.
 | `active_period.start` negli alert | **161 su 161 nel passato** | idem |
 | Variazioni pubblicate da **entrambe** le fonti | **31 coppie** su 189 avvisi | `check_merge_offline.dart` |
 | Di queste, quelle in cui la data d'inizio cambia | **17** (fino a 3 mesi) | idem |
-| Test | **451** | `flutter test` |
+| Test | **453** | `flutter test` |
 | Somiglianza fra le vie nominate: coppie vere | **0,67 – 1,00** e ≥3 vie | idem |
 | Idem, coppie false | **0,67 con 2 vie**, o 3 vie a **0,38** | idem |
 | Data d'inizio estraibile a regex dal testo | **40%** — troppo poco | idem |
@@ -772,7 +772,14 @@ Ognuna di queste è costata tempo. Sono tutte silenziose: non danno errore.
   coprirebbe pochi avvisi: lo schema fisso lo seguono 17 su 118. Dal 29/10 il log scrive anche ogni fase che dura più
   di 20 s («lento: linea 5137, ricerca di «via Busano»: 95 s»): la 5137
   e la 3429, lunghi avvisi extraurbani, prendevano otto-dieci minuti a
-  giro.
+  giro. Il primo giro col log nuovo ha detto perché: **dai server di
+  GitHub Photon non rispondeva**, 12 ricerche su 12 finite ai 30 s del
+  tempo massimo, mentre dal Mac rispondeva in un quarto di secondo. Il
+  4/11 si era ripreso da solo. Dal 4/11 Photon ha un tempo massimo suo di
+  10 s (`GttConfig.photonTimeout`), e dopo tre ricerche di fila senza
+  risposta (rete, tempo scaduto, 429, 5xx; un 400 no) per il resto del
+  giro non lo si chiama più (`Geocoder.giu`), come Overpass: gli avvisi
+  restano da rifare, e il log lo dice con un `::warning::`.
 - **Gli orari programmati di GitHub sono una promessa debole.** Nelle
   prime dodici ore, coi minuti 5/25/45, sono partiti **3 giri su 27**:
   nessun errore, nessun giro annullato, semplicemente non lanciati.
@@ -884,7 +891,7 @@ Per non fraintendere quello che c'è in `config.dart`:
 ## 8. Come si lavora
 
 ```bash
-cd app && flutter test          # 451 test, devono passare tutti
+cd app && flutter test          # 453 test, devono passare tutti
 cd app && flutter analyze       # deve essere pulito
 ```
 
@@ -955,4 +962,4 @@ facendo gli screenshot troppo presto.
 
 ---
 
-*Ultimo aggiornamento: 29 ottobre 2026. 451 test.*
+*Ultimo aggiornamento: 4 novembre 2026. 453 test.*

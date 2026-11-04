@@ -24,6 +24,11 @@ class GttConfig {
   /// e risponde 400, in modo silenzioso se non si controlla lo status.
   static const photonUrl = 'https://photon.komoot.io/api';
 
+  /// Di solito Photon risponde in meno di un secondo: oltre i dieci non
+  /// risponde piu'. Il 29/10/2026 dai server di GitHub ogni ricerca finiva
+  /// ai 30 s del tempo massimo generale, e la 1C ne faceva undici di fila.
+  static const photonTimeout = Duration(seconds: 10);
+
   /// Valhalla pubblico di FOSSGIS. Accetta costing "bus", che rispetta
   /// sensi unici e divieti per mezzi pesanti (OSRM "car" no).
   /// E' un servizio di cortesia: nessuna garanzia, serve sempre il ripiego.

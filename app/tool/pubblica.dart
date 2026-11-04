@@ -45,6 +45,7 @@ import 'package:gtt_deviazioni/core/io/formato_pubblicato.dart';
 import 'package:gtt_deviazioni/core/llm/llm_client.dart';
 import 'package:gtt_deviazioni/core/llm/llm_con_budget.dart';
 import 'package:gtt_deviazioni/core/llm/openai_compatible_client.dart';
+import 'package:gtt_deviazioni/core/pipeline/geocoder.dart';
 import 'package:gtt_deviazioni/core/models/notice.dart';
 import 'package:gtt_deviazioni/core/models/transit.dart';
 import 'package:gtt_deviazioni/core/publish/pubblicatore.dart';
@@ -195,9 +196,12 @@ Future<void> main(List<String> args) async {
   );
   final algoritmo = AlgoritmoPercorsi.daTesto(env['ALGORITMO_PERCORSI']);
   _log('algoritmo dei percorsi: ${algoritmo.numero}');
+  // Il geocoder si tiene qui per dire, alla fine, se Photon si e' fermato.
+  final geocoder = Geocoder();
   final service = DeviationService(
     index: index,
     llm: llm,
+    geocoder: geocoder,
     algoritmo: algoritmo,
     rilettureCambioAlgoritmo:
         int.tryParse(env['RILETTURE_CAMBIO_ALGORITMO'] ?? '') ?? 5,
@@ -293,6 +297,11 @@ Future<void> main(List<String> args) async {
       '${llm.fermoPer != null ? ", modello fermo: ${llm.fermoPer}" : ""}');
   if (giro.errori.isNotEmpty) {
     _log('linee con errori: ${giro.errori.length}');
+  }
+  if (geocoder.giu) {
+    _log('::warning::Photon non ha risposto a ${Geocoder.maxSenzaRisposta} '
+        'ricerche di fila: per il resto del giro non si e\' cercato, e gli '
+        'avvisi rimasti si rifanno al giro dopo.');
   }
   _segnalaModello(llm, env);
 }

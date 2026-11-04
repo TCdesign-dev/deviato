@@ -31,6 +31,17 @@ class Geocoder {
 
   final GttHttp _http;
 
+  /// Le ricerche di fila a cui Photon non ha risposto. Dopo
+  /// [maxSenzaRisposta] per il resto del giro non si chiama piu', come per
+  /// Overpass: il 29/10/2026 ogni ricerca dal job aspettava il tempo
+  /// massimo, e un avviso con dieci vie costava cinque minuti per niente.
+  /// Gli avvisi restano da rifare al giro dopo.
+  int _senzaRisposta = 0;
+  static const maxSenzaRisposta = 3;
+
+  /// Photon non risponde: in questo giro non lo si chiama piu'.
+  bool get giu => _senzaRisposta >= maxSenzaRisposta;
+
   /// Quanto lontano dal percorso puo' stare un risultato per essere
   /// considerato quello giusto.
   final double bufferMeters;
@@ -79,12 +90,24 @@ class Geocoder {
       // risultato" invece di "richiesta sbagliata" — ci ho perso un giro.
     });
 
+    if (giu) {
+      return GeocodeResult.error(
+          original, 'Photon non ha risposto prima, in questo giro');
+    }
     final String body;
     try {
-      body = await _http.getTextPolite(uri.toString());
+      body = await _http.getTextPolite(
+        uri.toString(),
+        timeout: GttConfig.photonTimeout,
+      );
     } on GttHttpException catch (e) {
+      // Rete, tempo scaduto, troppo carico: conta. Una richiesta
+      // sbagliata (400) no, Photon ha risposto.
+      final s = e.statusCode;
+      if (s == null || s == 429 || s >= 500) _senzaRisposta++;
       return GeocodeResult.error(original, e.toString());
     }
+    _senzaRisposta = 0;
 
     final Map<String, dynamic> json;
     try {
