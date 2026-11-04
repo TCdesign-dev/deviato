@@ -25,6 +25,9 @@ class RouteBuilder {
 
   final GttHttp _http;
 
+  /// Quanti punti accetta il Valhalla di FOSSGIS in una richiesta.
+  static const maxPunti = 10;
+
   /// [waypoints] in ordine: punto di stacco, vie intermedie, punto di
   /// ricongiungimento. [officialRoute] serve alla prova di sovrapposizione.
   Future<RouteBuildResult> build({
@@ -37,33 +40,57 @@ class RouteBuilder {
           'servono almeno due punti, ricevuti ${waypoints.length}');
     }
 
-    final String body;
-    try {
-      body = await _http.postJsonPolite(GttConfig.valhallaUrl, {
-        'locations': [
-          for (var i = 0; i < waypoints.length; i++)
-            {
-              'lat': waypoints[i].lat,
-              'lon': waypoints[i].lon,
-              // Solo gli estremi sono fermate vere: gli intermedi devono
-              // essere attraversati, non trasformati in tappe con sosta.
-              'type': (i == 0 || i == waypoints.length - 1)
-                  ? 'break'
-                  : 'through',
-            }
-        ],
-        'costing': 'bus',
-        'directions_options': {'units': 'kilometers'},
-      });
-    } on GttHttpException catch (e) {
-      return RouteBuildResult.error(e.toString());
-    }
-
-    final List<GeoPoint> geometry;
-    try {
-      geometry = _decodeShape(body);
-    } on Object catch (e) {
-      return RouteBuildResult.error('risposta illeggibile: $e');
+    // Il Valhalla pubblico di FOSSGIS accetta al massimo [maxPunti] punti
+    // per richiesta («Exceeded max locations: 10»). Le deviazioni
+    // extraurbane ne hanno di piu': la 5137 sedici vie, la 1C dodici. Si
+    // chiede un pezzo alla volta, l'ultimo punto di un pezzo primo del
+    // successivo, e i tratti si uniscono; le prove guardano il percorso
+    // intero. Fino al 4/11/2026 la richiesta unica tornava 400, contava
+    // come guasto di rete, e quegli avvisi si ritentavano a ogni giro.
+    final geometry = <GeoPoint>[];
+    for (var i = 0; i < waypoints.length - 1; i += maxPunti - 1) {
+      final fine = (i + maxPunti).clamp(0, waypoints.length);
+      final pezzo = waypoints.sublist(i, fine);
+      final String body;
+      try {
+        body = await _http.postJsonPolite(GttConfig.valhallaUrl, {
+          'locations': [
+            for (var j = 0; j < pezzo.length; j++)
+              {
+                'lat': pezzo[j].lat,
+                'lon': pezzo[j].lon,
+                // Solo gli estremi sono fermate vere: gli intermedi devono
+                // essere attraversati, non trasformati in tappe con sosta.
+                'type': (j == 0 || j == pezzo.length - 1)
+                    ? 'break'
+                    : 'through',
+              }
+          ],
+          'costing': 'bus',
+          'directions_options': {'units': 'kilometers'},
+        });
+      } on GttHttpException catch (e) {
+        // Una richiesta rifiutata (400: punti irraggiungibili, troppi
+        // punti) tornerebbe uguale al giro dopo: non e' un guasto da
+        // ritentare. Rete, tempo scaduto, 429 e 5xx si'.
+        if (e.statusCode == 400) {
+          return RouteBuildResult.notRouted('Valhalla: ${e.detail}');
+        }
+        return RouteBuildResult.error(e.toString());
+      }
+      final List<GeoPoint> tratto;
+      try {
+        tratto = _decodeShape(body);
+      } on Object catch (e) {
+        return RouteBuildResult.error('risposta illeggibile: $e');
+      }
+      if (tratto.length < 2) {
+        return RouteBuildResult.notRouted(
+            'Valhalla non ha trovato un percorso');
+      }
+      // Il primo punto di un pezzo ripete l'ultimo del precedente.
+      geometry.addAll(geometry.isEmpty ? tratto : tratto.skip(1));
+      if (fine == waypoints.length) break;
     }
     if (geometry.length < 2) {
       return RouteBuildResult.notRouted('Valhalla non ha trovato un percorso');

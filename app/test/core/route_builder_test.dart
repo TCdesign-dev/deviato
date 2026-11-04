@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:gtt_deviazioni/core/geo/polyline.dart';
 import 'package:gtt_deviazioni/core/geo/projection.dart';
 import 'package:gtt_deviazioni/core/models/transit.dart';
 import 'package:gtt_deviazioni/core/net/gtt_http.dart';
@@ -201,6 +202,70 @@ void main() {
       }
     });
   });
+
+  group('Oltre il limite di dieci punti', () {
+    // Il Valhalla di FOSSGIS ne accetta al massimo dieci: la 5137, sedici
+    // vie, tornava 400 e si ritentava a ogni giro, per niente.
+    final quattordici = [
+      for (var i = 0; i < 14; i++) GeoPoint(45.06 + i * 0.001, 7.67),
+    ];
+
+    test('si chiede a pezzi e i tratti si uniscono', () async {
+      final http = _ValhallaConLimite();
+      final r = await RouteBuilder(http: http).build(
+        waypoints: quattordici,
+        officialRoute: officialRoute,
+      );
+      expect(http.richieste.map((p) => p.length), [10, 5]);
+      // L'ultimo punto di un pezzo e' il primo del successivo.
+      expect(http.richieste[1].first, quattordici[9]);
+      expect(r.geometry, hasLength(14));
+      expect(r.geometry!.last.lat, closeTo(quattordici.last.lat, 1e-6));
+    });
+
+    test('dieci punti sono ancora una richiesta sola', () async {
+      final http = _ValhallaConLimite();
+      await RouteBuilder(http: http).build(
+        waypoints: quattordici.take(10).toList(),
+        officialRoute: officialRoute,
+      );
+      expect(http.richieste, hasLength(1));
+    });
+
+    test('una richiesta rifiutata non e\' un guasto da ritentare', () async {
+      final r = await RouteBuilder(http: _Rifiuta()).build(
+        waypoints: const [deviatoStart, deviatoEnd],
+        officialRoute: officialRoute,
+      );
+      expect(r.status, RouteBuildStatus.notRouted);
+    });
+  });
+}
+
+/// Un Valhalla finto col limite di FOSSGIS: oltre dieci punti risponde
+/// 400, se no la spezzata dritta fra i punti ricevuti.
+class _ValhallaConLimite extends GttHttp {
+  final richieste = <List<GeoPoint>>[];
+
+  @override
+  Future<String> postJsonPolite(String url, Map<String, dynamic> body) async {
+    final punti = [
+      for (final l in (body['locations'] as List).cast<Map<String, dynamic>>())
+        GeoPoint(l['lat'] as double, l['lon'] as double),
+    ];
+    richieste.add(punti);
+    if (punti.length > RouteBuilder.maxPunti) {
+      throw GttHttpException(url, 400,
+          '{"error_code":150,"error":"Exceeded max locations: 10"}');
+    }
+    return jsonEncode({
+      'trip': {
+        'legs': [
+          {'shape': PolylineCodec.encode(punti, precision: 6)}
+        ],
+      }
+    });
+  }
 }
 
 class _FakeHttp extends GttHttp {
@@ -220,4 +285,10 @@ class _FailingHttp extends GttHttp {
   @override
   Future<String> postJsonPolite(String url, Map<String, dynamic> body) async =>
       throw GttHttpException(url, 502, 'Valhalla non disponibile');
+}
+
+class _Rifiuta extends GttHttp {
+  @override
+  Future<String> postJsonPolite(String url, Map<String, dynamic> body) async =>
+      throw GttHttpException(url, 400, 'No path could be found for input');
 }

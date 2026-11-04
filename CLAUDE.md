@@ -228,7 +228,7 @@ Non sono stime. Se li rimetti in discussione, rimisurali.
 | `active_period.start` negli alert | **161 su 161 nel passato** | idem |
 | Variazioni pubblicate da **entrambe** le fonti | **31 coppie** su 189 avvisi | `check_merge_offline.dart` |
 | Di queste, quelle in cui la data d'inizio cambia | **17** (fino a 3 mesi) | idem |
-| Test | **453** | `flutter test` |
+| Test | **456** | `flutter test` |
 | Somiglianza fra le vie nominate: coppie vere | **0,67 – 1,00** e ≥3 vie | idem |
 | Idem, coppie false | **0,67 con 2 vie**, o 3 vie a **0,38** | idem |
 | Data d'inizio estraibile a regex dal testo | **40%** — troppo poco | idem |
@@ -268,6 +268,18 @@ Ognuna di queste è costata tempo. Sono tutte silenziose: non danno errore.
 
 - **Valhalla usa polilinee a precisione 6**, non 5. Con 5 il primo punto
   finisce a latitudine 450 e la mappa resta vuota senza eccezioni.
+- **Il Valhalla di FOSSGIS accetta al massimo dieci punti per
+  richiesta** («Exceeded max locations: 10», 400). Le deviazioni
+  extraurbane ne hanno di più — la 5137 sedici vie, la 1C dodici — e
+  fino al 4/11/2026 il 400 contava come guasto di rete: quegli avvisi
+  restavano col solo testo e si ritentavano a ogni giro, sette-otto
+  minuti per niente. Ora `RouteBuilder.build` chiede a pezzi di dieci
+  punti (l'ultimo di un pezzo è il primo del successivo) e unisce i
+  tratti, e un 400 è «percorso non trovato», da non ritentare; restano da
+  ritentare rete, tempo scaduto, 429 e 5xx. Sotto i dieci punti la
+  richiesta è la stessa di prima, quindi per l'algoritmo 1 non cambia
+  niente dove funzionava. La 1C verso via Rocchette e la 5137 ora escono
+  «Da confermare».
 - **Photon risponde 400 a `lang=it`** (accetta solo default/de/en/fr). Se
   non controlli lo status sembra "nessun risultato": mi ha fatto misurare
   uno 0% di copertura inesistente.
@@ -891,7 +903,7 @@ Per non fraintendere quello che c'è in `config.dart`:
 ## 8. Come si lavora
 
 ```bash
-cd app && flutter test          # 453 test, devono passare tutti
+cd app && flutter test          # 456 test, devono passare tutti
 cd app && flutter analyze       # deve essere pulito
 ```
 
@@ -962,4 +974,4 @@ facendo gli screenshot troppo presto.
 
 ---
 
-*Ultimo aggiornamento: 4 novembre 2026. 453 test.*
+*Ultimo aggiornamento: 4 novembre 2026. 456 test.*
