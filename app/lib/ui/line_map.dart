@@ -391,6 +391,14 @@ class _LineMapState extends State<LineMap> {
         )
         .toList();
 
+    // Le fermate lungo il rosso (solo sui percorsi verificati: le calcola
+    // il job), senza doppioni fra un avviso e l'altro.
+    final sulPercorso = {
+      for (final r in status.activeReports)
+        if (r.hasMap && idMostrati.contains(r.shape.shapeId))
+          for (final s in r.fermateSulPercorso) s.id: s,
+    }.values.toList(growable: false);
+
     // Le fermate saltate hanno la precedenza: se una fermata e' saltata
     // non va disegnata anche come servita.
     final skipped = {
@@ -506,6 +514,31 @@ class _LineMapState extends State<LineMap> {
                     selected: _selected?.stop.id == s.id,
                     direzione: direzioneDi[s.id],
                     verso: versoDi(s.id),
+                  ),
+              ],
+            ),
+            // Le fermate lungo il percorso deviato: un anello del colore
+            // della deviazione, piccolo e senza tocco. Dicono dove il
+            // mezzo passa adesso; non sono fermate della linea.
+            MarkerLayer(
+              markers: [
+                for (final s in sulPercorso)
+                  Marker(
+                    point: LatLng(s.position.lat, s.position.lon),
+                    width: 14,
+                    height: 14,
+                    child: IgnorePointer(
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: cartina.deviazione,
+                            width: 3,
+                          ),
+                        ),
+                      ),
+                    ),
                   ),
               ],
             ),

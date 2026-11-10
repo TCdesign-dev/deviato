@@ -530,6 +530,13 @@ class _ReportCard extends StatelessWidget {
               ),
             _SkippedStops(stops: r.skippedStops),
           ],
+          if (!finito)
+            _SulPercorso(
+              fermate: {
+                for (final r in reports)
+                  for (final s in r.fermateSulPercorso) s.id: s,
+              }.values.toList(),
+            ),
           if (!finito &&
               conEffetto.isEmpty &&
               reports.any((r) => r.impact != null))
@@ -673,6 +680,58 @@ class _Affidabilita extends StatelessWidget {
                       ).textTheme.bodySmall?.copyWith(color: secondario),
                     ),
                   ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Le fermate lungo il percorso deviato: dove il mezzo passa adesso.
+///
+/// Sono fermate di altre linee che stanno sul rosso, dal lato giusto della
+/// strada (le calcola il job, solo sui percorsi verificati). Che il mezzo
+/// ci si fermi GTT non lo scrive quasi mai: si dice che ci passa, non che
+/// ferma.
+class _SulPercorso extends StatelessWidget {
+  const _SulPercorso({required this.fermate});
+
+  final List<TransitStop> fermate;
+
+  /// Oltre queste si dice quante sono le altre: un elenco di dodici nomi
+  /// non lo legge nessuno.
+  static const _quante = 4;
+
+  @override
+  Widget build(BuildContext context) {
+    if (fermate.isEmpty) return const SizedBox.shrink();
+    final tenue = Theme.of(context).colorScheme.onSurfaceVariant;
+    final nomi = <String>{for (final f in fermate) DisplayNames.stop(f)};
+    final primi = nomi.take(_quante).join(', ');
+    final altre = nomi.length - _quante;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.alt_route, size: 20, color: tenue),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  altre > 0
+                      ? 'Lungo la deviazione passa da $primi e '
+                            '${altre == 1 ? "un'altra fermata" : "altre $altre fermate"}.'
+                      : 'Lungo la deviazione passa da $primi.',
+                ),
+                Text(
+                  'Sono fermate di altre linee: non è detto che ci si fermi.',
+                  style: TextStyle(color: tenue, fontSize: 13),
+                ),
               ],
             ),
           ),
