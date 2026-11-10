@@ -308,6 +308,7 @@ Future<void> main(List<String> args) async {
   _log('fatto in ${DateTime.now().difference(inizio).inSeconds} s: '
       '${giro.stati.length} linee, ${giro.avvisi} avvisi, '
       '${llm.richieste} richieste al modello, '
+      '${service.letteARegole > 0 ? "${service.letteARegole} letti a regole, " : ""}'
       '${giro.daRitentare} da ritentare, '
       '$scritti file cambiati'
       '${service.rimandati > 0 ? ", ${service.rimandati} rimandati al giro dopo" : ""}'

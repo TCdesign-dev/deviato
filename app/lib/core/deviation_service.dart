@@ -5,6 +5,7 @@ import 'models/notice.dart';
 import 'models/transit.dart';
 import 'pipeline/extractor.dart';
 import 'pipeline/geocoder.dart';
+import 'pipeline/lettore_a_regole.dart';
 import 'pipeline/line_resolver.dart';
 import 'pipeline/notice_merge.dart';
 import 'pipeline/rejoin_inference.dart';
@@ -337,6 +338,9 @@ class DeviationService {
   /// Quante letture sono state davvero chieste al modello.
   int letture = 0;
 
+  /// Quanti avvisi si sono letti con [LettoreARegole], senza modello.
+  int letteARegole = 0;
+
   /// Gli avvisi di tutte le fonti, presi una volta e riusati per tutte le
   /// linee della watchlist: sono due richieste, non due per linea.
   ///
@@ -480,6 +484,18 @@ class DeviationService {
       // con le fermate sospese che GTT scrive col numero.
       var extraction =
           oltre ? _inCoda : _letture[chiave] ?? _letturaSalvata(notice, previous);
+      // Lo schema fisso di GTT si legge con una regola, senza modello:
+      // sempre uguale, e senza quota.
+      if (extraction == null) {
+        final regole = LettoreARegole.leggi(notice.headline ?? '', notice.text);
+        if (regole != null) {
+          letteARegole++;
+          extraction = _letture[chiave] = ExtractionResult(
+            status: ExtractionStatus.ok,
+            deviations: regole,
+          );
+        }
+      }
       if (extraction == null) {
         letture++;
         extraction = await _extractor.extract(notice);
