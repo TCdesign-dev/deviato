@@ -213,7 +213,7 @@ Future<void> main(List<String> args) async {
       ? 'vie: da Overpass${fileVie == null ? "" : " (il file non si legge)"}'
       : 'vie: ${vieLocali.quante} dal file del ${vieLocali.data}');
   // Il geocoder si tiene qui per dire, alla fine, se Photon si e' fermato.
-  final geocoder = Geocoder();
+  final geocoder = Geocoder(locali: vieLocali);
   final service = DeviationService(
     index: index,
     llm: llm,
@@ -318,8 +318,8 @@ Future<void> main(List<String> args) async {
   }
   if (geocoder.giu) {
     _log('::warning::Photon non ha risposto a ${Geocoder.maxSenzaRisposta} '
-        'ricerche di fila: per il resto del giro non si e\' cercato, e gli '
-        'avvisi rimasti si rifanno al giro dopo.');
+        'ricerche di fila: per il resto del giro non lo si e\' chiamato'
+        '${vieLocali == null ? ", e gli avvisi rimasti si rifanno al giro dopo." : ": ${geocoder.dalFile} vie trovate nel file locale."}');
   }
   _segnalaModello(llm, env);
 }

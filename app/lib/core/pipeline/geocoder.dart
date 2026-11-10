@@ -5,6 +5,8 @@ import '../geo/geometry.dart';
 import '../geo/projection.dart';
 import '../models/transit.dart';
 import '../net/gtt_http.dart';
+import 'vie_locali.dart';
+import 'vie_osm.dart';
 
 /// Da un nome di via al punto sulla mappa, **vincolato al percorso della
 /// linea**.
@@ -25,11 +27,21 @@ import '../net/gtt_http.dart';
 /// legittime, perche' una deviazione per definizione si allontana dal
 /// percorso normale.
 class Geocoder {
-  Geocoder({GttHttp? http, double? bufferMeters})
+  Geocoder({GttHttp? http, double? bufferMeters, this.locali})
       : _http = http ?? GttHttp(),
         bufferMeters = bufferMeters ?? GttConfig.geocodeBufferMeters;
 
   final GttHttp _http;
+
+  /// Le vie di OpenStreetMap sul disco, se ci sono: quando Photon non
+  /// risponde la via si cerca li'. Photon e' caduto due volte in due
+  /// settimane (il 29/10 dai server di GitHub, il 10/11 per tutti), e
+  /// senza un punto per via l'avviso restava col solo testo. Finche'
+  /// Photon risponde vale lui, come prima: i risultati non cambiano.
+  final VieLocali? locali;
+
+  /// Quante vie si sono trovate nel file perche' Photon non rispondeva.
+  int dalFile = 0;
 
   /// Le ricerche di fila a cui Photon non ha risposto. Dopo
   /// [maxSenzaRisposta] per il resto del giro non si chiama piu', come per
@@ -91,8 +103,9 @@ class Geocoder {
     });
 
     if (giu) {
-      return GeocodeResult.error(
-          original, 'Photon non ha risposto prima, in questo giro');
+      return _dalleVie(original, near) ??
+          GeocodeResult.error(
+              original, 'Photon non ha risposto prima, in questo giro');
     }
     final String body;
     try {
@@ -105,7 +118,8 @@ class Geocoder {
       // sbagliata (400) no, Photon ha risposto.
       final s = e.statusCode;
       if (s == null || s == 429 || s >= 500) _senzaRisposta++;
-      return GeocodeResult.error(original, e.toString());
+      return _dalleVie(original, near) ??
+          GeocodeResult.error(original, e.toString());
     }
     _senzaRisposta = 0;
 
@@ -151,6 +165,48 @@ class Geocoder {
     }
 
     return best ?? GeocodeResult.notFound(original);
+  }
+
+  /// Il punto di [toponimo] dal file delle vie: fra le vie con quel nome
+  /// attorno al percorso, il vertice piu' vicino al percorso. null senza
+  /// file o se nessuna via ha quel nome: allora resta l'errore di Photon,
+  /// e si ritenta.
+  GeocodeResult? _dalleVie(String toponimo, RouteShape near) {
+    final l = locali;
+    if (l == null) return null;
+    final cercato = ViePerNome.scomponi(toponimo).resto;
+    if (cercato.isEmpty) return null;
+    // Prima scrematura sull'ultima parola del nome, prima del confronto
+    // vero: in citta' le vie attorno a una linea sono migliaia.
+    final ultima = cercato.split(' ').last;
+    final numero = RegExp(r'^\d+$').hasMatch(ultima);
+    final vicine = [
+      for (final v in l.vie(near.boundsWithPadding(bufferMeters)))
+        if (numero || v.nome.toLowerCase().contains(ultima)) v,
+    ];
+    final tratti = ViePerNome.abbina([toponimo], vicine)[toponimo] ?? const [];
+    final linea = near.meters;
+    GeoPoint? meglio;
+    var minima = double.infinity;
+    for (final t in tratti) {
+      for (final p in t) {
+        final d = Geometry.pointToPolyline(p.meters, linea);
+        if (d < minima) {
+          minima = d;
+          meglio = p;
+        }
+      }
+    }
+    if (meglio == null) return null;
+    dalFile++;
+    return GeocodeResult(
+      status: minima <= bufferMeters
+          ? GeocodeStatus.ok
+          : GeocodeStatus.outsideBuffer,
+      query: toponimo,
+      point: meglio,
+      metersFromRoute: minima,
+    );
   }
 
   /// Normalizza le abbreviazioni e i caratteri che GTT usa in modo

@@ -7,6 +7,7 @@ import 'package:gtt_deviazioni/core/geo/polyline.dart';
 import 'package:gtt_deviazioni/core/geo/projection.dart';
 import 'package:gtt_deviazioni/core/models/transit.dart';
 import 'package:gtt_deviazioni/core/net/gtt_http.dart';
+import 'package:gtt_deviazioni/core/pipeline/geocoder.dart';
 import 'package:gtt_deviazioni/core/pipeline/vie_locali.dart';
 import 'package:gtt_deviazioni/core/pipeline/vie_osm.dart';
 
@@ -15,6 +16,12 @@ class _MaiChiamato extends GttHttp {
   @override
   Future<String> getTextPolite(String url, {Duration? timeout}) =>
       fail('Overpass chiamato: $url');
+}
+
+class _PhotonGiu extends GttHttp {
+  @override
+  Future<String> getTextPolite(String url, {Duration? timeout}) async =>
+      throw GttHttpException(url, null, 'Connection refused');
 }
 
 void main() {
@@ -65,6 +72,20 @@ void main() {
     final r = await vie.cerca(['via Cibrario'], linea);
     expect(r['via Cibrario'], hasLength(1));
     expect(await vie.binari(linea), hasLength(1));
+  });
+
+  test('se Photon non risponde, la via si trova nel file', () async {
+    // Il 10/11/2026 Photon rifiutava ogni connessione: senza un punto per
+    // via gli avvisi restavano col solo testo.
+    final g = Geocoder(http: _PhotonGiu(), locali: VieLocali.daJson(dati));
+    final r = await g.locate('via Cibrario', near: linea);
+    expect(r.status, GeocodeStatus.ok);
+    // La via vicina alla linea, non l'omonima a quindici chilometri.
+    expect(r.point!.lat, closeTo(45.079, 0.002));
+    expect(g.dalFile, 1);
+    // Un nome che il file non ha: resta l'errore, e si ritenta.
+    expect((await g.locate('via Inesistente', near: linea)).status,
+        GeocodeStatus.error);
   });
 
   test('si legge dal file compresso, e un file rotto non ferma il giro', () {

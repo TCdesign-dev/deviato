@@ -228,7 +228,7 @@ Non sono stime. Se li rimetti in discussione, rimisurali.
 | `active_period.start` negli alert | **161 su 161 nel passato** | idem |
 | Variazioni pubblicate da **entrambe** le fonti | **31 coppie** su 189 avvisi | `check_merge_offline.dart` |
 | Di queste, quelle in cui la data d'inizio cambia | **17** (fino a 3 mesi) | idem |
-| Test | **456** | `flutter test` |
+| Test | **465** | `flutter test` |
 | Somiglianza fra le vie nominate: coppie vere | **0,67 – 1,00** e ≥3 vie | idem |
 | Idem, coppie false | **0,67 con 2 vie**, o 3 vie a **0,38** | idem |
 | Data d'inizio estraibile a regex dal testo | **40%** — troppo poco | idem |
@@ -806,6 +806,44 @@ Ognuna di queste è costata tempo. Sono tutte silenziose: non danno errore.
   risposta (rete, tempo scaduto, 429, 5xx; un 400 no) per il resto del
   giro non lo si chiama più (`Geocoder.giu`), come Overpass: gli avvisi
   restano da rifare, e il log lo dice con un `::warning::`.
+- **Il calcolo dura un secondo: il resto del giro erano attese**
+  (misurato il 10/11/2026). Ogni giro perdeva più di 2 minuti su
+  `www.gtt.to.it` (gli orari) e 80 s sul calendario del Ministero, che
+  **dai server di GitHub quasi mai rispondono** (dal Mac sì, subito), più
+  i minuti di Overpass per ogni avviso da rifare. Peggio: **gli orari
+  pubblicati erano fermi al 27/10**, perché l'unico scaricamento riuscito
+  in due settimane (il 4/11) era andato perso — la cache «del giorno» era
+  già stata salvata al primo giro con quelli vecchi. Ora: 20 s e 15 s di
+  attesa, un tentativo solo; la cache degli orari si salva quando ne
+  arrivano di nuovi (`orari_nuovi.txt`, `actions/cache/save`). **Resta
+  aperto**: una strada affidabile per gli orari non c'è (la copia della
+  Mobility Database è ferma a giugno).
+- **Le vie di OpenStreetMap stanno in un file, non più su Overpass**
+  (10/11/2026). `.github/workflows/vie.yml`, ogni lunedì: estratto
+  Geofabrik del Nord-Ovest, `osmium`, `scripts/vie_da_osm.py` → release
+  «vie», `vie.json.gz` (142.064 strade con nome, 903 tratti di binario,
+  9,5 MB, polilinee a **sette** decimali: i nodi in comune fra due vie
+  devono coincidere). Il job lo scarica a ogni giro (`--vie`,
+  `pipeline/vie_locali.dart`); se manca torna a Overpass. Fa anche da
+  **riserva di Photon** (`Geocoder.locali`): se Photon non risponde, il
+  punto di una via è il vertice più vicino alla linea fra le vie con quel
+  nome. Finché Photon risponde vale lui, così i risultati non cambiano.
+  Il 10/11, con Photon e Overpass giù tutti e due, il giro intero è
+  durato 4 secondi e ha calcolato tutto. Il confronto via per via con
+  Overpass non si è potuto fare (era giù): da fare alla prima occasione.
+- **Lo schema fisso di GTT si legge con una regola**
+  (`pipeline/lettore_a_regole.dart`, 10/11/2026): «da via A angolo via B
+  deviata per via C, via D, percorso normale», anche per direzione. Al
+  primo pezzo che non torna (inversioni, capolinea, fermate provvisorie,
+  «dopo via…», «carreggiata») restituisce null e legge il modello. Su 102
+  avvisi pubblicati ne legge 10, tutti uguali alla lettura del modello
+  (`dart run tool/misura_regole.dart corpus.json`). Il modello si misura
+  dal workflow manuale «Misura del modello» (34 richieste: la sera).
+- **Il percorso principale può cambiare con gli orari.** Fra il 27/10 e
+  il 10/11 la 9 ha preso una variante nuova con più corse (`RA02`, 215
+  contro 206): lo stesso avviso che con gli orari vecchi era «già negli
+  orari» con i nuovi dà sei fermate non servite. È il limite già noto
+  (una variante sola per direzione), e con gli orari fermi non si vedeva.
 - **Gli orari programmati di GitHub sono una promessa debole.** Nelle
   prime dodici ore, coi minuti 5/25/45, sono partiti **3 giri su 27**:
   nessun errore, nessun giro annullato, semplicemente non lanciati.
@@ -917,7 +955,7 @@ Per non fraintendere quello che c'è in `config.dart`:
 ## 8. Come si lavora
 
 ```bash
-cd app && flutter test          # 456 test, devono passare tutti
+cd app && flutter test          # 465 test, devono passare tutti
 cd app && flutter analyze       # deve essere pulito
 ```
 
@@ -988,4 +1026,4 @@ facendo gli screenshot troppo presto.
 
 ---
 
-*Ultimo aggiornamento: 4 novembre 2026. 456 test.*
+*Ultimo aggiornamento: 10 novembre 2026. 465 test.*
