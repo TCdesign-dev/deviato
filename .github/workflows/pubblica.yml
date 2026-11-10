@@ -84,6 +84,13 @@ jobs:
         working-directory: app
         run: flutter pub get
 
+      # Le vie di OpenStreetMap, dal file che prepara vie.yml una volta a
+      # settimana. Se non c'e' il calcolo torna a Overpass.
+      - name: Vie di OpenStreetMap
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release download vie -p vie.json.gz -D . --clobber || echo "::warning::Il file delle vie non si scarica - si usa Overpass."
+
       - name: Calcolo
         working-directory: app
         env:
@@ -98,7 +105,7 @@ jobs:
         # fallisce: si pubblica quello che c'e', compreso `giro.json` con la
         # linea su cui si era fermato, che il giro dopo mette in quarantena.
         run: |
-          timeout --kill-after=30s 21m dart run tool/pubblica.dart --uscita ../sito/v1 --gtfs ../.gtfs 2>&1 | tee "$RUNNER_TEMP/calcolo.log"
+          timeout --kill-after=30s 21m dart run tool/pubblica.dart --uscita ../sito/v1 --gtfs ../.gtfs --vie ../vie.json.gz 2>&1 | tee "$RUNNER_TEMP/calcolo.log"
           stato="${PIPESTATUS[0]}"
           if [ "$stato" = 124 ] || [ "$stato" = 137 ]; then
             echo "::warning::Il calcolo ha superato i 21 minuti ed e' stato fermato: la linea su cui era fermo va in quarantena per un giorno."

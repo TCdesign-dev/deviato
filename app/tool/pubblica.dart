@@ -46,6 +46,8 @@ import 'package:gtt_deviazioni/core/llm/llm_client.dart';
 import 'package:gtt_deviazioni/core/llm/llm_con_budget.dart';
 import 'package:gtt_deviazioni/core/llm/openai_compatible_client.dart';
 import 'package:gtt_deviazioni/core/pipeline/geocoder.dart';
+import 'package:gtt_deviazioni/core/pipeline/vie_locali.dart';
+import 'package:gtt_deviazioni/core/pipeline/vie_osm.dart';
 import 'package:gtt_deviazioni/core/models/notice.dart';
 import 'package:gtt_deviazioni/core/models/transit.dart';
 import 'package:gtt_deviazioni/core/publish/pubblicatore.dart';
@@ -203,12 +205,20 @@ Future<void> main(List<String> args) async {
   );
   final algoritmo = AlgoritmoPercorsi.daTesto(env['ALGORITMO_PERCORSI']);
   _log('algoritmo dei percorsi: ${algoritmo.numero}');
+  // Le vie di OpenStreetMap dal file che prepara `vie.yml`, se c'e':
+  // senza, si chiedono a Overpass come prima.
+  final fileVie = _arg(args, '--vie');
+  final vieLocali = fileVie == null ? null : VieLocali.leggi(File(fileVie));
+  _log(vieLocali == null
+      ? 'vie: da Overpass${fileVie == null ? "" : " (il file non si legge)"}'
+      : 'vie: ${vieLocali.quante} dal file del ${vieLocali.data}');
   // Il geocoder si tiene qui per dire, alla fine, se Photon si e' fermato.
   final geocoder = Geocoder();
   final service = DeviationService(
     index: index,
     llm: llm,
     geocoder: geocoder,
+    vie: ViePerNome(locali: vieLocali),
     algoritmo: algoritmo,
     rilettureCambioAlgoritmo:
         int.tryParse(env['RILETTURE_CAMBIO_ALGORITMO'] ?? '') ?? 5,

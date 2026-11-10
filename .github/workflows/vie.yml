@@ -1,0 +1,54 @@
+# Una copia delle vie di OpenStreetMap, per non dipendere da Overpass.
+#
+# Il calcolo dei percorsi deviati ha bisogno della forma intera delle vie
+# nominate negli avvisi. La chiedeva a Overpass, un servizio pubblico che
+# spesso non risponde o ci mette un minuto e mezzo: il 10/11/2026 la linea 9
+# si ricalcolava a ogni giro, tre minuti ogni volta, per questo. Qui una
+# volta a settimana si prende l'estratto del Nord-Ovest da Geofabrik
+# (590 MB), si tengono le strade con un nome e i binari del tram nella zona
+# servita da GTT, e si pubblica un file di qualche MB fra le release
+# («vie»). Il job dei dati lo scarica a ogni giro; se manca, torna a
+# Overpass.
+name: Vie di OpenStreetMap
+
+on:
+  schedule:
+    # Il lunedi' alle 4:20 di notte: Geofabrik aggiorna ogni giorno.
+    - cron: "20 3 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  vie:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Strumenti
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq osmium-tool
+
+      - name: Estratto di Geofabrik
+        run: curl -sSfL -o nord-ovest.osm.pbf https://download.geofabrik.de/europe/italy/nord-ovest-latest.osm.pbf
+
+      # La zona di tutte le linee GTT, extraurbane comprese (da Ceresole a
+      # Asti), con un margine.
+      - name: Strade con un nome e binari
+        run: |
+          osmium extract -b 6.9,44.3,8.6,45.7 nord-ovest.osm.pbf -o zona.osm.pbf
+          osmium tags-filter zona.osm.pbf w/highway w/railway=tram -o strade.osm.pbf
+          osmium export strade.osm.pbf -f geojsonseq --geometry-types=linestring -o vie.geojsonl
+          python3 scripts/vie_da_osm.py vie.geojsonl vie.json.gz "$(date +%F)"
+          ls -la vie.json.gz
+
+      - name: Pubblicazione
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view vie >/dev/null 2>&1 || gh release create vie \
+            --title "Vie di OpenStreetMap" \
+            --notes "Strade con un nome e binari del tram nella zona di GTT, per il calcolo dei percorsi deviati. © contributori di OpenStreetMap, ODbL. Si aggiorna da sola ogni settimana." \
+            --latest=false
+          gh release upload vie vie.json.gz --clobber

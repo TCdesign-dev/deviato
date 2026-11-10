@@ -6,6 +6,7 @@ import '../geo/projection.dart';
 import '../models/transit.dart';
 import '../net/gtt_http.dart';
 import 'geocoder.dart';
+import 'vie_locali.dart';
 
 /// Le vie intere di un avviso, prese da OpenStreetMap con Overpass.
 ///
@@ -18,8 +19,15 @@ import 'geocoder.dart';
 /// Una richiesta per avviso e direzione, limitata a un riquadro attorno
 /// alla linea: le vie omonime di altri quartieri restano fuori.
 class ViePerNome {
-  ViePerNome({GttHttp? http, this.pausa = const Duration(seconds: 5)})
-    : _http = http ?? GttHttp();
+  ViePerNome({
+    GttHttp? http,
+    this.pausa = const Duration(seconds: 5),
+    this.locali,
+  }) : _http = http ?? GttHttp();
+
+  /// La copia delle vie sul disco, se c'e': allora Overpass non si
+  /// chiama affatto.
+  final VieLocali? locali;
 
   /// Quanto aspettare prima di provare il server di riserva.
   final Duration pausa;
@@ -58,13 +66,20 @@ class ViePerNome {
     final b = zona.isNotEmpty
         ? Geometry.boundsOf(zona, paddingMeters: GttConfig.vieOsmMargineMetri)
         : vicino.boundsWithPadding(GttConfig.vieOsmMargineMetri);
-    final risposta = await _chiedi(
-      '[out:json][timeout:25];'
-      'way["highway"]["name"~"${parti.join('|')}",i]'
-      '(${b.minLat},${b.minLon},${b.maxLat},${b.maxLon});'
-      'out tags geom;',
+    final l = locali;
+    final out = abbina(
+      unici,
+      l != null
+          ? l.vie(b)
+          : leggi(
+              await _chiedi(
+                '[out:json][timeout:25];'
+                'way["highway"]["name"~"${parti.join('|')}",i]'
+                '(${b.minLat},${b.minLon},${b.maxLat},${b.maxLon});'
+                'out tags geom;',
+              ),
+            ),
     );
-    final out = abbina(unici, leggi(risposta));
     _gia[chiave] = out;
     return out;
   }
@@ -140,6 +155,12 @@ class ViePerNome {
         '${b.maxLon.toStringAsFixed(3)}';
     final gia = _gia[chiave];
     if (gia != null) return gia['binari'] ?? const [];
+    final l = locali;
+    if (l != null) {
+      final out = l.binari(b);
+      _gia[chiave] = {'binari': out};
+      return out;
+    }
     final vie = leggi(
       await _chiedi(
         '[out:json][timeout:25];'
