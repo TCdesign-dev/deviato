@@ -1,0 +1,53 @@
+# Misura il modello che legge gli avvisi sui 34 avvisi annotati
+# (app/tool/eval_extractor.dart). Si lancia a mano, quando si cambia
+# modello: Actions › «Misura del modello» › Run workflow.
+#
+# ATTENZIONE alla quota: sono 34 richieste, e col piano gratuito di
+# OpenRouter ce ne sono 50 al giorno in tutto. Lanciandola di giorno, gli
+# avvisi nuovi di quel giorno restano «in lettura» fino a mezzanotte UTC.
+# Meglio la sera tardi.
+name: Misura del modello
+
+on:
+  workflow_dispatch:
+    inputs:
+      modello:
+        description: "Il modello da misurare (vuoto: quello in servizio)"
+        required: false
+      quanti:
+        description: "Quanti avvisi (al massimo 34)"
+        required: false
+        default: "34"
+
+permissions:
+  contents: read
+
+jobs:
+  misura:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.44.0"
+          cache: true
+      - name: Dipendenze
+        working-directory: app
+        run: flutter pub get
+      - name: Misura
+        working-directory: app
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          MODELLO: ${{ inputs.modello || vars.LLM_MODELLO }}
+          QUANTI: ${{ inputs.quanti }}
+        run: |
+          args=(--provider openrouter --limit "${QUANTI:-34}")
+          if [ -n "$MODELLO" ]; then args+=(--model "$MODELLO"); fi
+          dart run tool/eval_extractor.dart "${args[@]}" | tee misura.txt
+          {
+            echo '### Misura del modello'
+            echo '```'
+            tail -40 misura.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
