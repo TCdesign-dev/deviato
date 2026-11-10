@@ -83,6 +83,14 @@ Future<void> main(List<String> args) async {
         _log(p);
       },
     );
+    // Orari appena scaricati: il workflow li mette in cache. Il 4/11/2026
+    // erano arrivati quelli nuovi dopo una settimana di tentativi, ma la
+    // cache del giorno era gia' stata salvata con quelli vecchi, e al giro
+    // dopo erano spariti.
+    final cartella = env['GITHUB_WORKSPACE'];
+    if (cartella != null && ultimaFase != null) {
+      File('$cartella/orari_nuovi.txt').writeAsStringSync('ok\n');
+    }
   } on GtfsDownloadException catch (e) {
     final quando = orari.isPresent ? orari.lastDownload : null;
     if (quando == null) {
@@ -110,11 +118,10 @@ Future<void> main(List<String> args) async {
   try {
     final oggi = DateTime.now();
     final scioperi = [
-      for (final s in await _conTentativi(
-        'scioperi',
-        ScioperiMit().scarica,
-        volte: 2,
-      ))
+      // Un tentativo solo, breve: dai server di GitHub il sito del
+      // Ministero quasi sempre non risponde, e due tentativi da 30 s con
+      // la pausa costavano 80 s a ogni giro. Si riprova al giro dopo.
+      for (final s in await ScioperiMit().scarica())
         if (s.riguardaGtt && s.nonFinitoIl(oggi)) s,
     ]..sort((a, b) => a.giorniTpl.inizio.compareTo(b.giorniTpl.inizio));
     _scrivi(uscita, 'scioperi.json', {

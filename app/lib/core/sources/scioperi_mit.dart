@@ -165,7 +165,10 @@ class ScioperiMit {
   /// le modalita' sono uscite vuote («Bus e tram: .») e il CUB del
   /// 20–21/11 fermava bus e tram due giorni invece di uno.
   Future<List<Sciopero>> scarica() async =>
-      leggi(utf8.decode(await _http.getBytes(url), allowMalformed: true));
+      leggi(utf8.decode(
+        await _http.getBytes(url, timeout: const Duration(seconds: 15)),
+        allowMalformed: true,
+      ));
 
   /// Gli scioperi della tabella grande (`scioperiLarge`): la pagina ne ha
   /// anche una per il telefono, con le stesse righe.

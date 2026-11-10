@@ -20,6 +20,8 @@ class GtfsDownloader {
   GtfsDownloader({required this.directory, http.Client? client})
       : _client = client ?? http.Client();
 
+  static const attesaRisposta = Duration(seconds: 20);
+
   /// Dove finiscono i .txt estratti.
   final Directory directory;
   final http.Client _client;
@@ -95,9 +97,11 @@ class GtfsDownloader {
 
     final http.StreamedResponse response;
     try {
-      response = await _client.send(request).timeout(
-            const Duration(minutes: 5),
-          );
+      // Il tempo per la RISPOSTA, non per lo scaricamento: se il sito
+      // non si fa trovare, aspettare di piu' non serve. Dai server di
+      // GitHub www.gtt.to.it quasi sempre non risponde affatto, e ogni
+      // giro del job perdeva piu' di due minuti qui.
+      response = await _client.send(request).timeout(attesaRisposta);
     } on Object catch (e) {
       throw GtfsDownloadException('scaricamento non riuscito: $e');
     }

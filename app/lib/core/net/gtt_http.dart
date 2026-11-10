@@ -18,8 +18,8 @@ class GttHttp {
   final http.Client _client;
   DateTime? _lastPublicCall;
 
-  Future<Uint8List> getBytes(String url) async {
-    final r = await _get(url);
+  Future<Uint8List> getBytes(String url, {Duration? timeout}) async {
+    final r = await _get(url, timeout: timeout);
     return r.bodyBytes;
   }
 

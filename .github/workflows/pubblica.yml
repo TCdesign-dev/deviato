@@ -65,10 +65,14 @@ jobs:
         run: echo "data=$(date +%Y%m%d)" >> "$GITHUB_OUTPUT"
 
       # Gli orari GTT (24 MB): uno scaricamento al giorno, non uno a giro.
-      - uses: actions/cache@v4
+      # Qui si riprende la copia piu' recente; si salva piu' sotto, solo
+      # quando il calcolo ne ha scaricata una nuova. Dai server di GitHub
+      # il sito di GTT risponde di rado: con una cache «del giorno», salvata
+      # al primo giro, gli orari nuovi arrivati piu' tardi andavano persi.
+      - uses: actions/cache/restore@v4
         with:
           path: .gtfs
-          key: gtfs-${{ steps.oggi.outputs.data }}
+          key: gtfs-${{ github.run_id }}
           restore-keys: gtfs-
 
       - uses: subosito/flutter-action@v2
@@ -101,6 +105,13 @@ jobs:
             exit 0
           fi
           exit "$stato"
+
+      - name: Orari nuovi in cache
+        if: hashFiles('orari_nuovi.txt') != ''
+        uses: actions/cache/save@v4
+        with:
+          path: .gtfs
+          key: gtfs-${{ github.run_id }}
 
       # GTT non risponde da piu' di sei ore (il calcolo ha scritto
       # gtt_giu.txt), o il modello non c'e' piu' (modello_giu.txt): una
