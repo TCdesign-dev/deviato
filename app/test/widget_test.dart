@@ -459,6 +459,18 @@ void main() {
     await repo.initialise();
     await repo.refreshAll();
     expect(f.scaricati.where((p) => p == 'percorsi/55U.json').length, 1);
+    // Lo stesso giro del job: nemmeno lo stato si riscarica.
+    expect(f.scaricati.where((p) => p == 'stato/55U.json').length, 1);
+    // La salute si': cambia anche quando il giro non pubblica.
+    expect(f.scaricati.where((p) => p == 'salute.json').length, 2);
+
+    // Un giro nuovo (l'ora nell'indice cambia): lo stato si', i percorsi no.
+    f.pubblicati['indice.json'] = {
+      ...f.pubblicati['indice.json']!,
+      'generato': '2026-09-26T17:10:00.000Z',
+    };
+    await repo.refreshAll();
+    expect(f.scaricati.where((p) => p == 'percorsi/55U.json').length, 1);
     expect(f.scaricati.where((p) => p == 'stato/55U.json').length, 2);
   });
 

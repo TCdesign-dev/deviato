@@ -345,6 +345,14 @@ class _LineMapState extends State<LineMap> {
     context,
   )?.showSnackBar(SnackBar(content: Text(message)));
 
+  /// I punti di un percorso come li vuole la mappa. Sono migliaia, e la
+  /// mappa si ridisegna a ogni posizione dei mezzi e a ogni tocco: si
+  /// convertono una volta per percorso.
+  static final _punti = Expando<List<LatLng>>();
+  static List<LatLng> _puntiDi(RouteShape s) => _punti[s] ??= [
+    for (final p in s.points) LatLng(p.lat, p.lon),
+  ];
+
   @override
   Widget build(BuildContext context) {
     final status = widget.status;
@@ -354,14 +362,7 @@ class _LineMapState extends State<LineMap> {
     // riguarda spesso una sola.
     final directions = status.mainShapes
         .where((s) => s.points.length > 1)
-        .map(
-          (s) => (
-            shape: s,
-            points: s.points
-                .map((p) => LatLng(p.lat, p.lon))
-                .toList(growable: false),
-          ),
-        )
+        .map((s) => (shape: s, points: _puntiDi(s)))
         .toList();
     if (directions.isEmpty) return const SizedBox.shrink();
     final official = directions.first.points;

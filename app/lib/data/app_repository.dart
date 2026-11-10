@@ -198,6 +198,22 @@ class AppRepository extends ChangeNotifier {
         DateTime.now().difference(o.letto) < const Duration(minutes: 10)) {
       return o;
     }
+    // La schermata di una fermata chiede la stessa linea per le sue due
+    // direzioni nello stesso istante: una richiesta sola, condivisa.
+    return _ospitiInArrivo[routeId] ??= _scaricaOspite(routeId, linea)
+        .whenComplete(() {
+      // Con le graffe: `remove` restituisce l'attesa stessa, e
+      // `whenComplete` aspetterebbe quella, cioe' se stessa, per sempre.
+      _ospitiInArrivo.remove(routeId);
+    });
+  }
+
+  final Map<String,
+          Future<({GtfsIndex index, LineStatus? stato, DateTime letto})?>>
+      _ospitiInArrivo = {};
+
+  Future<({GtfsIndex index, LineStatus? stato, DateTime letto})?>
+      _scaricaOspite(String routeId, TransitLine linea) async {
     try {
       final file = FormatoPubblicato.nomeFile(routeId);
       final p = await _fonte.scarica('percorsi/$file');
@@ -556,9 +572,11 @@ class AppRepository extends ChangeNotifier {
       if (ind == null) {
         throw const FonteNonRaggiungibile('indice non pubblicato');
       }
-      await _applica(ind, (p) => _fonte.scarica(p), rete: true);
-      await _caricaScioperi(_fonte.scarica);
-      await _caricaSalute(_fonte.scarica);
+      await Future.wait([
+        _applica(ind, (p) => _fonte.scarica(p), rete: true),
+        _caricaScioperi(_fonte.scarica),
+        _caricaSalute(_fonte.scarica),
+      ]);
       offline = false;
       error = null;
       state = LoadState.ready;
@@ -599,6 +617,18 @@ class AppRepository extends ChangeNotifier {
         ?LineResolver.matchIn(i.linee, nome),
     ];
     final vecchio = index;
+    // Lo stesso giro del job che si ha gia': gli stati non possono essere
+    // cambiati (il job pubblica tutto insieme, con l'ora nell'indice), e
+    // riscaricarli a ogni ritorno in primo piano erano una richiesta per
+    // linea, per niente. Scioperi e salute si leggono comunque: quelli
+    // cambiano anche quando il giro non pubblica.
+    if (rete &&
+        vecchio != null &&
+        !cambiatiOrari &&
+        i.generato == generato &&
+        scelte.every((l) => vecchio.lines.containsKey(l.routeId))) {
+      return;
+    }
     final lines = <String, TransitLine>{};
     final shapes = <String, List<RouteShape>>{};
     final stops = <String, TransitStop>{};

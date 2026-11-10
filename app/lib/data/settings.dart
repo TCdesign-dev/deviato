@@ -59,13 +59,23 @@ class Settings {
   ///
   /// Una voce illeggibile si salta invece di far fallire tutte le altre:
   /// meglio perdere una fermata che tutte.
+  ///
+  /// Si decodificano una volta e si tengono: la home le chiede piu' volte
+  /// a ogni ridisegno, e ogni volta era un giro di JSON. Si restituisce una
+  /// copia, perche' chi la riceve puo' modificarla.
   List<SavedStop> get savedStops => [
-        for (final raw in _prefs.getStringList(_kSavedStops) ?? const [])
-          ?_decode(raw),
+        ...(_fermate ??= [
+          for (final raw in _prefs.getStringList(_kSavedStops) ?? const [])
+            ?_decode(raw),
+        ]),
       ];
+  List<SavedStop>? _fermate;
 
-  Future<void> setSavedStops(List<SavedStop> stops) => _prefs.setStringList(
-      _kSavedStops, [for (final s in stops) jsonEncode(s.toJson())]);
+  Future<void> setSavedStops(List<SavedStop> stops) {
+    _fermate = null;
+    return _prefs.setStringList(
+        _kSavedStops, [for (final s in stops) jsonEncode(s.toJson())]);
+  }
 
   Future<void> addSavedStop(SavedStop stop) async {
     final current = savedStops;
@@ -79,12 +89,18 @@ class Settings {
   /// I tragitti, nell'ordine in cui sono stati creati. Uno illeggibile si
   /// salta, come per le fermate.
   List<Tragitto> get tragitti => [
-        for (final raw in _prefs.getStringList(_kTragitti) ?? const [])
-          ?_tragitto(raw),
+        ...(_tragitti ??= [
+          for (final raw in _prefs.getStringList(_kTragitti) ?? const [])
+            ?_tragitto(raw),
+        ]),
       ];
+  List<Tragitto>? _tragitti;
 
-  Future<void> setTragitti(List<Tragitto> t) => _prefs.setStringList(
-      _kTragitti, [for (final x in t) jsonEncode(x.toJson())]);
+  Future<void> setTragitti(List<Tragitto> t) {
+    _tragitti = null;
+    return _prefs.setStringList(
+        _kTragitti, [for (final x in t) jsonEncode(x.toJson())]);
+  }
 
   static Tragitto? _tragitto(String raw) {
     try {

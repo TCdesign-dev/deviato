@@ -564,6 +564,20 @@ Ognuna di queste è costata tempo. Sono tutte silenziose: non danno errore.
   sopra («setState() called during build»). Lo ha trovato il test dei
   tragitti, non il simulatore: si chiama dopo il primo disegno
   (`addPostFrameCallback`).
+- **L'app non riscarica quello che ha già** (10/11/2026). Tornando in
+  primo piano scaricava ogni volta lo stato di ogni linea; ora, se l'ora
+  del giro nell'indice è la stessa, gli stati non si toccano (scioperi e
+  `salute.json` sì: cambiano anche quando il giro non pubblica). Le
+  fermate salvate e i tragitti si decodificano una volta sola, i file
+  grossi (`fermate.json`) si leggono in un isolate, la copia sul telefono
+  sono i byte arrivati, i punti dei percorsi per la mappa si convertono una
+  volta per percorso, e la schermata di una fermata chiede ogni linea una
+  volta sola anche se ha due direzioni.
+- **`whenComplete(() => mappa.remove(chiave))` aspetta per sempre** se la
+  mappa contiene proprio quell'attesa: `remove` la restituisce, e
+  `whenComplete` aspetta ciò che il suo blocco restituisce. Con le graffe.
+  L'hanno preso i test: la schermata della fermata restava su
+  «Aggiornamento…».
 - **`Dismissible` pretende che la riga sparisca subito.** Se al primo
   aggiornamento dello schermo la linea tolta è ancora nell'elenco, Flutter
   si ferma con un errore. Per questo `removeLine` toglie dalla memoria

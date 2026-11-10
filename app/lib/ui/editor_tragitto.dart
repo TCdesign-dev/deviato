@@ -418,6 +418,16 @@ class _SceltaTrattaState extends State<SceltaTratta> {
   List<TransitLine> _daQui() {
     final dopo = widget.dopo, rete = widget.repo.fermateRete;
     if (dopo == null || rete == null) return const [];
+    // Settemila distanze: si calcolano una volta, non a ogni ridisegno.
+    if (identical(rete, _daQuiPer)) return _daQuiFatte;
+    _daQuiPer = rete;
+    return _daQuiFatte = _calcolaDaQui(dopo, rete);
+  }
+
+  IndiceFermate? _daQuiPer;
+  List<TransitLine> _daQuiFatte = const [];
+
+  List<TransitLine> _calcolaDaQui(TransitStop dopo, IndiceFermate rete) {
     final da = dopo.position.meters;
     final qui = <String>{}, vicino = <String>{};
     for (final f in rete.fermate) {

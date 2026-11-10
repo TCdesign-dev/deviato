@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:isolate';
 
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
@@ -64,7 +65,7 @@ class DatiPubblicati implements FonteDati {
     }
     final Map<String, dynamic> dati;
     try {
-      dati = jsonDecode(utf8.decode(r.bodyBytes)) as Map<String, dynamic>;
+      dati = await _leggi(utf8.decode(r.bodyBytes));
     } on Object catch (e) {
       throw FonteNonRaggiungibile('risposta illeggibile: $e');
     }
@@ -73,19 +74,29 @@ class DatiPubblicati implements FonteDati {
     try {
       final f = File('${(await _dir()).path}/$percorso');
       await f.parent.create(recursive: true);
-      await f.writeAsString(jsonEncode(dati));
+      // I byte arrivati, cosi' come sono: ricodificarli era lavoro in piu'.
+      await f.writeAsBytes(r.bodyBytes);
     } on Object {
       // niente
     }
     return dati;
   }
 
+  /// I file grossi (le fermate di tutta la rete, 800 KB) si leggono fuori
+  /// dal filo dell'interfaccia: se no la ricerca si impunta alla prima
+  /// lettera.
+  static Future<Map<String, dynamic>> _leggi(String testo) async =>
+      testo.length < 100000
+          ? jsonDecode(testo) as Map<String, dynamic>
+          : await Isolate.run(
+              () => jsonDecode(testo) as Map<String, dynamic>);
+
   @override
   Future<Map<String, dynamic>?> salvato(String percorso) async {
     try {
       final f = File('${(await _dir()).path}/$percorso');
       if (!await f.exists()) return null;
-      return jsonDecode(await f.readAsString()) as Map<String, dynamic>;
+      return await _leggi(await f.readAsString());
     } on Object {
       return null;
     }
